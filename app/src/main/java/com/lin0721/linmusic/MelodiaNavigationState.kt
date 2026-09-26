@@ -45,7 +45,7 @@ sealed class Screen {
     data object Cloud : Screen()
     @Serializable
     data object LocalMusic : Screen()
-
+    @Serializable
     data object LocalMusicSettings : Screen()
     @Serializable
     data object Message : Screen()

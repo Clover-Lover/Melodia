@@ -4,6 +4,7 @@ import androidx.compose.runtime.snapshots.Snapshot
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import kotlinx.serialization.json.Json
 import org.junit.Test
 
 class MelodiaNavigationStateTest {
@@ -151,5 +152,17 @@ class MelodiaNavigationStateTest {
 
         nav.resetPlayerNavigation()
         assertFalse(nav.isNavigatingFromPlayer)
+    }
+
+    @Test
+    fun `导航快照包含本地音乐页面时可以序列化并还原`() = inSnapshot {
+        val nav = MelodiaNavigationState()
+        nav.navigateTo(Screen.Library)
+        nav.openLocalMusic()
+        nav.openLocalMusicSettings()
+
+        val json = Json.encodeToString(NavigationSnapshot.serializer(), nav.toSnapshot())
+        val restored = Json.decodeFromString(NavigationSnapshot.serializer(), json)
+        assertEquals(listOf(Screen.Library, Screen.LocalMusic, Screen.LocalMusicSettings), restored.libraryStack)
     }
 }
