@@ -1,4 +1,4 @@
-package com.lin0721.linmusic.core.localmusic
+package com.lin0721.linmusic.feature.localmusic.data.scan
 
 import android.content.Context
 import android.content.Intent
@@ -7,8 +7,9 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.documentfile.provider.DocumentFile
 import com.lin0721.linmusic.core.log.AppLogger
+import com.lin0721.linmusic.feature.localmusic.data.db.LocalTrackEntity
+import com.lin0721.linmusic.feature.localmusic.domain.LocalTrackSource
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 
 private const val TAG = "LocalMusicImporter"
@@ -23,59 +24,25 @@ data class ImportResult(
     val totalFound: Int
 )
 
-class LocalMusicImporter(
-    private val context: Context,
-    private val importedMusicPreferences: ImportedMusicPreferences
-) {
+// 解析 SAF 选中的文件/文件夹，产出待入库条目；持久化读权限在这里一并申请
+class LocalMusicImporter(private val context: Context) {
 
-    suspend fun importFiles(uris: List<Uri>, existingUris: Set<String> = emptySet()): ImportResult =
-        withContext(Dispatchers.IO) {
-            val distinctUris = uris.distinct()
-            if (distinctUris.isEmpty()) return@withContext ImportResult(0, 0, 0)
-
-            val currentImported = importedMusicPreferences.records.first().map { it.uriString }.toSet()
-            val allExisting = existingUris + currentImported
-
-            val toProcess = mutableListOf<Uri>()
-            var skippedCount = 0
-
-            for (uri in distinctUris) {
-                runCatching {
-                    context.contentResolver.takePersistableUriPermission(
-                        uri,
-                        Intent.FLAG_GRANT_READ_URI_PERMISSION
-                    )
-                }.onFailure { AppLogger.w(TAG, "获取持久化权限失败 uri=$uri", it) }
-
-                if (uri.toString() in allExisting) {
-                    skippedCount++
-                } else {
-                    toProcess.add(uri)
-                }
-            }
-
-            val records = toProcess.mapNotNull { parseMetadata(it) }
-            val added = importedMusicPreferences.addRecords(records)
-
-            ImportResult(
-                addedCount = added,
-                skippedCount = skippedCount + (records.size - added),
-                totalFound = distinctUris.size
-            )
-        }
-
-    suspend fun importFolder(treeUri: Uri, existingUris: Set<String> = emptySet()): ImportResult =
-        withContext(Dispatchers.IO) {
+    // knownUris 为库内已有条目，只申请权限不重复解析元数据
+    suspend fun parseFiles(uris: List<Uri>, knownUris: Set<String>): List<LocalTrackEntity> = withContext(Dispatchers.IO) {
+        uris.distinct().mapNotNull { uri ->
             runCatching {
-                context.contentResolver.takePersistableUriPermission(
-                    treeUri,
-                    Intent.FLAG_GRANT_READ_URI_PERMISSION
-                )
-            }.onFailure { AppLogger.w(TAG, "获取文件夹持久化权限失败 uri=$treeUri", it) }
-
-            val audioUris = collectAudioFilesFromTree(treeUri)
-            importFiles(audioUris, existingUris)
+                context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }.onFailure { AppLogger.w(TAG, "获取持久化权限失败 uri=$uri", it) }
+            if (uri.toString() in knownUris) null else parseMetadata(uri)
         }
+    }
+
+    suspend fun collectFolder(treeUri: Uri): List<Uri> = withContext(Dispatchers.IO) {
+        runCatching {
+            context.contentResolver.takePersistableUriPermission(treeUri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }.onFailure { AppLogger.w(TAG, "获取文件夹持久化权限失败 uri=$treeUri", it) }
+        collectAudioFilesFromTree(treeUri)
+    }
 
     private fun collectAudioFilesFromTree(treeUri: Uri): List<Uri> {
         val rootDoc = DocumentFile.fromTreeUri(context, treeUri) ?: return emptyList()
@@ -106,7 +73,7 @@ class LocalMusicImporter(
         return ext in AUDIO_EXTENSIONS
     }
 
-    private fun parseMetadata(uri: Uri): ImportedTrackRecord? {
+    private fun parseMetadata(uri: Uri): LocalTrackEntity? {
         var displayName: String? = null
         var fileSize: Long = 0L
         runCatching {
@@ -149,14 +116,20 @@ class LocalMusicImporter(
             ?: "未知曲目"
         val finalArtist = artist?.trim()?.takeIf { it.isNotBlank() } ?: "未知艺术家"
 
-        return ImportedTrackRecord(
-            uriString = uri.toString(),
+        val now = System.currentTimeMillis()
+        return LocalTrackEntity(
+            uri = uri.toString(),
+            mediaStoreId = null,
+            songId = null,
             title = finalTitle,
             artist = finalArtist,
             album = album?.trim()?.takeIf { it.isNotBlank() },
             durationMs = durationMs,
             sizeBytes = fileSize,
-            dateAddedMs = System.currentTimeMillis()
+            path = null,
+            dateAddedMs = now,
+            dateModifiedMs = now,
+            source = LocalTrackSource.IMPORTED.name
         )
     }
 }

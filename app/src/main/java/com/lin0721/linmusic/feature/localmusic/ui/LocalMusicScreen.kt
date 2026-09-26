@@ -76,9 +76,9 @@ import androidx.core.content.ContextCompat
 import android.content.pm.PackageManager
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lin0721.linmusic.LocalBottomOverlayInset
-import com.lin0721.linmusic.core.localmusic.LocalCoverArtCache
-import com.lin0721.linmusic.core.localmusic.LocalTrack
-import com.lin0721.linmusic.core.localmusic.LocalTrackSource
+import com.lin0721.linmusic.feature.localmusic.data.LocalCoverArtCache
+import com.lin0721.linmusic.feature.localmusic.domain.LocalTrack
+import com.lin0721.linmusic.feature.localmusic.domain.LocalTrackSource
 import com.lin0721.linmusic.core.ui.components.EmptyState
 import com.lin0721.linmusic.core.ui.components.ErrorState
 import com.lin0721.linmusic.core.ui.components.LoginBottomSheet

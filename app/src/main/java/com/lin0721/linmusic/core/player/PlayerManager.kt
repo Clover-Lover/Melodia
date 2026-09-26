@@ -14,7 +14,7 @@ import java.util.Collections
 import com.lin0721.linmusic.core.download.DownloadPreferences
 import com.lin0721.linmusic.core.download.DownloadTrackInfo
 import com.lin0721.linmusic.core.download.SongDownloadManager
-import com.lin0721.linmusic.core.localmusic.LocalCoverArtCache
+import com.lin0721.linmusic.core.localmusic.LocalMusicApi
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.network.AppError
 import com.lin0721.linmusic.core.player.data.PlaybackRepository
@@ -57,7 +57,7 @@ class PlayerManager(
     private val repository: PlaybackRepository,
     private val settingsPreferences: SettingsPreferences,
     private val downloadPreferences: DownloadPreferences,
-    private val localCoverArtCache: LocalCoverArtCache,
+    private val localMusicApi: LocalMusicApi,
     private val songDownloadManager: SongDownloadManager
 ) : Player.Listener {
 
@@ -546,7 +546,7 @@ class PlayerManager(
                 playbackQueue.setCurrentIndex(index)
                 saveQueueState()
                 progress.resetTo(startPosition, preserveDuration = startPosition > 0L)
-                val artworkUri = localCoverArtCache.coverUriFor(android.net.Uri.parse(item.localUri))?.toString()
+                val artworkUri = localMusicApi.coverUriFor(android.net.Uri.parse(item.localUri))?.toString()
                     ?: item.coverUrl
                 val mediaItem = item.toMediaItem(item.localUri, playbackQueue.playContext.value, artworkUri)
                 controllerHolder.playItem(mediaItem.withCrossfade(autoTransition, startPosition), playbackQueue.playMode.value, startPosition, playWhenReady)
@@ -572,7 +572,7 @@ class PlayerManager(
             roaming.prefetchOnPlay(item.songId, index)
 
             if (localRecord != null) {
-                val artworkUri = localCoverArtCache.coverUriFor(android.net.Uri.parse(localRecord.mediaStoreUri))?.toString()
+                val artworkUri = localMusicApi.coverUriFor(android.net.Uri.parse(localRecord.mediaStoreUri))?.toString()
                     ?: item.coverUrl
                 val mediaItem = item.toMediaItem(localRecord.mediaStoreUri, playbackQueue.playContext.value, artworkUri)
                 controllerHolder.playItem(mediaItem.withCrossfade(autoTransition, startPosition), playbackQueue.playMode.value, startPosition, playWhenReady)

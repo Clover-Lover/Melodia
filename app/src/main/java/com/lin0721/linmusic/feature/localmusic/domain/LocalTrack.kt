@@ -1,4 +1,4 @@
-package com.lin0721.linmusic.core.localmusic
+package com.lin0721.linmusic.feature.localmusic.domain
 
 import android.net.Uri
 

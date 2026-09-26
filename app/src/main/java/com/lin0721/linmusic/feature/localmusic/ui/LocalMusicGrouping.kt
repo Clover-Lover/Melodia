@@ -1,6 +1,6 @@
 package com.lin0721.linmusic.feature.localmusic.ui
 
-import com.lin0721.linmusic.core.localmusic.LocalTrack
+import com.lin0721.linmusic.feature.localmusic.domain.LocalTrack
 
 enum class LocalMusicGroupMode(val label: String) {
     SONGS("单曲"), ARTIST("歌手"), ALBUM("专辑"), FOLDER("文件夹")

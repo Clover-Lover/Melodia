@@ -1,4 +1,4 @@
-package com.lin0721.linmusic.core.localmusic
+package com.lin0721.linmusic.feature.localmusic.data
 
 import android.content.Context
 import android.media.MediaMetadataRetriever

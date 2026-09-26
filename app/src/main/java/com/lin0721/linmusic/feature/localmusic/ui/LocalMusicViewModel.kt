@@ -5,8 +5,6 @@ import androidx.lifecycle.viewModelScope
 import com.lin0721.linmusic.core.auth.SyncProfileAfterLoginUseCase
 import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.core.auth.UserProfile
-import com.lin0721.linmusic.core.localmusic.LocalMusicRepository
-import com.lin0721.linmusic.core.localmusic.LocalTrack
 import com.lin0721.linmusic.core.model.Album
 import com.lin0721.linmusic.core.model.Artist
 import com.lin0721.linmusic.core.model.Track
@@ -19,17 +17,21 @@ import com.lin0721.linmusic.core.songlike.SongLikeRepository
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectItem
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectState
 import com.lin0721.linmusic.feature.player.data.PlayerRepository
+import com.lin0721.linmusic.feature.localmusic.data.LocalLibraryRepository
+import com.lin0721.linmusic.feature.localmusic.data.scan.ImportResult
+import com.lin0721.linmusic.feature.localmusic.domain.LocalTrack
+import com.lin0721.linmusic.feature.localmusic.domain.LocalTrackSource
 import com.lin0721.linmusic.feature.playlist.domain.SongCollectDelegate
 import android.net.Uri
-import com.lin0721.linmusic.core.localmusic.LocalMusicImporter
-import com.lin0721.linmusic.core.localmusic.LocalTrackSource
 import com.lin0721.linmusic.core.log.AppLogger
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -82,10 +84,10 @@ sealed class LocalMusicUiState {
 }
 
 private const val PLAY_CONTEXT = "本地音乐"
+private const val TAG = "LocalMusicViewModel"
 
 class LocalMusicViewModel(
-    private val repository: LocalMusicRepository,
-    private val importer: LocalMusicImporter,
+    private val repository: LocalLibraryRepository,
     private val playerManager: PlayerManager,
     private val playerRepository: PlayerRepository,
     private val songCollectDelegate: SongCollectDelegate,
@@ -111,6 +113,10 @@ class LocalMusicViewModel(
 
     private val _toastEvent = MutableSharedFlow<String>()
     val toastEvent = _toastEvent.asSharedFlow()
+
+    // 首次同步完成前库可能还是空的，此时保持加载态，避免先闪一下空列表
+    private val syncFinished = MutableStateFlow(false)
+    private var observeJob: Job? = null
 
     init {
         loadLikedSongIds()
@@ -140,16 +146,34 @@ class LocalMusicViewModel(
     }
 
     fun load() {
+        observeTracks()
         viewModelScope.launch {
-            _uiState.value = LocalMusicUiState.Loading
-            runCatching { repository.scan() }
-                .onSuccess { tracks ->
-                    _uiState.value = LocalMusicUiState.Success(
-                        tracks = tracks,
-                        availableStorageBytes = repository.availableStorageBytes()
-                    )
+            runCatching { repository.sync() }
+                .onFailure {
+                    AppLogger.e(TAG, "本地音乐同步失败", it)
+                    if (currentSuccess() == null) {
+                        _uiState.value = LocalMusicUiState.Error(it.message ?: "扫描本地音乐失败")
+                    }
                 }
-                .onFailure { _uiState.value = LocalMusicUiState.Error(it.message ?: "扫描本地音乐失败") }
+            syncFinished.value = true
+        }
+    }
+
+    private fun observeTracks() {
+        if (observeJob != null) return
+        observeJob = viewModelScope.launch {
+            combine(repository.tracks, syncFinished) { tracks, synced -> tracks to synced }
+                .collect { (tracks, synced) ->
+                    val current = currentSuccess()
+                    _uiState.value = when {
+                        current != null -> current.copy(tracks = tracks)
+                        tracks.isNotEmpty() || synced -> LocalMusicUiState.Success(
+                            tracks = tracks,
+                            availableStorageBytes = repository.availableStorageBytes()
+                        )
+                        else -> LocalMusicUiState.Loading
+                    }
+                }
         }
     }
 
@@ -326,53 +350,35 @@ class LocalMusicViewModel(
 
     fun importFiles(uris: List<Uri>) {
         if (uris.isEmpty()) return
-        viewModelScope.launch {
-            _isImporting.value = true
-            runCatching {
-                val existing = repository.getAllExistingUris()
-                importer.importFiles(uris, existing)
-            }.onSuccess { result ->
-                val message = when {
-                    result.addedCount > 0 && result.skippedCount > 0 ->
-                        "成功导入 ${result.addedCount} 首歌曲，已跳过 ${result.skippedCount} 首重复歌曲"
-                    result.addedCount > 0 ->
-                        "成功导入 ${result.addedCount} 首歌曲"
-                    result.skippedCount > 0 ->
-                        "所选歌曲已存在，已全部跳过"
-                    else -> "未找到有效音频文件"
-                }
-                _toastEvent.emit(message)
-                load()
-            }.onFailure {
-                AppLogger.e("LocalMusicViewModel", "导入音频文件失败", it)
-                _toastEvent.emit("导入失败：${it.message ?: "未知错误"}")
-            }
-            _isImporting.value = false
+        runImport(emptyTip = "未找到有效音频文件", allSkippedTip = "所选歌曲已存在，已全部跳过") {
+            repository.importFiles(uris)
         }
     }
 
     fun importFolder(treeUri: Uri) {
+        runImport(emptyTip = "该文件夹下未找到音频文件", allSkippedTip = "文件夹中歌曲已全部存在，已跳过") {
+            repository.importFolder(treeUri)
+        }
+    }
+
+    private fun runImport(emptyTip: String, allSkippedTip: String, block: suspend () -> ImportResult) {
         viewModelScope.launch {
             _isImporting.value = true
-            runCatching {
-                val existing = repository.getAllExistingUris()
-                importer.importFolder(treeUri, existing)
-            }.onSuccess { result ->
-                val message = when {
-                    result.addedCount > 0 && result.skippedCount > 0 ->
-                        "成功导入 ${result.addedCount} 首歌曲，已跳过 ${result.skippedCount} 首重复歌曲"
-                    result.addedCount > 0 ->
-                        "成功导入 ${result.addedCount} 首歌曲"
-                    result.skippedCount > 0 ->
-                        "文件夹中歌曲已全部存在，已跳过"
-                    else -> "该文件夹下未找到音频文件"
+            runCatching { block() }
+                .onSuccess { result ->
+                    val message = when {
+                        result.addedCount > 0 && result.skippedCount > 0 ->
+                            "成功导入 ${result.addedCount} 首歌曲，已跳过 ${result.skippedCount} 首重复歌曲"
+                        result.addedCount > 0 -> "成功导入 ${result.addedCount} 首歌曲"
+                        result.skippedCount > 0 -> allSkippedTip
+                        else -> emptyTip
+                    }
+                    _toastEvent.emit(message)
                 }
-                _toastEvent.emit(message)
-                load()
-            }.onFailure {
-                AppLogger.e("LocalMusicViewModel", "导入文件夹失败", it)
-                _toastEvent.emit("导入文件夹失败：${it.message ?: "未知错误"}")
-            }
+                .onFailure {
+                    AppLogger.e(TAG, "导入本地音乐失败", it)
+                    _toastEvent.emit("导入失败：${it.message ?: "未知错误"}")
+                }
             _isImporting.value = false
         }
     }
@@ -386,13 +392,7 @@ class LocalMusicViewModel(
                 "删除失败"
             }
             _toastEvent.emit(tip)
-            if (ok) {
-                val state = currentSuccess() ?: return@launch
-                _uiState.value = state.copy(
-                    tracks = state.tracks.filterNot { it.uri == track.uri },
-                    menuState = null
-                )
-            }
+            if (ok) closeTrackMenu()
         }
     }
 
@@ -404,11 +404,7 @@ class LocalMusicViewModel(
             val successCount = targets.count { repository.delete(it) }
             _toastEvent.emit("已处理 $successCount 首")
             val refreshed = currentSuccess() ?: return@launch
-            _uiState.value = refreshed.copy(
-                tracks = refreshed.tracks.filterNot { it.uri.toString() in targetUris },
-                selectedUris = emptySet(),
-                isSelectionMode = false
-            )
+            _uiState.value = refreshed.copy(selectedUris = emptySet(), isSelectionMode = false)
         }
     }
 
