@@ -8,6 +8,8 @@ import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.os.StatFs
+import android.provider.DocumentsContract
+import androidx.documentfile.provider.DocumentFile
 import androidx.core.content.ContextCompat
 import com.lin0721.linmusic.core.download.DownloadPreferences
 import com.lin0721.linmusic.core.download.isDefaultDownloadDirectoryUri
@@ -19,10 +21,14 @@ import com.lin0721.linmusic.feature.localmusic.data.legacy.LegacyImportedMusicSt
 import com.lin0721.linmusic.feature.localmusic.data.scan.ImportResult
 import com.lin0721.linmusic.feature.localmusic.data.scan.LocalMusicImporter
 import com.lin0721.linmusic.feature.localmusic.data.scan.MediaStoreScanner
+import com.lin0721.linmusic.feature.localmusic.domain.AuthorizedFolder
+import com.lin0721.linmusic.feature.localmusic.domain.LocalFolder
 import com.lin0721.linmusic.feature.localmusic.domain.LocalTrack
+import com.lin0721.linmusic.feature.localmusic.domain.folderPath
 import com.lin0721.linmusic.feature.localmusic.domain.LocalTrackSource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
@@ -38,12 +44,30 @@ class LocalLibraryRepository(
     private val scanner: MediaStoreScanner,
     private val importer: LocalMusicImporter,
     private val downloadPreferences: DownloadPreferences,
-    private val legacyImportedStore: LegacyImportedMusicStore
+    private val legacyImportedStore: LegacyImportedMusicStore,
+    private val settings: LocalMusicSettings
 ) {
 
     private val syncMutex = Mutex()
 
-    val tracks: Flow<List<LocalTrack>> = dao.observeAll().map { list -> list.map { it.toDomain() } }
+    private val allTracks: Flow<List<LocalTrack>> = dao.observeAll().map { list -> list.map { it.toDomain() } }
+
+    // 库内保留全部曲目，过滤只作用在读取侧，改设置无需重新扫描
+    val tracks: Flow<List<LocalTrack>> = combine(allTracks, settings.scanFilter) { list, filter ->
+        list.filter(filter::accepts)
+    }
+
+    val hiddenCount: Flow<Int> = combine(allTracks, settings.scanFilter) { list, filter ->
+        list.count { !filter.accepts(it) }
+    }
+
+    val folders: Flow<List<LocalFolder>> = combine(allTracks, settings.scanFilter) { list, filter ->
+        list.groupBy { it.folderPath }
+            .mapNotNull { (path, items) ->
+                path?.let { LocalFolder(path = it, trackCount = items.size, excluded = it in filter.excludedFolders) }
+            }
+            .sortedBy { it.name.lowercase() }
+    }
 
     fun requiredPermission(): String =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -119,6 +143,33 @@ class LocalLibraryRepository(
         }
         deleted
     }
+
+    suspend fun listAuthorizedFolders(): List<AuthorizedFolder> = withContext(Dispatchers.IO) {
+        context.contentResolver.persistedUriPermissions
+            .filter { it.isReadPermission && DocumentsContract.isTreeUri(it.uri) }
+            .map { permission ->
+                val treeUri = permission.uri
+                AuthorizedFolder(
+                    treeUri = treeUri.toString(),
+                    name = DocumentFile.fromTreeUri(context, treeUri)?.name
+                        ?: Uri.decode(treeUri.lastPathSegment.orEmpty()).substringAfterLast(':'),
+                    importedCount = dao.countImportedWithPrefix(importedPrefixOf(treeUri))
+                )
+            }
+            .sortedBy { it.name.lowercase() }
+    }
+
+    // 移除授权时一并移出该文件夹下导入的曲目，释放授权后这些文件已不可读
+    suspend fun removeAuthorizedFolder(treeUri: String) = withContext(Dispatchers.IO) {
+        val uri = Uri.parse(treeUri)
+        dao.deleteImportedWithPrefix(importedPrefixOf(uri))
+        runCatching {
+            context.contentResolver.releasePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }.onFailure { AppLogger.w(TAG, "释放文件夹授权失败 uri=$treeUri", it) }
+    }
+
+    // 文件夹导入的条目 uri 形如 {treeUri}/document/{docId}
+    private fun importedPrefixOf(treeUri: Uri): String = "$treeUri/document/"
 
     // 旧版导入记录迁移：写入成功后才清空旧数据，失败保留下次重试
     private suspend fun migrateLegacyImports() {

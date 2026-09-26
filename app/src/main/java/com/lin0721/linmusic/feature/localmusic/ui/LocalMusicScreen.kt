@@ -114,6 +114,7 @@ fun LocalMusicScreen(
     onBack: () -> Unit,
     onArtistClick: (Long) -> Unit = {},
     onAlbumClick: (Long) -> Unit = {},
+    onOpenSettings: () -> Unit = {},
     onLoginScreenVisibilityChanged: (Boolean) -> Unit = {}
 ) {
     val context = LocalContext.current
@@ -221,6 +222,13 @@ fun LocalMusicScreen(
                                 onClick = {
                                     showOverflowMenu = false
                                     viewModel.load()
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("扫描设置") },
+                                onClick = {
+                                    showOverflowMenu = false
+                                    onOpenSettings()
                                 }
                             )
                         }

@@ -5,6 +5,7 @@ import com.lin0721.linmusic.core.localmusic.LocalMusicApi
 import com.lin0721.linmusic.feature.localmusic.data.LocalCoverArtCache
 import com.lin0721.linmusic.feature.localmusic.data.LocalLibraryRepository
 import com.lin0721.linmusic.feature.localmusic.data.LocalMusicApiImpl
+import com.lin0721.linmusic.feature.localmusic.data.LocalMusicSettings
 import com.lin0721.linmusic.feature.localmusic.data.db.LocalMusicDatabase
 import com.lin0721.linmusic.feature.localmusic.data.legacy.LegacyImportedMusicStore
 import com.lin0721.linmusic.feature.localmusic.data.scan.LocalMusicImporter
@@ -18,6 +19,7 @@ val localMusicModule = module {
     }
     single { get<LocalMusicDatabase>().localTrackDao() }
     single { LegacyImportedMusicStore(androidContext()) }
+    single { LocalMusicSettings(androidContext()) }
     single { MediaStoreScanner(androidContext()) }
     single { LocalMusicImporter(androidContext()) }
     single {
@@ -27,7 +29,8 @@ val localMusicModule = module {
             scanner = get(),
             importer = get(),
             downloadPreferences = get(),
-            legacyImportedStore = get()
+            legacyImportedStore = get(),
+            settings = get()
         )
     }
     single { LocalCoverArtCache(androidContext()) }

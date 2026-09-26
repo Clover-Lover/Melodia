@@ -30,6 +30,13 @@ interface LocalTrackDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertIgnoringExisting(tracks: List<LocalTrackEntity>): List<Long>
 
+    // 用 substr 比较前缀：uri 里的 %xx 编码会被 LIKE 当成通配符
+    @Query("SELECT COUNT(*) FROM local_track WHERE source = 'IMPORTED' AND substr(uri, 1, length(:prefix)) = :prefix")
+    suspend fun countImportedWithPrefix(prefix: String): Int
+
+    @Query("DELETE FROM local_track WHERE source = 'IMPORTED' AND substr(uri, 1, length(:prefix)) = :prefix")
+    suspend fun deleteImportedWithPrefix(prefix: String)
+
     @Query("DELETE FROM local_track WHERE uri IN (:uris)")
     suspend fun deleteByUrisChunk(uris: List<String>)
 

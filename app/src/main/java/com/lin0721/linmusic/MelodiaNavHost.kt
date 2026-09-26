@@ -39,6 +39,7 @@ fun MelodiaNavHost(
     onShowMusicNewWorksChanged: (Boolean) -> Unit,
     onNavigateToSearch: () -> Unit,
     onNavigateToLocalMusic: () -> Unit,
+    onNavigateToLocalMusicSettings: () -> Unit,
     onOpenRecognition: () -> Unit,
     onBack: () -> Unit
 ) {
@@ -118,8 +119,12 @@ fun MelodiaNavHost(
                     onBack = onBack,
                     onArtistClick = onNavigateToArtist,
                     onAlbumClick = { albumId -> onNavigateToPlaylist(albumId, true) },
+                    onOpenSettings = onNavigateToLocalMusicSettings,
                     onLoginScreenVisibilityChanged = onLoginScreenVisibilityChanged
                 )
+            }
+            is Screen.LocalMusicSettings -> {
+                com.lin0721.linmusic.feature.localmusic.ui.settings.LocalMusicSettingsScreen(onBack = onBack)
             }
             is Screen.Settings -> {
                 com.lin0721.linmusic.feature.settings.ui.SettingsScreen(
