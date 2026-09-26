@@ -16,5 +16,11 @@ data class LocalTrack(
     val uri: Uri,
     val path: String?,
     val dateAddedMs: Long,
-    val source: LocalTrackSource
+    val source: LocalTrackSource,
+    val albumArtist: String? = null,
+    val year: Int? = null,
+    val trackNumber: Int? = null
 )
+
+// 播放队列里的歌曲 id：已匹配网易歌曲用真实 id，其余用 MediaStore id 的相反数占位
+val LocalTrack.queueSongId: Long get() = songId ?: -mediaStoreId

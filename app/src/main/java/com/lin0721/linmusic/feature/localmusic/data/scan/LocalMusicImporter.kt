@@ -98,6 +98,9 @@ class LocalMusicImporter(private val context: Context) {
         var artist: String? = null
         var album: String? = null
         var durationMs: Long = 0L
+        var year: Int? = null
+        var albumArtist: String? = null
+        var trackNumber: Int? = null
 
         try {
             retriever.setDataSource(context, uri)
@@ -105,6 +108,12 @@ class LocalMusicImporter(private val context: Context) {
             artist = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST)
             album = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUM)
             durationMs = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
+            albumArtist = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUMARTIST)?.trim()?.takeIf { it.isNotEmpty() }
+            year = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_YEAR)?.trim()?.toIntOrNull()?.takeIf { it > 0 }
+            trackNumber = encodeTrackNumber(
+                track = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_CD_TRACK_NUMBER),
+                disc = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DISC_NUMBER)
+            )
         } catch (e: Exception) {
             AppLogger.w(TAG, "解析音频元数据失败 uri=$uri", e)
         } finally {
@@ -129,7 +138,17 @@ class LocalMusicImporter(private val context: Context) {
             path = null,
             dateAddedMs = now,
             dateModifiedMs = now,
-            source = LocalTrackSource.IMPORTED.name
+            source = LocalTrackSource.IMPORTED.name,
+            year = year,
+            trackNumber = trackNumber,
+            albumArtist = albumArtist
         )
     }
+}
+
+// 元数据形如 "3/12"，按 MediaStore 的规则编码为 碟号 * 1000 + 音轨号，便于统一排序
+internal fun encodeTrackNumber(track: String?, disc: String?): Int? {
+    val trackNo = track?.substringBefore('/')?.trim()?.toIntOrNull()?.takeIf { it in 1..999 } ?: return null
+    val discNo = disc?.substringBefore('/')?.trim()?.toIntOrNull()?.takeIf { it > 0 } ?: 0
+    return discNo * 1000 + trackNo
 }

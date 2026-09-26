@@ -159,10 +159,23 @@ class MelodiaNavigationStateTest {
         val nav = MelodiaNavigationState()
         nav.navigateTo(Screen.Library)
         nav.openLocalMusic()
-        nav.openLocalMusicSettings()
+        nav.navigateTo(Screen.LocalMusicSettings)
+        nav.navigateTo(Screen.LocalArtist("茶太"))
+        nav.navigateTo(Screen.LocalAlbum("id:42"))
+        nav.navigateTo(Screen.LocalFolder("/sdcard/Music"))
 
         val json = Json.encodeToString(NavigationSnapshot.serializer(), nav.toSnapshot())
         val restored = Json.decodeFromString(NavigationSnapshot.serializer(), json)
-        assertEquals(listOf(Screen.Library, Screen.LocalMusic, Screen.LocalMusicSettings), restored.libraryStack)
+        assertEquals(
+            listOf(
+                Screen.Library,
+                Screen.LocalMusic,
+                Screen.LocalMusicSettings,
+                Screen.LocalArtist("茶太"),
+                Screen.LocalAlbum("id:42"),
+                Screen.LocalFolder("/sdcard/Music")
+            ),
+            restored.libraryStack
+        )
     }
 }

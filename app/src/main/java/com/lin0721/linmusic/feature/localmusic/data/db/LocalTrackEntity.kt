@@ -24,7 +24,11 @@ data class LocalTrackEntity(
     val path: String?,
     val dateAddedMs: Long,
     val dateModifiedMs: Long,
-    val source: String
+    val source: String,
+    val albumArtist: String? = null,
+    val year: Int? = null,
+    // MediaStore 编码：碟号 * 1000 + 音轨号
+    val trackNumber: Int? = null
 )
 
 // 导入条目没有 MediaStore id，用 uri 哈希生成稳定的非零占位 id，播放队列靠它的相反数区分本地曲目
@@ -42,5 +46,8 @@ fun LocalTrackEntity.toDomain(): LocalTrack = LocalTrack(
     uri = Uri.parse(uri),
     path = path,
     dateAddedMs = dateAddedMs,
-    source = LocalTrackSource.entries.firstOrNull { it.name == source } ?: LocalTrackSource.EXTERNAL
+    source = LocalTrackSource.entries.firstOrNull { it.name == source } ?: LocalTrackSource.EXTERNAL,
+    albumArtist = albumArtist,
+    year = year,
+    trackNumber = trackNumber
 )

@@ -2,6 +2,8 @@ package com.lin0721.linmusic.feature.localmusic.data.scan
 
 import android.content.ContentUris
 import android.content.Context
+import android.database.Cursor
+import android.os.Build
 import android.provider.MediaStore
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.feature.localmusic.data.db.LocalTrackEntity
@@ -24,8 +26,10 @@ class MediaStoreScanner(private val context: Context) {
             MediaStore.Audio.Media.SIZE,
             MediaStore.Audio.Media.DATA,
             MediaStore.Audio.Media.DATE_ADDED,
-            MediaStore.Audio.Media.DATE_MODIFIED
-        )
+            MediaStore.Audio.Media.DATE_MODIFIED,
+            MediaStore.Audio.Media.YEAR,
+            MediaStore.Audio.Media.TRACK
+        ) + if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) arrayOf(MediaStore.Audio.Media.ALBUM_ARTIST) else emptyArray()
         val selection = "${MediaStore.Audio.Media.IS_MUSIC} != 0"
         val results = mutableListOf<LocalTrackEntity>()
         return runCatching {
@@ -46,6 +50,13 @@ class MediaStoreScanner(private val context: Context) {
                 val dataCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
                 val dateAddedCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_ADDED)
                 val dateModifiedCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_MODIFIED)
+                val albumArtistCol = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    cursor.getColumnIndex(MediaStore.Audio.Media.ALBUM_ARTIST)
+                } else {
+                    -1
+                }
+                val yearCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.YEAR)
+                val trackCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TRACK)
                 while (cursor.moveToNext()) {
                     val id = cursor.getLong(idCol)
                     val (artist, title) = resolveArtistAndTitle(
@@ -64,7 +75,10 @@ class MediaStoreScanner(private val context: Context) {
                         path = cursor.getString(dataCol),
                         dateAddedMs = cursor.getLong(dateAddedCol) * 1000,
                         dateModifiedMs = cursor.getLong(dateModifiedCol) * 1000,
-                        source = LocalTrackSource.EXTERNAL.name
+                        source = LocalTrackSource.EXTERNAL.name,
+                        albumArtist = albumArtistCol.takeIf { it >= 0 }?.let { cursor.getString(it) }?.trim()?.takeIf { it.isNotEmpty() },
+                        year = cursor.getIntOrNull(yearCol)?.takeIf { it > 0 },
+                        trackNumber = cursor.getIntOrNull(trackCol)?.takeIf { it > 0 }
                     )
                 }
             }
@@ -72,6 +86,8 @@ class MediaStoreScanner(private val context: Context) {
         }.onFailure { AppLogger.e(TAG, "MediaStore 音频扫描失败", it) }.getOrNull()
     }
 }
+
+private fun Cursor.getIntOrNull(index: Int): Int? = if (isNull(index)) null else getInt(index)
 
 // 歌手缺失且标题形如"歌手 - 歌名"时，从标题拆出歌手
 internal fun resolveArtistAndTitle(rawArtist: String, rawTitle: String): Pair<String, String> {

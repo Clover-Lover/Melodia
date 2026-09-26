@@ -377,7 +377,7 @@ fun MelodiaApp() {
                                     onShowMusicNewWorksChanged = { navigation.updateShowMusicNewWorks(it) },
                                     onNavigateToSearch = { navigation.openSearch(autoFocus = true) },
                                     onNavigateToLocalMusic = { navigation.openLocalMusic() },
-                                    onNavigateToLocalMusicSettings = { navigation.openLocalMusicSettings() },
+                                    onNavigateToScreen = { navigation.navigateTo(it) },
                                     onOpenRecognition = { showRecognition = true },
                                     onBack = { handleBack() }
                                 )
