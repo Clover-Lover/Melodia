@@ -10,20 +10,26 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lin0721.linmusic.core.download.DownloadPreferences
 import com.lin0721.linmusic.core.model.getQualityDisplayName
+import com.lin0721.linmusic.core.ui.components.MelodiaDragHandle
 import com.lin0721.linmusic.core.ui.theme.BackgroundDark
 import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
 import com.lin0721.linmusic.core.ui.theme.DownloadedGreen
-import com.lin0721.linmusic.core.ui.theme.DragHandleShape
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.NeteaseRed
 import com.lin0721.linmusic.core.ui.theme.SvipGold
@@ -58,6 +64,23 @@ fun DownloadQualityPickerSheet(
     maxDownloadLevel: String? = null
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val nestedScrollConnection = remember(sheetState) {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (sheetState.targetValue == SheetValue.Expanded && available.y < 0) {
+                    return Offset.Zero
+                }
+                return Offset.Zero
+            }
+
+            override suspend fun onPreFling(available: Velocity): Velocity {
+                if (sheetState.targetValue == SheetValue.Expanded && available.y < 0) {
+                    return Velocity(0f, available.y)
+                }
+                return Velocity.Zero
+            }
+        }
+    }
     val maxRank = maxDownloadLevel?.let(::qualityRank)?.takeIf { it >= 0 }
 
     val downloadedQuality: String? = if (songId != null) {
@@ -73,20 +96,12 @@ fun DownloadQualityPickerSheet(
         sheetState = sheetState,
         containerColor = BackgroundDark,
         shape = BottomSheetShape,
-        dragHandle = {
-            Box(
-                modifier = Modifier
-                    .padding(top = 12.dp, bottom = MelodiaSpacing.xs)
-                    .width(36.dp)
-                    .height(4.dp)
-                    .clip(DragHandleShape)
-                    .background(Color.White.copy(alpha = 0.3f))
-            )
-        }
+        dragHandle = { MelodiaDragHandle() }
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .nestedScroll(nestedScrollConnection)
                 .verticalScroll(rememberScrollState())
                 .navigationBarsPadding()
                 .padding(start = MelodiaSpacing.lg, end = MelodiaSpacing.lg, bottom = MelodiaSpacing.lg)
