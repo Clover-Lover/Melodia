@@ -14,6 +14,12 @@ interface PlaybackApi {
         @Body body: SongUrlRequest
     ): SongUrlResponse
 
+    // 获取歌曲详情（无需登录）
+    @POST("/eapi/v3/song/detail")
+    suspend fun getSongDetail(
+        @Body body: SongDetailRequest
+    ): SongDetailResponse
+
     @POST("/eapi/v1/discovery/simiSong")
     suspend fun getSimiSongs(
         @Body body: SimiSongRequest
@@ -72,6 +78,21 @@ data class FreeTrialInfo(
     val start: Long = 0,
     val end: Long = 0,
 )
+
+// ======================= 歌曲详情 DTO =======================
+
+@Serializable
+data class SongDetailRequest(
+    val c: String
+)
+
+@Serializable
+data class SongDetailResponse(
+    val code: Int = 0,
+    val songs: List<Track> = emptyList()
+) {
+    val isSuccess: Boolean get() = code == 200
+}
 
 // ======================= 歌词 DTO =======================
 
