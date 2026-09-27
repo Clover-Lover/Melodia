@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.feature.player.ui
 
+import com.lin0721.linmusic.core.player.LyricsResolver
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -109,7 +110,8 @@ class PlayerViewModel(
     private val userPreferences: UserPreferences,
     private val settingsPreferences: SettingsPreferences,
     private val resourceProvider: ResourceProvider,
-    private val songDownloadManager: SongDownloadManager
+    private val songDownloadManager: SongDownloadManager,
+    private val lyricsResolver: LyricsResolver
 ) : ViewModel() {
 
     // 监听 WiFi 下的播放音质设置
@@ -335,7 +337,7 @@ class PlayerViewModel(
 
     private suspend fun loadLyrics(songId: Long) {
         _songDetailState.update { it.copy(isLyricsLoading = true) }
-        playbackRepository.getLyrics(songId).collect { result ->
+        lyricsResolver.lyricsFor(songId).collect { result ->
             result.onSuccess { lines ->
                 _songDetailState.update { it.copy(lyrics = lines) }
             }.onFailure {

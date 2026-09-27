@@ -7,6 +7,7 @@ import com.lin0721.linmusic.feature.localmusic.data.LocalLibraryRepository
 import com.lin0721.linmusic.feature.localmusic.data.LocalMusicApiImpl
 import com.lin0721.linmusic.feature.localmusic.data.LocalMusicSettings
 import com.lin0721.linmusic.feature.localmusic.data.db.LocalMusicDatabase
+import com.lin0721.linmusic.feature.localmusic.data.lyrics.LocalLyricsReader
 import com.lin0721.linmusic.feature.localmusic.data.legacy.LegacyImportedMusicStore
 import com.lin0721.linmusic.feature.localmusic.data.scan.LocalMusicImporter
 import com.lin0721.linmusic.feature.localmusic.data.scan.MediaStoreScanner
@@ -34,5 +35,6 @@ val localMusicModule = module {
         )
     }
     single { LocalCoverArtCache(androidContext()) }
-    single<LocalMusicApi> { LocalMusicApiImpl(coverArtCache = get()) }
+    single { LocalLyricsReader(androidContext(), dao = get()) }
+    single<LocalMusicApi> { LocalMusicApiImpl(coverArtCache = get(), lyricsReader = get()) }
 }

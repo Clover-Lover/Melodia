@@ -17,7 +17,6 @@ import android.widget.TextView
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.core.player.domain.LyricLine
-import com.lin0721.linmusic.core.player.data.PlaybackRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -34,7 +33,7 @@ class FloatingLyricService : Service() {
 
     private val playerManager: PlayerManager by inject()
     private val settingsPreferences: SettingsPreferences by inject()
-    private val playerRepository: PlaybackRepository by inject()
+    private val lyricsResolver: LyricsResolver by inject()
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var lyricJob: Job? = null
@@ -158,7 +157,7 @@ class FloatingLyricService : Service() {
                     lyricJob?.cancel()
                     if (songId != -1L) {
                         lyricJob = launch {
-                            playerRepository.getLyrics(songId).collect { result ->
+                            lyricsResolver.lyricsFor(songId).collect { result ->
                                 result.onSuccess { lines ->
                                     lyricLines.clear()
                                     lyricLines.addAll(lines)

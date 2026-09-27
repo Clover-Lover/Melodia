@@ -20,6 +20,9 @@ interface LocalTrackDao {
     @Query("SELECT * FROM local_track")
     suspend fun getAll(): List<LocalTrackEntity>
 
+    @Query("SELECT * FROM local_track WHERE uri = :uri")
+    suspend fun getByUri(uri: String): LocalTrackEntity?
+
     @Query("SELECT uri FROM local_track")
     suspend fun getAllUris(): List<String>
 
