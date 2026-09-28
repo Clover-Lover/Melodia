@@ -48,11 +48,15 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.material3.SheetValue
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.unit.Velocity
+import com.lin0721.linmusic.core.ui.components.MelodiaDragHandle
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
 import com.lin0721.linmusic.core.player.PlayMode
 import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
-import com.lin0721.linmusic.core.ui.theme.DragHandleShape
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import kotlin.math.roundToInt
@@ -292,20 +296,24 @@ fun FullScreenLyricsSettingsSheet(
         sheetState = sheetState,
         containerColor = MaterialTheme.colorScheme.background,
         shape = BottomSheetShape,
-        dragHandle = {
-            Box(
-                modifier = Modifier
-                    .padding(top = 12.dp, bottom = MelodiaSpacing.xs)
-                    .width(36.dp)
-                    .height(4.dp)
-                    .clip(DragHandleShape)
-                    .background(Color.White.copy(alpha = 0.3f))
-            )
-        }
+        dragHandle = { MelodiaDragHandle() }
     ) {
+        val nestedScrollConnection = remember(sheetState) {
+            object : NestedScrollConnection {
+                override suspend fun onPreFling(available: Velocity): Velocity {
+                    return if (available.y < 0 && sheetState.targetValue == SheetValue.Expanded) {
+                        available
+                    } else {
+                        Velocity.Zero
+                    }
+                }
+            }
+        }
+
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .nestedScroll(nestedScrollConnection)
                 .verticalScroll(rememberScrollState())
                 .navigationBarsPadding()
                 .padding(horizontal = MelodiaSpacing.lg)

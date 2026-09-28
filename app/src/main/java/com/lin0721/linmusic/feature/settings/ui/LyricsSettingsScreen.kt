@@ -19,8 +19,8 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lin0721.linmusic.LocalBottomOverlayInset
 import com.lin0721.linmusic.core.player.external.FluidCloudLyricNotifier
+import com.lin0721.linmusic.core.ui.components.MelodiaDragHandle
 import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
-import com.lin0721.linmusic.core.ui.theme.DragHandleShape
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.feature.player.ui.LyricCapsuleSlider
 
@@ -196,16 +196,7 @@ fun LyricsSettingsView(viewModel: SettingsViewModel) {
                 sheetState = sheetState,
                 containerColor = MaterialTheme.colorScheme.background,
                 shape = BottomSheetShape,
-                dragHandle = {
-                    Box(
-                        modifier = Modifier
-                            .padding(top = 12.dp, bottom = MelodiaSpacing.xs)
-                            .width(36.dp)
-                            .height(4.dp)
-                            .clip(DragHandleShape)
-                            .background(Color.White.copy(alpha = 0.3f))
-                    )
-                }
+                dragHandle = { MelodiaDragHandle() }
             ) {
                 Column(
                     modifier = Modifier
@@ -256,16 +247,7 @@ fun LyricsSettingsView(viewModel: SettingsViewModel) {
                 sheetState = sheetState,
                 containerColor = MaterialTheme.colorScheme.background,
                 shape = BottomSheetShape,
-                dragHandle = {
-                    Box(
-                        modifier = Modifier
-                            .padding(top = 12.dp, bottom = MelodiaSpacing.xs)
-                            .width(36.dp)
-                            .height(4.dp)
-                            .clip(DragHandleShape)
-                            .background(Color.White.copy(alpha = 0.3f))
-                    )
-                }
+                dragHandle = { MelodiaDragHandle() }
             ) {
                 Column(
                     modifier = Modifier
@@ -317,16 +299,7 @@ fun LyricsSettingsView(viewModel: SettingsViewModel) {
                 sheetState = sheetState,
                 containerColor = MaterialTheme.colorScheme.background,
                 shape = BottomSheetShape,
-                dragHandle = {
-                    Box(
-                        modifier = Modifier
-                            .padding(top = 12.dp, bottom = MelodiaSpacing.xs)
-                            .width(36.dp)
-                            .height(4.dp)
-                            .clip(DragHandleShape)
-                            .background(Color.White.copy(alpha = 0.3f))
-                    )
-                }
+                dragHandle = { MelodiaDragHandle() }
             ) {
                 Column(
                     modifier = Modifier

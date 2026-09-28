@@ -10,6 +10,19 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import com.lin0721.linmusic.feature.localmusic.ui.LocalMusicNavigation
+import com.lin0721.linmusic.feature.localmusic.ui.collection.LocalAlbumScreen
+import com.lin0721.linmusic.feature.localmusic.ui.collection.LocalAlbumsScreen
+import com.lin0721.linmusic.feature.localmusic.ui.collection.LocalArtistScreen
+import com.lin0721.linmusic.feature.localmusic.ui.collection.LocalArtistsScreen
+import com.lin0721.linmusic.feature.localmusic.ui.collection.LocalFolderScreen
+import com.lin0721.linmusic.feature.localmusic.ui.collection.LocalFoldersScreen
+import com.lin0721.linmusic.feature.localmusic.ui.home.LocalMusicHomeScreen
+import com.lin0721.linmusic.feature.localmusic.ui.playlist.LocalPlaylistScreen
+import com.lin0721.linmusic.feature.localmusic.ui.playlist.LocalPlaylistsScreen
+import com.lin0721.linmusic.feature.localmusic.ui.songs.LocalSongsScreen
+import com.lin0721.linmusic.feature.localmusic.ui.tageditor.LocalTagEditorScreen
 import com.lin0721.linmusic.feature.home.ui.HomeScreen
 import com.lin0721.linmusic.feature.home.ui.HomeViewModel
 import com.lin0721.linmusic.feature.profile.ui.FollowListMode
@@ -39,9 +52,29 @@ fun MelodiaNavHost(
     onShowMusicNewWorksChanged: (Boolean) -> Unit,
     onNavigateToSearch: () -> Unit,
     onNavigateToLocalMusic: () -> Unit,
+    onNavigateToScreen: (Screen) -> Unit,
     onOpenRecognition: () -> Unit,
     onBack: () -> Unit
 ) {
+    val localMusicNavigation = remember(onBack, onNavigateToScreen, onNavigateToArtist, onNavigateToPlaylist, onLoginScreenVisibilityChanged) {
+        LocalMusicNavigation(
+            onBack = onBack,
+            openSongs = { onNavigateToScreen(Screen.LocalSongs) },
+            openArtists = { onNavigateToScreen(Screen.LocalArtists) },
+            openAlbums = { onNavigateToScreen(Screen.LocalAlbums) },
+            openFolders = { onNavigateToScreen(Screen.LocalFolders) },
+            openArtist = { onNavigateToScreen(Screen.LocalArtist(it)) },
+            openAlbum = { onNavigateToScreen(Screen.LocalAlbum(it)) },
+            openFolder = { onNavigateToScreen(Screen.LocalFolder(it)) },
+            openPlaylists = { onNavigateToScreen(Screen.LocalPlaylists) },
+            openPlaylist = { onNavigateToScreen(Screen.LocalPlaylist(it)) },
+            openSettings = { onNavigateToScreen(Screen.LocalMusicSettings) },
+            openOnlineArtist = onNavigateToArtist,
+            openOnlineAlbum = { onNavigateToPlaylist(it, true) },
+            openTagEditor = { onNavigateToScreen(Screen.LocalTagEditor(it)) },
+            onLoginScreenVisibilityChanged = onLoginScreenVisibilityChanged
+        )
+    }
     AnimatedContent(
         targetState = currentScreen,
         transitionSpec = {
@@ -113,14 +146,20 @@ fun MelodiaNavHost(
                     onNavigateToLocalMusic = onNavigateToLocalMusic
                 )
             }
-            is Screen.LocalMusic -> {
-                com.lin0721.linmusic.feature.localmusic.ui.LocalMusicScreen(
-                    onBack = onBack,
-                    onArtistClick = onNavigateToArtist,
-                    onAlbumClick = { albumId -> onNavigateToPlaylist(albumId, true) },
-                    onLoginScreenVisibilityChanged = onLoginScreenVisibilityChanged
-                )
+            is Screen.LocalMusic -> LocalMusicHomeScreen(navigation = localMusicNavigation)
+            is Screen.LocalSongs -> LocalSongsScreen(navigation = localMusicNavigation)
+            is Screen.LocalArtists -> LocalArtistsScreen(navigation = localMusicNavigation)
+            is Screen.LocalAlbums -> LocalAlbumsScreen(navigation = localMusicNavigation)
+            is Screen.LocalFolders -> LocalFoldersScreen(navigation = localMusicNavigation)
+            is Screen.LocalArtist -> LocalArtistScreen(name = screen.name, navigation = localMusicNavigation)
+            is Screen.LocalAlbum -> LocalAlbumScreen(albumKey = screen.key, navigation = localMusicNavigation)
+            is Screen.LocalFolder -> LocalFolderScreen(path = screen.path, navigation = localMusicNavigation)
+            is Screen.LocalPlaylists -> LocalPlaylistsScreen(navigation = localMusicNavigation)
+            is Screen.LocalPlaylist -> LocalPlaylistScreen(playlistId = screen.id, navigation = localMusicNavigation)
+            is Screen.LocalMusicSettings -> {
+                com.lin0721.linmusic.feature.localmusic.ui.settings.LocalMusicSettingsScreen(onBack = onBack)
             }
+            is Screen.LocalTagEditor -> LocalTagEditorScreen(trackUri = screen.uri, navigation = localMusicNavigation)
             is Screen.Settings -> {
                 com.lin0721.linmusic.feature.settings.ui.SettingsScreen(
                     onBack = onBack

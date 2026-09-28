@@ -14,7 +14,8 @@ import java.util.Collections
 import com.lin0721.linmusic.core.download.DownloadPreferences
 import com.lin0721.linmusic.core.download.DownloadTrackInfo
 import com.lin0721.linmusic.core.download.SongDownloadManager
-import com.lin0721.linmusic.core.localmusic.LocalCoverArtCache
+import com.lin0721.linmusic.core.download.yearFromEpochMillis
+import com.lin0721.linmusic.core.localmusic.LocalMusicApi
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.network.AppError
 import com.lin0721.linmusic.core.player.data.PlaybackRepository
@@ -57,7 +58,7 @@ class PlayerManager(
     private val repository: PlaybackRepository,
     private val settingsPreferences: SettingsPreferences,
     private val downloadPreferences: DownloadPreferences,
-    private val localCoverArtCache: LocalCoverArtCache,
+    private val localMusicApi: LocalMusicApi,
     private val songDownloadManager: SongDownloadManager
 ) : Player.Listener {
 
@@ -546,7 +547,7 @@ class PlayerManager(
                 playbackQueue.setCurrentIndex(index)
                 saveQueueState()
                 progress.resetTo(startPosition, preserveDuration = startPosition > 0L)
-                val artworkUri = localCoverArtCache.coverUriFor(android.net.Uri.parse(item.localUri))?.toString()
+                val artworkUri = localMusicApi.coverUriFor(android.net.Uri.parse(item.localUri))?.toString()
                     ?: item.coverUrl
                 val mediaItem = item.toMediaItem(item.localUri, playbackQueue.playContext.value, artworkUri)
                 controllerHolder.playItem(mediaItem.withCrossfade(autoTransition, startPosition), playbackQueue.playMode.value, startPosition, playWhenReady)
@@ -572,7 +573,7 @@ class PlayerManager(
             roaming.prefetchOnPlay(item.songId, index)
 
             if (localRecord != null) {
-                val artworkUri = localCoverArtCache.coverUriFor(android.net.Uri.parse(localRecord.mediaStoreUri))?.toString()
+                val artworkUri = localMusicApi.coverUriFor(android.net.Uri.parse(localRecord.mediaStoreUri))?.toString()
                     ?: item.coverUrl
                 val mediaItem = item.toMediaItem(localRecord.mediaStoreUri, playbackQueue.playContext.value, artworkUri)
                 controllerHolder.playItem(mediaItem.withCrossfade(autoTransition, startPosition), playbackQueue.playMode.value, startPosition, playWhenReady)
@@ -652,11 +653,15 @@ class PlayerManager(
                 settingsPreferences.mobileQuality.first()
             }
 
+            // 队列项不含专辑信息，入队前补查详情；失败则按无专辑保存
+            val detail = repository.getSongDetail(item.songId).first().getOrNull()
             val trackInfo = DownloadTrackInfo(
                 songId = item.songId,
                 songName = item.title,
                 artistName = item.artist,
-                coverUrl = item.coverUrl
+                albumName = detail?.al?.name.orEmpty(),
+                coverUrl = detail?.al?.picUrl?.takeIf { it.isNotBlank() } ?: item.coverUrl,
+                albumYear = yearFromEpochMillis(detail?.publishTime ?: 0L)
             )
             songDownloadManager.enqueueStreamCache(trackInfo, quality)
         }

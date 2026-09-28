@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.di
 
+import com.lin0721.linmusic.core.player.LyricsResolver
 import com.lin0721.linmusic.core.player.PlayerManager
 import com.lin0721.linmusic.core.player.ExternalInterruptionResumeController
 import com.lin0721.linmusic.core.player.external.ExternalLyricCoordinator
@@ -8,6 +9,14 @@ import org.koin.dsl.module
 
 val playerModule = module {
     single { PlayerManager(androidContext(), get(), get(), get(), get(), get(), get()) }
+    single {
+        val playerManager = get<PlayerManager>()
+        LyricsResolver(
+            playbackRepository = get(),
+            localMusicApi = get(),
+            localUriOf = { songId -> playerManager.queue.value.firstOrNull { it.songId == songId }?.localUri }
+        )
+    }
     single { ExternalLyricCoordinator(androidContext(), get(), get(), get()) }
     single { ExternalInterruptionResumeController(androidContext(), get()) }
 }

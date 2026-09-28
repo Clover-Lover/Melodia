@@ -10,7 +10,7 @@ import com.hchen.superlyricapi.SuperLyricLine
 import com.hchen.superlyricapi.SuperLyricWord
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.player.PlayerManager
-import com.lin0721.linmusic.core.player.data.PlaybackRepository
+import com.lin0721.linmusic.core.player.LyricsResolver
 import com.lin0721.linmusic.core.player.domain.LyricLine
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import kotlinx.coroutines.CoroutineScope
@@ -19,7 +19,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 private const val TAG = "ExternalLyricCoordinator"
@@ -27,7 +26,7 @@ private const val TAG = "ExternalLyricCoordinator"
 class ExternalLyricCoordinator(
     private val context: Context,
     private val playerManager: PlayerManager,
-    private val playbackRepository: PlaybackRepository,
+    private val lyricsResolver: LyricsResolver,
     private val settingsPreferences: SettingsPreferences
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -169,7 +168,7 @@ class ExternalLyricCoordinator(
 
             if (songId != -1L) {
                 lyricFetchJob = scope.launch {
-                    playbackRepository.getLyrics(songId).collect { result ->
+                    lyricsResolver.lyricsFor(songId).collect { result ->
                         result.onSuccess { lines ->
                             currentLines = lines
                             rebuildLyricInfo()

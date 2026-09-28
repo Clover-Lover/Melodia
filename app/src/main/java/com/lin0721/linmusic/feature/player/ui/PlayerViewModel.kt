@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.feature.player.ui
 
+import com.lin0721.linmusic.core.player.LyricsResolver
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -79,7 +80,9 @@ data class PlayerSongDetailState(
     val isArtistAlbumsLoading: Boolean = false,
     val isLiked: Boolean = false,
     val artists: List<ArtistCardItem> = emptyList(),
-    val selectedArtistIndex: Int = 0
+    val selectedArtistIndex: Int = 0,
+    // 未匹配网易云的本地歌曲，没有评论/百科等在线数据
+    val isLocalOnly: Boolean = false
 ) {
     val currentArtistItem: ArtistCardItem?
         get() = artists.getOrNull(selectedArtistIndex) ?: artists.firstOrNull()
@@ -109,7 +112,8 @@ class PlayerViewModel(
     private val userPreferences: UserPreferences,
     private val settingsPreferences: SettingsPreferences,
     private val resourceProvider: ResourceProvider,
-    private val songDownloadManager: SongDownloadManager
+    private val songDownloadManager: SongDownloadManager,
+    private val lyricsResolver: LyricsResolver
 ) : ViewModel() {
 
     // 监听 WiFi 下的播放音质设置
@@ -303,23 +307,27 @@ class PlayerViewModel(
                     if (songId != -1L && songId != currentSongId) {
                         currentSongId = songId
                         val isLiked = songId > 0L && songId in songLikeRepository.likedSongIds.value
-                        clearState(isLiked)
+                        val isLocalOnly = songId <= 0L
+                        clearState(isLiked, isLocalOnly)
                         // 全部挂在同一棵子协程树下并发拉取：下一首切歌到达时 collectLatest
                         // 会把这整棵树一起取消，不需要每个加载函数各自手写 songId 比对防止过期数据写回
                         coroutineScope {
                             launch { loadLyrics(songId) }
-                            launch { loadSongDetail(songId) }
-                            launch { loadSongWiki(songId) }
-                            launch { loadChorus(songId) }
-                            launch { commentsController.load("R_SO_4_$songId") }
+                            // 负数占位 id 请求网易接口必然失败，歌词由 LyricsResolver 另行处理
+                            if (!isLocalOnly) {
+                                launch { loadSongDetail(songId) }
+                                launch { loadSongWiki(songId) }
+                                launch { loadChorus(songId) }
+                                launch { commentsController.load("R_SO_4_$songId") }
+                            }
                         }
                     }
                 }
         }
     }
 
-    private fun clearState(isLiked: Boolean = false) {
-        _songDetailState.value = PlayerSongDetailState(isLiked = isLiked)
+    private fun clearState(isLiked: Boolean = false, isLocalOnly: Boolean = false) {
+        _songDetailState.value = PlayerSongDetailState(isLiked = isLiked, isLocalOnly = isLocalOnly)
         _currentLyricIndex.value = -1
     }
 
@@ -335,7 +343,7 @@ class PlayerViewModel(
 
     private suspend fun loadLyrics(songId: Long) {
         _songDetailState.update { it.copy(isLyricsLoading = true) }
-        playbackRepository.getLyrics(songId).collect { result ->
+        lyricsResolver.lyricsFor(songId).collect { result ->
             result.onSuccess { lines ->
                 _songDetailState.update { it.copy(lyrics = lines) }
             }.onFailure {

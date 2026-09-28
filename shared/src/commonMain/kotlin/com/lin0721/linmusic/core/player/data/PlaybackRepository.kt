@@ -13,6 +13,9 @@ interface PlaybackRepository {
     // 获取歌曲歌词（已解析 LRC 格式）
     fun getLyrics(songId: Long): Flow<Result<List<LyricLine>>>
 
+    // 获取单曲详情
+    fun getSongDetail(songId: Long): Flow<Result<Track>>
+
     fun getSimilarSongs(songId: Long): Flow<Result<List<Track>>>
 
     fun getIntelligenceSongs(songId: Long, playlistId: Long): Flow<Result<List<Track>>>

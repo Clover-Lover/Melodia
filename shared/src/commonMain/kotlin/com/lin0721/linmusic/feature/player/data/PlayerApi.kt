@@ -1,6 +1,7 @@
 package com.lin0721.linmusic.feature.player.data
 
-import com.lin0721.linmusic.core.model.Track
+import com.lin0721.linmusic.core.player.data.SongDetailRequest
+import com.lin0721.linmusic.core.player.data.SongDetailResponse
 import kotlinx.serialization.Serializable
 import retrofit2.http.Body
 import retrofit2.http.POST
@@ -30,21 +31,6 @@ interface PlayerApi {
     suspend fun getSongChorus(
         @Body body: SongChorusRequest
     ): SongChorusResponse
-}
-
-// ======================= 歌曲详情 DTO =======================
-
-@Serializable
-data class SongDetailRequest(
-    val c: String
-)
-
-@Serializable
-data class SongDetailResponse(
-    val code: Int = 0,
-    val songs: List<Track> = emptyList()
-) {
-    val isSuccess: Boolean get() = code == 200
 }
 
 // ======================= 歌曲百科简要信息 DTO =======================

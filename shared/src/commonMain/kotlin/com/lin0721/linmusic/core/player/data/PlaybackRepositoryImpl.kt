@@ -101,6 +101,13 @@ class PlaybackRepositoryImpl(
         }
     )
 
+    override fun getSongDetail(songId: Long): Flow<Result<Track>> = apiFlow(
+        request = { apiService.getSongDetail(SongDetailRequest(c = """[{"id":$songId}]""")) },
+        isSuccess = { it.isSuccess && it.songs.isNotEmpty() },
+        code = { it.code },
+        transform = { it.songs[0] }
+    )
+
     override fun getSimilarSongs(songId: Long): Flow<Result<List<Track>>> = apiFlow(
         request = { apiService.getSimiSongs(SimiSongRequest(songid = songId.toString())) },
         isSuccess = { it.isSuccess },
