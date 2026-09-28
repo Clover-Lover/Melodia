@@ -238,6 +238,11 @@ fun FullPlayerScreen(
     }
 
     fun shareCurrentSong() {
+        // 未匹配云端的本地歌曲只有负数占位 id，拼出的链接无效
+        if (songDetailState.isLocalOnly) {
+            ToastManager.showToast("本地歌曲未匹配到云端信息，暂不支持分享")
+            return
+        }
         val shareText = "《$title》- $artist https://music.163.com/song?id=${currentTrack.mediaId}"
         val intent = Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"
