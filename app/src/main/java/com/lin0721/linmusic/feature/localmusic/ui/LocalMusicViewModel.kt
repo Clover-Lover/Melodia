@@ -139,11 +139,9 @@ class LocalMusicViewModel(
         .flowOn(Dispatchers.Default)
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
-    // "加入本地歌单"弹层要处理的曲目，null 表示弹层关闭
     private val _playlistPickerTracks = MutableStateFlow<List<LocalTrack>?>(null)
     val playlistPickerTracks: StateFlow<List<LocalTrack>?> = _playlistPickerTracks.asStateFlow()
 
-    // 与 LocalTrack 的队列 id 规则一致，用于高亮正在播放的行
     val playingMediaId: StateFlow<String?> = playerManager.currentTrack
         .map { it?.mediaId }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
@@ -187,7 +185,7 @@ class LocalMusicViewModel(
         load()
     }
 
-    // 从任意本地音乐子页进入（含进程重建直接恢复到子页）都要保证曲库已加载，重复调用无副作用
+    // 进程重建会直接恢复到子页，每个本地页都要能触发加载
     fun ensureLoaded() {
         if (observeJob == null) checkPermissionAndLoad()
     }
@@ -245,7 +243,7 @@ class LocalMusicViewModel(
         _uiState.value = state.copy(searchQuery = query)
     }
 
-    // 从 start 开始播放 tracks；shuffle 时打乱顺序从头播，不改动用户的播放模式
+    // 随机只打乱本次队列，不改用户的播放模式
     fun playTracks(tracks: List<LocalTrack>, start: LocalTrack? = null, shuffle: Boolean = false) {
         if (tracks.isEmpty()) return
         val queue = if (shuffle) tracks.shuffled() else tracks
@@ -465,7 +463,6 @@ class LocalMusicViewModel(
         }
     }
 
-    // 单曲在弹层里点一下切换：已在歌单则移出，不在则加入
     fun togglePlaylistMembership(playlist: LocalPlaylist, track: LocalTrack) {
         val uri = track.uri.toString()
         val contained = playlist.tracks.any { it.uri.toString() == uri }
@@ -481,7 +478,6 @@ class LocalMusicViewModel(
         }
     }
 
-    // 批量加入只追加不移出，全部已存在时提示
     fun addTracksToPlaylist(playlist: LocalPlaylist, tracks: List<LocalTrack>) {
         viewModelScope.launch {
             runCatching { playlistRepository.addTracks(playlist.id, tracks.map { it.uri.toString() }) }
@@ -522,7 +518,6 @@ class LocalMusicViewModel(
         }
     }
 
-    // 编辑模式"完成"：顺序与移除一次写回
     fun savePlaylistTracks(playlistId: Long, orderedTracks: List<LocalTrack>) {
         viewModelScope.launch {
             runCatching { playlistRepository.replaceTracks(playlistId, orderedTracks.map { it.uri.toString() }) }
@@ -533,7 +528,6 @@ class LocalMusicViewModel(
         }
     }
 
-    // 批量加入完成后关闭弹层并退出多选
     private fun finishPlaylistPick() {
         _playlistPickerTracks.value = null
         val state = currentSuccess() ?: return

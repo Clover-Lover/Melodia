@@ -61,7 +61,7 @@ interface LocalPlaylistDao {
         touch(playlistId, now)
     }
 
-    // 编辑模式"完成"时整体覆盖：顺序与移除一次写入
+    // 整体覆盖，顺序与移除一次写入
     @Transaction
     suspend fun replaceTracks(playlistId: Long, orderedUris: List<String>, now: Long) {
         clearEntries(playlistId)

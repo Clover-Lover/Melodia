@@ -10,8 +10,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 
-// LazyColumn 拖拽排序：被拖行跟随手指平移，其中线越过相邻行时交换位置并抵消位移，视觉上始终停在手指下。
-// 列表里只能放可排序的行，下标即数据下标
+// 中线越过相邻行时交换并抵消位移，被拖行始终停在手指下；列表只能放可排序的行
 @Stable
 class LocalReorderState internal constructor(
     private val listState: LazyListState,

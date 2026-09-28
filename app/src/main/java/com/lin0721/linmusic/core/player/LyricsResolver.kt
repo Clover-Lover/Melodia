@@ -9,8 +9,7 @@ import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 
-// 播放页、悬浮歌词、外部歌词共用的取词入口。
-// 已匹配网易的歌优先网易歌词（逐字与翻译更全），拿不到再读本地；未匹配的本地歌只读本地
+// 已匹配网易的歌优先网易歌词（逐字与翻译更全），拿不到再读本地
 class LyricsResolver(
     private val playbackRepository: PlaybackRepository,
     private val localMusicApi: LocalMusicApi,

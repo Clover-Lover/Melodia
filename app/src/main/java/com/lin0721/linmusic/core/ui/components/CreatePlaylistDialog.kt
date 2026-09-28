@@ -17,7 +17,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 
-// 歌单命名对话框：默认文案用于"新建歌单并收藏"，本地歌单的新建/重命名传入自己的文案
+// 默认文案对应"新建歌单并收藏"，本地歌单新建/重命名传入自己的文案
 @Composable
 fun CreatePlaylistDialog(
     onDismiss: () -> Unit,

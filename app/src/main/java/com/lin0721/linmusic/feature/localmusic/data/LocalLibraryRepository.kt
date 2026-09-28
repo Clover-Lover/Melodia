@@ -42,7 +42,7 @@ import kotlin.coroutines.resume
 private const val TAG = "LocalLibraryRepository"
 private const val MEDIA_SCAN_TIMEOUT_MS = 5_000L
 
-// 本地曲库：Room 为唯一数据源，sync 把 MediaStore 与导入文件的变化增量写回
+// Room 为唯一数据源，sync 增量写回 MediaStore 与导入文件的变化
 class LocalLibraryRepository(
     private val context: Context,
     private val dao: LocalTrackDao,
@@ -178,7 +178,7 @@ class LocalLibraryRepository(
     // 文件夹导入的条目 uri 形如 {treeUri}/document/{docId}
     private fun importedPrefixOf(treeUri: Uri): String = "$treeUri/document/"
 
-    // 旧版导入记录迁移：写入成功后才清空旧数据，失败保留下次重试
+    // 写入成功后才清空旧数据，失败保留下次重试
     private suspend fun migrateLegacyImports() {
         val legacy = legacyImportedStore.readAll()
         if (legacy.isEmpty()) return
@@ -209,7 +209,7 @@ class LocalLibraryRepository(
         context.contentResolver.openInputStream(uri)?.use { true } ?: false
     }.getOrDefault(false)
 
-    // 改完标签后让曲库立刻反映新值：导入条目直接重读元数据，MediaStore 条目等系统重扫后再同步
+    // 导入条目直接重读元数据，MediaStore 条目等系统重扫后再同步
     suspend fun refreshAfterTagEdit(track: LocalTrack) = withContext(Dispatchers.IO) {
         coverArtCache.invalidate(track.uri)
         if (track.source == LocalTrackSource.IMPORTED) {

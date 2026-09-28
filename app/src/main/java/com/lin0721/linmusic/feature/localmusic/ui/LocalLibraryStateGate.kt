@@ -28,7 +28,7 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 
 private const val SKELETON_ROW_COUNT = 8
 
-// 加载 / 缺权限 / 出错三种状态各页共用，只有曲库就绪才渲染 content
+// 曲库就绪才渲染 content
 @Composable
 fun LocalLibraryStateGate(
     viewModel: LocalMusicViewModel,

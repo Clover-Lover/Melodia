@@ -29,7 +29,6 @@ interface LocalTrackDao {
     @Upsert
     suspend fun upsert(tracks: List<LocalTrackEntity>)
 
-    // 返回每条的 rowId，已存在被忽略的为 -1
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertIgnoringExisting(tracks: List<LocalTrackEntity>): List<Long>
 

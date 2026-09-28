@@ -39,8 +39,7 @@ import com.lin0721.linmusic.feature.localmusic.ui.playlist.LocalPlaylistPickerSh
 import com.lin0721.linmusic.feature.playlist.ui.OptionRow
 import com.lin0721.linmusic.feature.playlist.ui.PlaylistSongOptionsSheet
 
-// 本地音乐各页面共用的曲目操作浮层：更多菜单、详情、删除确认、收藏到网易歌单、登录；
-// 同时负责把 ViewModel 的 toast 事件投递出去，每个页面挂一个即可
+// 同时负责投递 toast，每个本地页挂一个即可
 @Composable
 fun LocalTrackActionsHost(
     viewModel: LocalMusicViewModel,

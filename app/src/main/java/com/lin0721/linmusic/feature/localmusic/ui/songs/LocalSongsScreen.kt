@@ -81,7 +81,7 @@ fun LocalSongsScreen(
     var confirmDeleteSelected by remember { mutableStateOf(false) }
     val success = uiState as? LocalMusicUiState.Success
 
-    // 多选/搜索是本页状态，离开页面前先退出，避免回到其他本地页时还带着
+    // 多选/搜索状态在 ViewModel 里跨页共享，返回前先退出
     BackHandler(enabled = success?.isSelectionMode == true || success?.isSearchActive == true) {
         if (success?.isSelectionMode == true) viewModel.toggleSelectionMode() else viewModel.toggleSearch()
     }

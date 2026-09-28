@@ -21,7 +21,7 @@ data class LegacyImportedTrackRecord(
     val dateAddedMs: Long
 )
 
-// 旧版导入记录（DataStore 整块 JSON），只用于迁移进 Room，迁移成功后清空
+// 仅用于把旧版 DataStore 导入记录迁移进 Room
 class LegacyImportedMusicStore(private val context: Context) {
 
     companion object {

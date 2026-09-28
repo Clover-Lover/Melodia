@@ -5,7 +5,6 @@ import com.lin0721.linmusic.feature.localmusic.data.db.LocalPlaylistEntity
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 
-// 歌单原始数据：id、名称与按顺序排列的曲目 uri；解析成曲目交给上层结合曲库完成
 data class LocalPlaylistRecord(
     val id: Long,
     val name: String,

@@ -9,14 +9,13 @@ private const val PRIMARY_VOLUME_PATH = "/storage/emulated/0/"
 private const val STORAGE_ROOT = "/storage/"
 private val GBK: Charset = Charset.forName("GBK")
 
-// 音频同名歌词文件名：去掉扩展名换成 .lrc
 fun lrcNameFor(audioName: String): String {
     val dot = audioName.lastIndexOf('.')
     val base = if (dot > 0) audioName.substring(0, dot) else audioName
     return "$base.lrc"
 }
 
-// 外部存储绝对路径 → SAF 文档 id（主存储卷为 primary，SD 卡为卷 id），无法识别的路径返回 null
+// 主存储卷为 primary，SD 卡为卷 id
 fun documentIdForPath(path: String): String? = when {
     path.startsWith(PRIMARY_VOLUME_PATH) -> "primary:" + path.removePrefix(PRIMARY_VOLUME_PATH)
     path.startsWith(STORAGE_ROOT) -> {
@@ -36,7 +35,6 @@ fun treeCoversDocument(treeDocumentId: String, documentId: String): Boolean {
     return documentId.startsWith(prefix)
 }
 
-// 同目录下同名 .lrc 的文档 id
 fun siblingLrcDocumentId(audioDocumentId: String): String {
     val slash = audioDocumentId.lastIndexOf('/')
     val colon = audioDocumentId.lastIndexOf(':')

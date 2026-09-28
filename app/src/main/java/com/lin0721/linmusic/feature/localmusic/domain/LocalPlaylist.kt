@@ -8,6 +8,5 @@ data class LocalPlaylist(
     val tracks: List<LocalTrack>
 )
 
-// 按歌单里的顺序把 uri 还原成当前可见的曲目
 fun <T> resolvePlaylistTracks(orderedUris: List<String>, visibleTracksByUri: Map<String, T>): List<T> =
     orderedUris.mapNotNull { visibleTracksByUri[it] }

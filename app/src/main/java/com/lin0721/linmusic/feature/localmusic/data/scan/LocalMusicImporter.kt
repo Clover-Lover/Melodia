@@ -24,7 +24,7 @@ data class ImportResult(
     val totalFound: Int
 )
 
-// 解析 SAF 选中的文件/文件夹，产出待入库条目；持久化读权限在这里一并申请
+// 持久化授权在解析时一并申请
 class LocalMusicImporter(private val context: Context) {
 
     // knownUris 为库内已有条目，只申请权限不重复解析元数据

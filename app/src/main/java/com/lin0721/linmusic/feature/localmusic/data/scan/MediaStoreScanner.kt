@@ -15,7 +15,7 @@ private const val UNKNOWN_ARTIST = "未知艺术家"
 
 class MediaStoreScanner(private val context: Context) {
 
-    // 查询失败返回 null，调用方据此区分"扫描失败"与"确实没有歌"，避免误删整库
+    // 失败返回 null 而非空列表，否则同步会误删整库
     fun scan(): List<LocalTrackEntity>? {
         val projection = arrayOf(
             MediaStore.Audio.Media._ID,

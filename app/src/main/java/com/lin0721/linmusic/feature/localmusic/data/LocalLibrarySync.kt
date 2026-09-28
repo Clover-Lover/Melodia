@@ -8,8 +8,7 @@ data class LocalLibrarySyncDiff(
     val deleteUris: Set<String>
 )
 
-// 库内已有数据与本次 MediaStore 扫描结果比对：只写入变化的条目；
-// MediaStore 来源的条目扫描不到即视为已删除，导入条目由 isImportedAlive 判断文件是否还在
+// 只写入变化的条目；导入条目扫不到不代表已删，由 isImportedAlive 判断
 fun computeLocalLibrarySyncDiff(
     existing: List<LocalTrackEntity>,
     scanned: List<LocalTrackEntity>,

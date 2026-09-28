@@ -311,7 +311,7 @@ private fun PlaylistHeroInfo(playlist: LocalPlaylist) {
     }
 }
 
-// 编辑模式：改动只存在本地副本里，"完成"才写库，关闭即放弃
+// 改动只存在本地副本，"完成"才写库
 @Composable
 private fun EditPlaylistContent(
     playlist: LocalPlaylist,

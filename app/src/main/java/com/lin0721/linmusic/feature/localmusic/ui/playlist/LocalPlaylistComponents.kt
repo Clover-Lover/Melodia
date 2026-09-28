@@ -54,7 +54,7 @@ import com.lin0721.linmusic.feature.localmusic.ui.components.LocalCover
 
 private const val MOSAIC_SIZE = 4
 
-// 歌单封面：满 4 首拼 2×2，不足时用第一首封面，空歌单显示占位图标
+// 满 4 首拼 2×2，不足时用第一首封面
 @Composable
 fun LocalPlaylistCover(tracks: List<LocalTrack>, size: Dp, modifier: Modifier = Modifier) {
     val shape = RoundedCornerShape(if (size >= 80.dp) 8.dp else RadiusCompact)
@@ -84,7 +84,6 @@ fun LocalPlaylistCover(tracks: List<LocalTrack>, size: Dp, modifier: Modifier = 
     }
 }
 
-// 虚线框"新建歌单"卡片，首页横排与选择弹层共用
 @Composable
 fun NewPlaylistTile(size: Dp, modifier: Modifier = Modifier) {
     Box(

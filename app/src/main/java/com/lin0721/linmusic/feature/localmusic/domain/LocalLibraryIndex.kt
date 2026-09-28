@@ -58,10 +58,9 @@ data class LocalLibraryIndex(
     fun album(key: String): LocalAlbum? = albumsByKey[key]
     fun folder(path: String): LocalFolderGroup? = foldersByPath[path]
 
-    // "未知专辑"只是没有专辑标签的歌的收纳分组，不计入专辑数，也不上首页
+    // "未知专辑"不计入专辑数，也不上首页
     val knownAlbums: List<LocalAlbum> by lazy { albums.filterNot { it.isUnknown } }
 
-    // 按最近一次加入曲库的时间排，首页"专辑"区块用
     val recentAlbums: List<LocalAlbum> by lazy {
         knownAlbums.sortedByDescending { album -> album.tracks.maxOf { it.dateAddedMs } }
     }
@@ -89,7 +88,7 @@ private val LocalTrack.albumOwner: String get() = albumArtist?.let { splitArtist
 val LocalTrack.albumKey: String
     get() = albumTitle?.let { "$it|$albumOwner" } ?: UNKNOWN_ALBUM_KEY
 
-// 界面展示用的音轨号，去掉碟号部分
+// 去掉碟号部分
 val LocalTrack.displayTrackNumber: Int?
     get() = trackNumber?.rem(1000)?.takeIf { it > 0 }
 

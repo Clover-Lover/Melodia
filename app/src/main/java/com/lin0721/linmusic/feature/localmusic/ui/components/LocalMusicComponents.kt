@@ -74,7 +74,6 @@ import com.lin0721.linmusic.feature.localmusic.domain.queueSongId
 import com.lin0721.linmusic.feature.player.ui.formatTime
 import org.koin.compose.koinInject
 
-// 异步解析内嵌封面，未解析完或无封面时为 null
 @Composable
 fun rememberLocalCoverUrl(sourceUri: Uri?): String? {
     val coverCache: LocalCoverArtCache = koinInject()
@@ -122,7 +121,6 @@ fun LocalCover(
     }
 }
 
-// 本地曲目行：行尾显示时长；多选模式下更多按钮换成勾选框
 @Composable
 fun LocalTrackRow(
     track: LocalTrack,
@@ -170,7 +168,6 @@ fun LocalTrackRow(
     )
 }
 
-// 播放 / 随机 两个等宽药丸按钮
 @Composable
 fun LocalPlayShuffleButtons(
     onPlay: () -> Unit,
@@ -202,7 +199,7 @@ fun LocalPlayShuffleButtons(
     }
 }
 
-// 歌手/专辑页头部：底色取封面主色，向下渐变到页面底色
+// 底色取封面主色
 @Composable
 fun LocalHeroHeader(
     coverSourceUri: Uri?,
@@ -264,7 +261,6 @@ fun LocalSectionHeader(title: String, onMoreClick: (() -> Unit)? = null) {
     }
 }
 
-// 横排封面卡：首页专辑区块、歌手页专辑区块共用
 @Composable
 fun LocalAlbumCard(
     coverSourceUri: Uri?,

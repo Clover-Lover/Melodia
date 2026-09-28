@@ -23,7 +23,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-// 表单与读取时的原值是否不同，决定返回时是否提示放弃修改
 val LocalTagEditorUiState.Editing.isDirty: Boolean
     get() = form.cover != LocalTagCoverChange.Keep || form != LocalTagForm(
         title = original.title,

@@ -19,7 +19,7 @@ private const val PRIMARY_VOLUME_PATH = "/storage/emulated/0/"
 // 歌词文件远小于此值，防止同名的超大文件被整块读进内存
 private const val MAX_LRC_BYTES = 1L shl 20
 
-// 读取本地音频的歌词原文：内嵌歌词 → 同名 .lrc；只返回原文，解析交给调用方
+// 查找顺序：内嵌歌词 → 同名 .lrc
 class LocalLyricsReader(
     private val context: Context,
     private val dao: LocalTrackDao
@@ -45,7 +45,7 @@ class LocalLyricsReader(
         }
     }.onFailure { AppLogger.d(TAG, "内嵌歌词读取失败 uri=$uri", it) }.getOrNull()
 
-    // Melodia 自己下载时在同目录写的 .lrc，以及旧系统上有存储权限时能直接读到的文件
+    // Melodia 下载时写的 .lrc，以及旧系统上能直接读的文件
     private fun readSidecarByPath(audioPath: String): String? = runCatching {
         val file = File(File(audioPath).parentFile, lrcNameFor(File(audioPath).name))
         if (file.isFile && file.canRead() && file.length() in 1..MAX_LRC_BYTES) decodeLyricsBytes(file.readBytes()) else null
@@ -71,7 +71,7 @@ class LocalLyricsReader(
         }.getOrNull()
     }
 
-    // 在扫描设置里授权过的文件夹内找同名 .lrc；导入条目本身就是文档 uri，MediaStore 条目按路径换算文档 id
+    // MediaStore 条目没有文档 uri，按路径换算文档 id
     private fun readSidecarFromAuthorizedTree(audioUri: Uri, audioPath: String?): String? {
         val audioDocumentId = when {
             DocumentsContract.isDocumentUri(context, audioUri) -> runCatching { DocumentsContract.getDocumentId(audioUri) }.getOrNull()

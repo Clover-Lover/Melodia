@@ -7,7 +7,7 @@ import androidx.room.PrimaryKey
 import com.lin0721.linmusic.feature.localmusic.domain.LocalTrack
 import com.lin0721.linmusic.feature.localmusic.domain.LocalTrackSource
 
-// 以 uri 为主键：MediaStore 条目与 SAF 导入条目共用同一张表
+// MediaStore 条目与 SAF 导入条目共用一张表，以 uri 为主键
 @Entity(
     tableName = "local_track",
     indices = [Index("artist"), Index("album")]

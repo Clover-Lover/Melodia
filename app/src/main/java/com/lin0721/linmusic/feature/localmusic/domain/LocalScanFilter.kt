@@ -22,7 +22,6 @@ data class LocalFolder(
     val name: String get() = path.substringAfterLast('/').ifBlank { path }
 }
 
-// 通过 SAF 授权过的文件夹
 data class AuthorizedFolder(
     val treeUri: String,
     val name: String,
