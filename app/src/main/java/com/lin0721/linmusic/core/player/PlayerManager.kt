@@ -14,6 +14,7 @@ import java.util.Collections
 import com.lin0721.linmusic.core.download.DownloadPreferences
 import com.lin0721.linmusic.core.download.DownloadTrackInfo
 import com.lin0721.linmusic.core.download.SongDownloadManager
+import com.lin0721.linmusic.core.download.yearFromEpochMillis
 import com.lin0721.linmusic.core.localmusic.LocalMusicApi
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.network.AppError
@@ -652,11 +653,15 @@ class PlayerManager(
                 settingsPreferences.mobileQuality.first()
             }
 
+            // 队列项不含专辑信息，入队前补查详情；失败则按无专辑保存
+            val detail = repository.getSongDetail(item.songId).first().getOrNull()
             val trackInfo = DownloadTrackInfo(
                 songId = item.songId,
                 songName = item.title,
                 artistName = item.artist,
-                coverUrl = item.coverUrl
+                albumName = detail?.al?.name.orEmpty(),
+                coverUrl = detail?.al?.picUrl?.takeIf { it.isNotBlank() } ?: item.coverUrl,
+                albumYear = yearFromEpochMillis(detail?.publishTime ?: 0L)
             )
             songDownloadManager.enqueueStreamCache(trackInfo, quality)
         }

@@ -23,8 +23,13 @@ data class DownloadTrackInfo(
     val albumYear: Int = 0
 )
 
-// 活跃下载任务进度
-data class DownloadProgressItem(val workId: UUID, val songName: String, val progress: Int)
+// 下载任务快照
+data class DownloadWorkSnapshot(
+    val workId: UUID,
+    val songName: String,
+    val progress: Int,
+    val state: WorkInfo.State
+)
 
 // 时间戳转年份
 fun yearFromEpochMillis(epochMillis: Long): Int {
@@ -42,6 +47,7 @@ class SongDownloadManager(
 
     companion object {
         private const val TAG_DOWNLOAD = "song_download"
+        private const val TAG_STREAM_CACHE = "stream_cache"
         private fun uniqueWorkName(songId: Long) = "song_download_$songId"
     }
 
@@ -57,7 +63,7 @@ class SongDownloadManager(
 
     // 边听边存入队
     fun enqueueStreamCache(track: DownloadTrackInfo, level: String): UUID {
-        val request = buildRequest(track, level, batchTag = "stream_cache", batchLabel = "边听边存")
+        val request = buildRequest(track, level, batchTag = TAG_STREAM_CACHE, batchLabel = "边听边存")
         workManager.enqueueUniqueWork(uniqueWorkName(track.songId), ExistingWorkPolicy.KEEP, request)
         return request.id
     }
@@ -76,15 +82,16 @@ class SongDownloadManager(
 
     fun observeBatch(batchTag: String): Flow<List<WorkInfo>> = workManager.getWorkInfosByTagFlow(batchTag)
 
-    // 观察进行中的下载任务
-    fun observeActiveDownloads(): Flow<List<DownloadProgressItem>> =
+    // 观察用户主动发起的下载任务，排除边听边存
+    fun observeUserDownloads(): Flow<List<DownloadWorkSnapshot>> =
         workManager.getWorkInfosByTagFlow(TAG_DOWNLOAD).map { infos ->
-            infos.filter { it.state == WorkInfo.State.ENQUEUED || it.state == WorkInfo.State.RUNNING }
+            infos.filterNot { TAG_STREAM_CACHE in it.tags }
                 .map { info ->
-                    DownloadProgressItem(
+                    DownloadWorkSnapshot(
                         workId = info.id,
                         songName = info.progress.getString(SongDownloadWorker.KEY_PROGRESS_SONG_NAME) ?: "",
-                        progress = info.progress.getInt(SongDownloadWorker.KEY_PROGRESS_PERCENT, 0)
+                        progress = info.progress.getInt(SongDownloadWorker.KEY_PROGRESS_PERCENT, 0),
+                        state = info.state
                     )
                 }
         }

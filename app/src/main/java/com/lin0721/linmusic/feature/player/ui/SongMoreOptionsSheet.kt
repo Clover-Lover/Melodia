@@ -23,15 +23,18 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.SubcomposeAsyncImage
 import com.lin0721.linmusic.core.ui.components.CoverPlaceholder
+import com.lin0721.linmusic.core.ui.components.MelodiaDragHandle
 import com.lin0721.linmusic.core.ui.components.ToastManager
 import com.lin0721.linmusic.core.ui.theme.BackgroundDark
 import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
-import com.lin0721.linmusic.core.ui.theme.DragHandleShape
 import com.lin0721.linmusic.core.ui.theme.NeteaseRed
 import com.lin0721.linmusic.core.ui.theme.TextGray
 import com.lin0721.linmusic.core.ui.theme.SurfaceDark
@@ -76,20 +79,26 @@ fun SongMoreOptionsSheet(
         sheetState = sheetState,
         containerColor = BackgroundDark,
         shape = BottomSheetShape,
-        dragHandle = {
-            Box(
-                modifier = Modifier
-                    .padding(top = 12.dp, bottom = MelodiaSpacing.xs)
-                    .width(36.dp)
-                    .height(4.dp)
-                    .clip(DragHandleShape)
-                    .background(Color.White.copy(alpha = 0.3f))
-            )
-        }
+        dragHandle = { MelodiaDragHandle() }
     ) {
+        val nestedScrollConnection = remember(sheetState) {
+            object : NestedScrollConnection {
+                override suspend fun onPreFling(available: Velocity): Velocity {
+                    // 全展开时拦截向上未消费惯性，防止速度回弹传递给底栏引发物理动画死循环
+                    return if (available.y < 0 && sheetState.targetValue == SheetValue.Expanded) {
+                        available
+                    } else {
+                        Velocity.Zero
+                    }
+                }
+            }
+        }
+
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .nestedScroll(nestedScrollConnection)
+                .verticalScroll(rememberScrollState())
                 .navigationBarsPadding()
                 .padding(bottom = MelodiaSpacing.md)
         ) {
@@ -136,15 +145,7 @@ fun SongMoreOptionsSheet(
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = MelodiaSpacing.sm)
             )
 
-
-
-            // 选项列表区
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
-            ) {
-                // 1. 专辑信息项
+            // 1. 专辑信息项
                 OptionRow(
                     icon = Icons.Rounded.Album,
                     text = "专辑: $albumName",
@@ -305,16 +306,7 @@ fun SongMoreOptionsSheet(
                         sheetState = qualitySheetState,
                         containerColor = BackgroundDark,
                         shape = BottomSheetShape,
-                        dragHandle = {
-                            Box(
-                                modifier = Modifier
-                                    .padding(top = 12.dp, bottom = MelodiaSpacing.xs)
-                                    .width(36.dp)
-                                    .height(4.dp)
-                                    .clip(DragHandleShape)
-                                    .background(Color.White.copy(alpha = 0.3f))
-                            )
-                        }
+                        dragHandle = { MelodiaDragHandle() }
                     ) {
                         Column(
                             modifier = Modifier
@@ -386,7 +378,6 @@ fun SongMoreOptionsSheet(
                         }
                     }
                 )
-            }
         }
     }
 }

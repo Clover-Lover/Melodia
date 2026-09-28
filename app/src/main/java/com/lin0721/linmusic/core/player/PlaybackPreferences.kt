@@ -72,9 +72,13 @@ class PlaybackPreferences(private val context: Context) {
 
     val playMode: Flow<PlayMode> = context.dataStore.data.map { prefs ->
         val name = prefs[KEY_PLAY_MODE]
-        runCatching { PlayMode.valueOf(name ?: "") }
-            .onFailure { AppLogger.w(TAG, "播放模式反序列化失败 value=$name", it) }
-            .getOrDefault(PlayMode.LIST_LOOP)
+        if (name.isNullOrBlank()) {
+            PlayMode.LIST_LOOP
+        } else {
+            runCatching { PlayMode.valueOf(name) }
+                .onFailure { AppLogger.w(TAG, "播放模式反序列化失败 value=$name", it) }
+                .getOrDefault(PlayMode.LIST_LOOP)
+        }
     }.distinctUntilChanged()
 
     suspend fun savePlaybackState(state: PlaybackState) {

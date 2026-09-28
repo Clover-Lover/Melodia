@@ -25,6 +25,7 @@ class LyricsResolverTest {
             return flowOf(lyrics)
         }
         override fun getSongUrl(songId: Long): Flow<Result<String>> = emptyFlow()
+        override fun getSongDetail(songId: Long): Flow<Result<Track>> = emptyFlow()
         override fun getSimilarSongs(songId: Long): Flow<Result<List<Track>>> = emptyFlow()
         override fun getIntelligenceSongs(songId: Long, playlistId: Long): Flow<Result<List<Track>>> = emptyFlow()
         override fun reportStartPlay(songId: Long): Flow<Result<Unit>> = emptyFlow()

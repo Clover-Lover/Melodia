@@ -628,7 +628,7 @@ fun MelodiaApp() {
         // 5. 全局自定义 Toast 提示
         MelodiaToastHost(toastMessage = toastMessage)
 
-        // 6. 全局更新弹窗，任意页面均可弹出
+        // 6. 全局更新弹窗，由更新横幅或设置页手动检查打开
         val updateManager: UpdateManager = koinInject()
         val updateState by updateManager.uiState.collectAsStateWithLifecycle()
         val isDialogVisible by updateManager.isDialogVisible.collectAsStateWithLifecycle()
@@ -636,6 +636,7 @@ fun MelodiaApp() {
             UpdateDialog(
                 state = updateState,
                 onDismiss = { updateManager.dismiss() },
+                onHide = { updateManager.hideDialog() },
                 onIgnore = { updateManager.ignoreCurrentVersion() },
                 onStartDownload = { updateManager.startDownload() },
                 onInstall = { updateManager.retryInstall() }

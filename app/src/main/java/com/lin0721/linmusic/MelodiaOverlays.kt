@@ -32,6 +32,7 @@ import com.lin0721.linmusic.core.ui.components.MelodiaNavigationBar
 import com.lin0721.linmusic.core.ui.components.MiniPlayerCard
 import com.lin0721.linmusic.feature.create.ui.CreatePopupMenu
 import com.lin0721.linmusic.feature.player.ui.FullPlayerScreen
+import com.lin0721.linmusic.feature.settings.ui.UpdateBanner
 import dev.chrisbanes.haze.HazeState
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.LocalMelodiaWindowSizeClass
@@ -129,14 +130,17 @@ fun MelodiaBottomOverlay(
                 }
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                // 下载进度横幅
+                // 更新横幅与下载进度横幅
                 AnimatedVisibility(
                     visible = !isLoginScreenVisible && !isMvFullscreen,
                     enter = expandVertically() + fadeIn(),
                     exit = shrinkVertically() + fadeOut(),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    DownloadProgressBanner(modifier = Modifier.fillMaxWidth())
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        UpdateBanner(modifier = Modifier.fillMaxWidth())
+                        DownloadProgressBanner(modifier = Modifier.fillMaxWidth())
+                    }
                 }
 
                 if (windowSizeClass == MelodiaWindowSizeClass.Expanded) {
