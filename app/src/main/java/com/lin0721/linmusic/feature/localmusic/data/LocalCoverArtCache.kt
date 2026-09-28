@@ -8,6 +8,7 @@ import com.lin0721.linmusic.core.log.AppLogger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.util.concurrent.ConcurrentHashMap
 
 private const val TAG = "LocalCoverArtCache"
 
@@ -15,9 +16,13 @@ private const val TAG = "LocalCoverArtCache"
 class LocalCoverArtCache(private val context: Context) {
 
     private val cacheDir = File(context.cacheDir, "local_covers").apply { mkdirs() }
+    // 改封面后换文件名，Coil 按 uri 缓存，同名文件会一直显示旧图
+    private val versions = ConcurrentHashMap<String, Int>()
 
     suspend fun coverUriFor(sourceUri: Uri): Uri? = withContext(Dispatchers.IO) {
-        val cacheFile = File(cacheDir, "${sourceUri.toString().hashCode()}.jpg")
+        val uriStr = sourceUri.toString()
+        val version = versions[uriStr] ?: 0
+        val cacheFile = File(cacheDir, "${uriStr.hashCode()}_v${version}.jpg")
         if (cacheFile.exists()) {
             return@withContext fileProviderUri(cacheFile)
         }
@@ -45,4 +50,11 @@ class LocalCoverArtCache(private val context: Context) {
 
     private fun fileProviderUri(file: File): Uri =
         FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+
+    fun invalidate(sourceUri: Uri) {
+        val uriStr = sourceUri.toString()
+        val prefix = "${uriStr.hashCode()}_v"
+        cacheDir.listFiles { file -> file.name.startsWith(prefix) }?.forEach { runCatching { it.delete() } }
+        versions[uriStr] = (versions[uriStr] ?: 0) + 1
+    }
 }

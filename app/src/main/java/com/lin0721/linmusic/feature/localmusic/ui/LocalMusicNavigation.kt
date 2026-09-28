@@ -16,5 +16,6 @@ data class LocalMusicNavigation(
     // 已匹配网易歌曲的菜单里跳转线上歌手/专辑
     val openOnlineArtist: (id: Long) -> Unit,
     val openOnlineAlbum: (id: Long) -> Unit,
+    val openTagEditor: (uri: String) -> Unit,
     val onLoginScreenVisibilityChanged: (Boolean) -> Unit
 )

@@ -31,16 +31,24 @@ class LocalMusicImporter(private val context: Context) {
     suspend fun parseFiles(uris: List<Uri>, knownUris: Set<String>): List<LocalTrackEntity> = withContext(Dispatchers.IO) {
         uris.distinct().mapNotNull { uri ->
             runCatching {
-                context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            }.onFailure { AppLogger.w(TAG, "获取持久化权限失败 uri=$uri", it) }
+                context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+            }.onFailure {
+                runCatching {
+                    context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }.onFailure { AppLogger.w(TAG, "获取持久化权限失败 uri=$uri", it) }
+            }
             if (uri.toString() in knownUris) null else parseMetadata(uri)
         }
     }
 
     suspend fun collectFolder(treeUri: Uri): List<Uri> = withContext(Dispatchers.IO) {
         runCatching {
-            context.contentResolver.takePersistableUriPermission(treeUri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        }.onFailure { AppLogger.w(TAG, "获取文件夹持久化权限失败 uri=$treeUri", it) }
+            context.contentResolver.takePersistableUriPermission(treeUri, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+        }.onFailure {
+            runCatching {
+                context.contentResolver.takePersistableUriPermission(treeUri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }.onFailure { AppLogger.w(TAG, "获取文件夹持久化权限失败 uri=$treeUri", it) }
+        }
         collectAudioFilesFromTree(treeUri)
     }
 
@@ -73,7 +81,7 @@ class LocalMusicImporter(private val context: Context) {
         return ext in AUDIO_EXTENSIONS
     }
 
-    private fun parseMetadata(uri: Uri): LocalTrackEntity? {
+    internal fun parseMetadata(uri: Uri): LocalTrackEntity? {
         var displayName: String? = null
         var fileSize: Long = 0L
         runCatching {

@@ -17,6 +17,7 @@ import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
 import androidx.compose.material.icons.rounded.PlaylistRemove
 import androidx.compose.material.icons.rounded.DeleteOutline
+import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Share
@@ -59,6 +60,7 @@ fun LocalTrackOptionsSheet(
     onPlayClick: () -> Unit,
     onPlayNextClick: () -> Unit,
     onShareClick: () -> Unit,
+    onEditTagsClick: () -> Unit,
     onDetailClick: () -> Unit,
     onDeleteClick: () -> Unit,
     onAddToPlaylistClick: () -> Unit,
@@ -144,6 +146,9 @@ fun LocalTrackOptionsSheet(
             }
             SheetOptionRow(icon = Icons.Rounded.Share, label = "分享文件") {
                 runThenHide(onShareClick)
+            }
+            SheetOptionRow(icon = Icons.Rounded.Edit, label = "编辑标签") {
+                runThenHide(onEditTagsClick)
             }
             SheetOptionRow(icon = Icons.Rounded.Info, label = "查看详情") {
                 runThenHide(onDetailClick)

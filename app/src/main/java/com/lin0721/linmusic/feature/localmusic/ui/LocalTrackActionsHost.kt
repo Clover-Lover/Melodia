@@ -12,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.rounded.PlaylistRemove
 import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
@@ -96,6 +97,10 @@ fun LocalTrackActionsHost(
                             viewModel.removeFromPlaylist(playlistId, track)
                         }
                     }
+                    OptionRow(icon = Icons.Rounded.Edit, text = "编辑标签") {
+                        viewModel.closeTrackMenu()
+                        navigation.openTagEditor(track.uri.toString())
+                    }
                     OptionRow(icon = Icons.Rounded.Info, text = "查看详情") {
                         viewModel.openDetail(track)
                     }
@@ -121,6 +126,10 @@ fun LocalTrackActionsHost(
                 onPlayClick = { viewModel.playTracks(menu.queue, start = track) },
                 onPlayNextClick = { viewModel.playNext(track) },
                 onShareClick = { shareLocalTrackFile(context, track) },
+                onEditTagsClick = {
+                    viewModel.closeTrackMenu()
+                    navigation.openTagEditor(track.uri.toString())
+                },
                 onDetailClick = { viewModel.openDetail(track) },
                 onDeleteClick = { deleteTarget = track },
                 onAddToPlaylistClick = { viewModel.openPlaylistPicker(listOf(track)) },

@@ -66,6 +66,8 @@ sealed class Screen {
     @Serializable
     data class LocalPlaylist(val id: Long) : Screen()
     @Serializable
+    data class LocalTagEditor(val uri: String) : Screen()
+    @Serializable
     data object Message : Screen()
     @Serializable
     data object Account : Screen()

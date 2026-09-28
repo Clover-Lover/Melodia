@@ -22,6 +22,7 @@ import com.lin0721.linmusic.feature.localmusic.ui.home.LocalMusicHomeScreen
 import com.lin0721.linmusic.feature.localmusic.ui.playlist.LocalPlaylistScreen
 import com.lin0721.linmusic.feature.localmusic.ui.playlist.LocalPlaylistsScreen
 import com.lin0721.linmusic.feature.localmusic.ui.songs.LocalSongsScreen
+import com.lin0721.linmusic.feature.localmusic.ui.tageditor.LocalTagEditorScreen
 import com.lin0721.linmusic.feature.home.ui.HomeScreen
 import com.lin0721.linmusic.feature.home.ui.HomeViewModel
 import com.lin0721.linmusic.feature.profile.ui.FollowListMode
@@ -70,6 +71,7 @@ fun MelodiaNavHost(
             openSettings = { onNavigateToScreen(Screen.LocalMusicSettings) },
             openOnlineArtist = onNavigateToArtist,
             openOnlineAlbum = { onNavigateToPlaylist(it, true) },
+            openTagEditor = { onNavigateToScreen(Screen.LocalTagEditor(it)) },
             onLoginScreenVisibilityChanged = onLoginScreenVisibilityChanged
         )
     }
@@ -157,6 +159,7 @@ fun MelodiaNavHost(
             is Screen.LocalMusicSettings -> {
                 com.lin0721.linmusic.feature.localmusic.ui.settings.LocalMusicSettingsScreen(onBack = onBack)
             }
+            is Screen.LocalTagEditor -> LocalTagEditorScreen(trackUri = screen.uri, navigation = localMusicNavigation)
             is Screen.Settings -> {
                 com.lin0721.linmusic.feature.settings.ui.SettingsScreen(
                     onBack = onBack

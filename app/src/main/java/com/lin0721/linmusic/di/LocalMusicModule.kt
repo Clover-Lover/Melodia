@@ -11,6 +11,7 @@ import com.lin0721.linmusic.feature.localmusic.data.db.LocalMusicDatabase
 import com.lin0721.linmusic.feature.localmusic.data.lyrics.LocalLyricsReader
 import com.lin0721.linmusic.feature.localmusic.data.legacy.LegacyImportedMusicStore
 import com.lin0721.linmusic.feature.localmusic.data.scan.LocalMusicImporter
+import com.lin0721.linmusic.feature.localmusic.data.tags.LocalTagEditor
 import com.lin0721.linmusic.feature.localmusic.data.scan.MediaStoreScanner
 import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
@@ -34,10 +35,12 @@ val localMusicModule = module {
             importer = get(),
             downloadPreferences = get(),
             legacyImportedStore = get(),
-            settings = get()
+            settings = get(),
+            coverArtCache = get()
         )
     }
     single { LocalCoverArtCache(androidContext()) }
     single { LocalLyricsReader(androidContext(), dao = get()) }
+    single { LocalTagEditor(androidContext()) }
     single<LocalMusicApi> { LocalMusicApiImpl(coverArtCache = get(), lyricsReader = get()) }
 }

@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.media.MediaScannerConnection
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
@@ -33,9 +34,13 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.coroutines.resume
 
 private const val TAG = "LocalLibraryRepository"
+private const val MEDIA_SCAN_TIMEOUT_MS = 5_000L
 
 // 本地曲库：Room 为唯一数据源，sync 把 MediaStore 与导入文件的变化增量写回
 class LocalLibraryRepository(
@@ -45,7 +50,8 @@ class LocalLibraryRepository(
     private val importer: LocalMusicImporter,
     private val downloadPreferences: DownloadPreferences,
     private val legacyImportedStore: LegacyImportedMusicStore,
-    private val settings: LocalMusicSettings
+    private val settings: LocalMusicSettings,
+    private val coverArtCache: LocalCoverArtCache
 ) {
 
     private val syncMutex = Mutex()
@@ -95,10 +101,11 @@ class LocalLibraryRepository(
                 .associateBy { it.mediaStoreUri }
             val scanned = rawScanned.map { entity ->
                 val record = downloadRecords[entity.uri] ?: return@map entity
+                // 标题/歌手以文件标签为准，下载记录只补空缺，否则用户改完标签会被记录里的旧名盖回
                 entity.copy(
                     songId = record.songId,
-                    title = record.songName.takeIf { it.isNotBlank() } ?: entity.title,
-                    artist = record.artistName.takeIf { it.isNotBlank() } ?: entity.artist,
+                    title = entity.title.ifBlank { record.songName },
+                    artist = entity.artist.ifBlank { record.artistName },
                     source = LocalTrackSource.MELODIA_DOWNLOAD.name
                 )
             }
@@ -201,4 +208,25 @@ class LocalLibraryRepository(
     private fun isReadable(uri: Uri): Boolean = runCatching {
         context.contentResolver.openInputStream(uri)?.use { true } ?: false
     }.getOrDefault(false)
+
+    // 改完标签后让曲库立刻反映新值：导入条目直接重读元数据，MediaStore 条目等系统重扫后再同步
+    suspend fun refreshAfterTagEdit(track: LocalTrack) = withContext(Dispatchers.IO) {
+        coverArtCache.invalidate(track.uri)
+        if (track.source == LocalTrackSource.IMPORTED) {
+            val entity = importer.parseMetadata(track.uri) ?: return@withContext
+            val existing = dao.getByUri(track.uri.toString())
+            dao.upsert(listOf(existing?.let { entity.copy(dateAddedMs = it.dateAddedMs) } ?: entity))
+            return@withContext
+        }
+        val path = track.path ?: return@withContext
+        // 系统扫描回调偶有不回的情况，超时后照常同步
+        withTimeoutOrNull(MEDIA_SCAN_TIMEOUT_MS) {
+            suspendCancellableCoroutine { cont ->
+                MediaScannerConnection.scanFile(context, arrayOf(path), null) { _, _ ->
+                    if (cont.isActive) cont.resume(Unit)
+                }
+            }
+        }
+        sync()
+    }
 }
