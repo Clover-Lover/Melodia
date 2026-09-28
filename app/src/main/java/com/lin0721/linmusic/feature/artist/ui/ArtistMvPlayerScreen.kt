@@ -280,7 +280,12 @@ fun ArtistMvPlayerScreen(
     BackHandler(enabled = showCommentsSection && !isGlobalOverlayOpen) { showCommentsSection = false }
     BackHandler(enabled = showCommentFloor && !isGlobalOverlayOpen) { showCommentFloor = false }
 
-    val exoPlayer = remember { ExoPlayer.Builder(context).build() }
+    // 耳机拔出 / 蓝牙耳机断开时自动暂停，避免 MV 声音转到扬声器外放
+    val exoPlayer = remember {
+        ExoPlayer.Builder(context)
+            .setHandleAudioBecomingNoisy(true)
+            .build()
+    }
 
     var isPlaying by remember { mutableStateOf(false) }
     var currentPosition by remember { mutableStateOf(0L) }
