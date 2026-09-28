@@ -62,6 +62,10 @@ sealed class Screen {
     @Serializable
     data class LocalFolder(val path: String) : Screen()
     @Serializable
+    data object LocalPlaylists : Screen()
+    @Serializable
+    data class LocalPlaylist(val id: Long) : Screen()
+    @Serializable
     data object Message : Screen()
     @Serializable
     data object Account : Screen()

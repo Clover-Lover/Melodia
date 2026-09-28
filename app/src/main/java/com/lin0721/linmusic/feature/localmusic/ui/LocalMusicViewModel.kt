@@ -18,8 +18,11 @@ import com.lin0721.linmusic.core.ui.components.PlaylistCollectItem
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectState
 import com.lin0721.linmusic.feature.player.data.PlayerRepository
 import com.lin0721.linmusic.feature.localmusic.data.LocalLibraryRepository
+import com.lin0721.linmusic.feature.localmusic.data.LocalPlaylistRepository
 import com.lin0721.linmusic.feature.localmusic.data.scan.ImportResult
 import com.lin0721.linmusic.feature.localmusic.domain.LocalLibraryIndex
+import com.lin0721.linmusic.feature.localmusic.domain.LocalPlaylist
+import com.lin0721.linmusic.feature.localmusic.domain.resolvePlaylistTracks
 import com.lin0721.linmusic.feature.localmusic.domain.LocalTrack
 import com.lin0721.linmusic.feature.localmusic.domain.buildLocalLibraryIndex
 import com.lin0721.linmusic.feature.localmusic.domain.queueSongId
@@ -48,8 +51,20 @@ sealed class LocalMusicMenuState {
     abstract val track: LocalTrack
     // 菜单里"播放"要按打开菜单时所在页面的列表排队
     abstract val queue: List<LocalTrack>
-    data class Matched(override val track: LocalTrack, override val queue: List<LocalTrack>, val fullTrack: Track) : LocalMusicMenuState()
-    data class Unmatched(override val track: LocalTrack, override val queue: List<LocalTrack>, val coverUrl: String? = null) : LocalMusicMenuState()
+    // 从歌单页打开时带上歌单 id，菜单里多出"从歌单移除"
+    abstract val playlistId: Long?
+    data class Matched(
+        override val track: LocalTrack,
+        override val queue: List<LocalTrack>,
+        override val playlistId: Long?,
+        val fullTrack: Track
+    ) : LocalMusicMenuState()
+    data class Unmatched(
+        override val track: LocalTrack,
+        override val queue: List<LocalTrack>,
+        override val playlistId: Long?,
+        val coverUrl: String? = null
+    ) : LocalMusicMenuState()
 }
 
 sealed class LocalMusicUiState {
@@ -87,6 +102,7 @@ private const val TAG = "LocalMusicViewModel"
 
 class LocalMusicViewModel(
     private val repository: LocalLibraryRepository,
+    private val playlistRepository: LocalPlaylistRepository,
     private val playerManager: PlayerManager,
     private val playerRepository: PlayerRepository,
     private val songCollectDelegate: SongCollectDelegate,
@@ -115,6 +131,17 @@ class LocalMusicViewModel(
         .map { buildLocalLibraryIndex(it) }
         .flowOn(Dispatchers.Default)
         .stateIn(viewModelScope, SharingStarted.Eagerly, LocalLibraryIndex.EMPTY)
+
+    val playlists: StateFlow<List<LocalPlaylist>> = combine(playlistRepository.playlists, library) { records, index ->
+        val tracksByUri = index.tracks.associateBy { it.uri.toString() }
+        records.map { LocalPlaylist(it.id, it.name, it.updatedAt, resolvePlaylistTracks(it.trackUris, tracksByUri)) }
+    }
+        .flowOn(Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    // "加入本地歌单"弹层要处理的曲目，null 表示弹层关闭
+    private val _playlistPickerTracks = MutableStateFlow<List<LocalTrack>?>(null)
+    val playlistPickerTracks: StateFlow<List<LocalTrack>?> = _playlistPickerTracks.asStateFlow()
 
     // 与 LocalTrack 的队列 id 规则一致，用于高亮正在播放的行
     val playingMediaId: StateFlow<String?> = playerManager.currentTrack
@@ -256,11 +283,11 @@ class LocalMusicViewModel(
         localUri = track.uri.toString()
     )
 
-    fun openTrackMenu(track: LocalTrack, queue: List<LocalTrack>, coverUrl: String? = null) {
+    fun openTrackMenu(track: LocalTrack, queue: List<LocalTrack>, coverUrl: String? = null, playlistId: Long? = null) {
         val state = currentSuccess() ?: return
         val songId = track.songId
         if (songId == null) {
-            _uiState.value = state.copy(menuState = LocalMusicMenuState.Unmatched(track, queue, coverUrl))
+            _uiState.value = state.copy(menuState = LocalMusicMenuState.Unmatched(track, queue, playlistId, coverUrl))
             return
         }
         val initialTrack = Track(
@@ -270,7 +297,7 @@ class LocalMusicViewModel(
             al = Album(id = 0L, name = track.album.orEmpty(), picUrl = coverUrl.orEmpty()),
             dt = track.durationMs
         )
-        _uiState.value = state.copy(menuState = LocalMusicMenuState.Matched(track, queue, initialTrack))
+        _uiState.value = state.copy(menuState = LocalMusicMenuState.Matched(track, queue, playlistId, initialTrack))
         viewModelScope.launch {
             playerRepository.getSongDetail(songId).collect { result ->
                 val current = currentSuccess() ?: return@collect
@@ -409,6 +436,108 @@ class LocalMusicViewModel(
         val key = track.uri.toString()
         val updated = if (key in state.selectedUris) state.selectedUris - key else state.selectedUris + key
         _uiState.value = state.copy(selectedUris = updated)
+    }
+
+    fun openPlaylistPicker(tracks: List<LocalTrack>) {
+        if (tracks.isEmpty()) return
+        closeTrackMenu()
+        _playlistPickerTracks.value = tracks
+    }
+
+    fun closePlaylistPicker() {
+        _playlistPickerTracks.value = null
+    }
+
+    fun createPlaylist(name: String, initialTracks: List<LocalTrack> = emptyList()) {
+        val trimmed = name.trim()
+        if (trimmed.isEmpty()) return
+        viewModelScope.launch {
+            runCatching {
+                val id = playlistRepository.create(trimmed)
+                if (initialTracks.isNotEmpty()) playlistRepository.addTracks(id, initialTracks.map { it.uri.toString() })
+            }.onSuccess {
+                _toastEvent.emit(if (initialTracks.isEmpty()) "已创建「$trimmed」" else "已加入新歌单「$trimmed」")
+                if (initialTracks.isNotEmpty()) finishPlaylistPick()
+            }.onFailure {
+                AppLogger.e(TAG, "新建本地歌单失败", it)
+                _toastEvent.emit("新建歌单失败")
+            }
+        }
+    }
+
+    // 单曲在弹层里点一下切换：已在歌单则移出，不在则加入
+    fun togglePlaylistMembership(playlist: LocalPlaylist, track: LocalTrack) {
+        val uri = track.uri.toString()
+        val contained = playlist.tracks.any { it.uri.toString() == uri }
+        viewModelScope.launch {
+            runCatching {
+                if (contained) playlistRepository.removeTrack(playlist.id, uri) else playlistRepository.addTracks(playlist.id, listOf(uri))
+            }.onSuccess {
+                _toastEvent.emit(if (contained) "已从「${playlist.name}」移除" else "已加入「${playlist.name}」")
+            }.onFailure {
+                AppLogger.e(TAG, "修改本地歌单失败", it)
+                _toastEvent.emit("操作失败")
+            }
+        }
+    }
+
+    // 批量加入只追加不移出，全部已存在时提示
+    fun addTracksToPlaylist(playlist: LocalPlaylist, tracks: List<LocalTrack>) {
+        viewModelScope.launch {
+            runCatching { playlistRepository.addTracks(playlist.id, tracks.map { it.uri.toString() }) }
+                .onSuccess { added ->
+                    _toastEvent.emit(if (added > 0) "已加入 $added 首到「${playlist.name}」" else "所选歌曲已在歌单中")
+                    finishPlaylistPick()
+                }
+                .onFailure {
+                    AppLogger.e(TAG, "批量加入本地歌单失败", it)
+                    _toastEvent.emit("操作失败")
+                }
+        }
+    }
+
+    fun renamePlaylist(playlistId: Long, name: String) {
+        val trimmed = name.trim()
+        if (trimmed.isEmpty()) return
+        viewModelScope.launch {
+            runCatching { playlistRepository.rename(playlistId, trimmed) }
+                .onFailure { _toastEvent.emit("重命名失败") }
+        }
+    }
+
+    fun deletePlaylist(playlist: LocalPlaylist) {
+        viewModelScope.launch {
+            runCatching { playlistRepository.delete(playlist.id) }
+                .onSuccess { _toastEvent.emit("已删除「${playlist.name}」") }
+                .onFailure { _toastEvent.emit("删除歌单失败") }
+        }
+    }
+
+    fun removeFromPlaylist(playlistId: Long, track: LocalTrack) {
+        closeTrackMenu()
+        viewModelScope.launch {
+            runCatching { playlistRepository.removeTrack(playlistId, track.uri.toString()) }
+                .onSuccess { _toastEvent.emit("已从歌单移除") }
+                .onFailure { _toastEvent.emit("操作失败") }
+        }
+    }
+
+    // 编辑模式"完成"：顺序与移除一次写回
+    fun savePlaylistTracks(playlistId: Long, orderedTracks: List<LocalTrack>) {
+        viewModelScope.launch {
+            runCatching { playlistRepository.replaceTracks(playlistId, orderedTracks.map { it.uri.toString() }) }
+                .onFailure {
+                    AppLogger.e(TAG, "保存本地歌单失败", it)
+                    _toastEvent.emit("保存失败")
+                }
+        }
+    }
+
+    // 批量加入完成后关闭弹层并退出多选
+    private fun finishPlaylistPick() {
+        _playlistPickerTracks.value = null
+        val state = currentSuccess() ?: return
+        if (state.isSelectionMode) _uiState.value = state.copy(isSelectionMode = false, selectedUris = emptySet())
     }
 
     private fun currentSuccess(): LocalMusicUiState.Success? = _uiState.value as? LocalMusicUiState.Success

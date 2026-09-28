@@ -19,6 +19,8 @@ import com.lin0721.linmusic.feature.localmusic.ui.collection.LocalArtistsScreen
 import com.lin0721.linmusic.feature.localmusic.ui.collection.LocalFolderScreen
 import com.lin0721.linmusic.feature.localmusic.ui.collection.LocalFoldersScreen
 import com.lin0721.linmusic.feature.localmusic.ui.home.LocalMusicHomeScreen
+import com.lin0721.linmusic.feature.localmusic.ui.playlist.LocalPlaylistScreen
+import com.lin0721.linmusic.feature.localmusic.ui.playlist.LocalPlaylistsScreen
 import com.lin0721.linmusic.feature.localmusic.ui.songs.LocalSongsScreen
 import com.lin0721.linmusic.feature.home.ui.HomeScreen
 import com.lin0721.linmusic.feature.home.ui.HomeViewModel
@@ -63,6 +65,8 @@ fun MelodiaNavHost(
             openArtist = { onNavigateToScreen(Screen.LocalArtist(it)) },
             openAlbum = { onNavigateToScreen(Screen.LocalAlbum(it)) },
             openFolder = { onNavigateToScreen(Screen.LocalFolder(it)) },
+            openPlaylists = { onNavigateToScreen(Screen.LocalPlaylists) },
+            openPlaylist = { onNavigateToScreen(Screen.LocalPlaylist(it)) },
             openSettings = { onNavigateToScreen(Screen.LocalMusicSettings) },
             openOnlineArtist = onNavigateToArtist,
             openOnlineAlbum = { onNavigateToPlaylist(it, true) },
@@ -148,6 +152,8 @@ fun MelodiaNavHost(
             is Screen.LocalArtist -> LocalArtistScreen(name = screen.name, navigation = localMusicNavigation)
             is Screen.LocalAlbum -> LocalAlbumScreen(albumKey = screen.key, navigation = localMusicNavigation)
             is Screen.LocalFolder -> LocalFolderScreen(path = screen.path, navigation = localMusicNavigation)
+            is Screen.LocalPlaylists -> LocalPlaylistsScreen(navigation = localMusicNavigation)
+            is Screen.LocalPlaylist -> LocalPlaylistScreen(playlistId = screen.id, navigation = localMusicNavigation)
             is Screen.LocalMusicSettings -> {
                 com.lin0721.linmusic.feature.localmusic.ui.settings.LocalMusicSettingsScreen(onBack = onBack)
             }

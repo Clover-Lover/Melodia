@@ -6,6 +6,7 @@ import com.lin0721.linmusic.feature.localmusic.data.LocalCoverArtCache
 import com.lin0721.linmusic.feature.localmusic.data.LocalLibraryRepository
 import com.lin0721.linmusic.feature.localmusic.data.LocalMusicApiImpl
 import com.lin0721.linmusic.feature.localmusic.data.LocalMusicSettings
+import com.lin0721.linmusic.feature.localmusic.data.LocalPlaylistRepository
 import com.lin0721.linmusic.feature.localmusic.data.db.LocalMusicDatabase
 import com.lin0721.linmusic.feature.localmusic.data.lyrics.LocalLyricsReader
 import com.lin0721.linmusic.feature.localmusic.data.legacy.LegacyImportedMusicStore
@@ -19,6 +20,8 @@ val localMusicModule = module {
         Room.databaseBuilder(androidContext(), LocalMusicDatabase::class.java, LocalMusicDatabase.NAME).build()
     }
     single { get<LocalMusicDatabase>().localTrackDao() }
+    single { get<LocalMusicDatabase>().localPlaylistDao() }
+    single { LocalPlaylistRepository(dao = get()) }
     single { LegacyImportedMusicStore(androidContext()) }
     single { LocalMusicSettings(androidContext()) }
     single { MediaStoreScanner(androidContext()) }

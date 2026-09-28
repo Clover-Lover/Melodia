@@ -58,6 +58,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lin0721.linmusic.LocalBottomOverlayInset
+import com.lin0721.linmusic.core.ui.components.CreatePlaylistDialog
 import com.lin0721.linmusic.core.ui.components.EmptyState
 import com.lin0721.linmusic.core.ui.components.MelodiaButton
 import com.lin0721.linmusic.core.ui.components.MelodiaDragHandle
@@ -71,6 +72,7 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.PillRadius
 import com.lin0721.linmusic.feature.cloud.domain.formatFileSize
 import com.lin0721.linmusic.feature.localmusic.domain.LocalLibraryIndex
+import com.lin0721.linmusic.feature.localmusic.domain.LocalPlaylist
 import com.lin0721.linmusic.feature.localmusic.ui.LocalLibraryStateGate
 import com.lin0721.linmusic.feature.localmusic.ui.LocalMusicNavigation
 import com.lin0721.linmusic.feature.localmusic.ui.LocalMusicUiState
@@ -80,6 +82,8 @@ import com.lin0721.linmusic.feature.localmusic.ui.components.LocalAlbumCard
 import com.lin0721.linmusic.feature.localmusic.ui.components.LocalCover
 import com.lin0721.linmusic.feature.localmusic.ui.components.LocalSectionHeader
 import com.lin0721.linmusic.feature.localmusic.ui.components.LocalTrackRow
+import com.lin0721.linmusic.feature.localmusic.ui.playlist.LocalPlaylistCover
+import com.lin0721.linmusic.feature.localmusic.ui.playlist.NewPlaylistTile
 import org.koin.androidx.compose.koinViewModel
 
 private const val RECENT_TRACK_COUNT = 5
@@ -99,6 +103,8 @@ fun LocalMusicHomeScreen(
     val isImporting by viewModel.isImporting.collectAsStateWithLifecycle()
     var showOverflowMenu by remember { mutableStateOf(false) }
     var showImportSheet by remember { mutableStateOf(false) }
+    var showCreatePlaylist by remember { mutableStateOf(false) }
+    val playlists by viewModel.playlists.collectAsStateWithLifecycle()
 
     val importFilesLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         if (uris.isNotEmpty()) viewModel.importFiles(uris)
@@ -147,6 +153,8 @@ fun LocalMusicHomeScreen(
                 } else {
                     HomeContent(
                         library = library,
+                        playlists = playlists,
+                        onCreatePlaylist = { showCreatePlaylist = true },
                         playingMediaId = playingMediaId,
                         isPlaying = isPlaying,
                         viewModel = viewModel,
@@ -173,12 +181,23 @@ fun LocalMusicHomeScreen(
         )
     }
 
+    if (showCreatePlaylist) {
+        CreatePlaylistDialog(
+            onDismiss = { showCreatePlaylist = false },
+            onCreate = { viewModel.createPlaylist(it) },
+            title = "新建本地歌单",
+            confirmText = "创建"
+        )
+    }
+
     if (isImporting) ImportingOverlay()
 }
 
 @Composable
 private fun HomeContent(
     library: LocalLibraryIndex,
+    playlists: List<LocalPlaylist>,
+    onCreatePlaylist: () -> Unit,
     playingMediaId: String?,
     isPlaying: Boolean,
     viewModel: LocalMusicViewModel,
@@ -196,6 +215,36 @@ private fun HomeContent(
         }
         item(key = "entries") {
             QuickEntries(library = library, navigation = navigation)
+        }
+
+        item(key = "playlists_header") { LocalSectionHeader("本地歌单", onMoreClick = navigation.openPlaylists) }
+        item(key = "playlists_shelf") {
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = MelodiaSpacing.md),
+                horizontalArrangement = Arrangement.spacedBy(MelodiaSpacing.sm)
+            ) {
+                item(key = "new_playlist") {
+                    Column(modifier = Modifier.width(AlbumCardWidth).pressable(MelodiaPress.Card, onClick = onCreatePlaylist)) {
+                        NewPlaylistTile(size = AlbumCardWidth)
+                        Spacer(Modifier.height(6.dp))
+                        Text("新建歌单", color = MaterialTheme.colorScheme.onSurface, fontSize = 13.sp)
+                    }
+                }
+                items(playlists.take(SHELF_ITEM_COUNT), key = { "playlist_${it.id}" }) { playlist ->
+                    Column(modifier = Modifier.width(AlbumCardWidth).pressable(MelodiaPress.Card) { navigation.openPlaylist(playlist.id) }) {
+                        LocalPlaylistCover(tracks = playlist.tracks, size = AlbumCardWidth)
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            text = playlist.name,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontSize = 13.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text("${playlist.tracks.size} 首", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                    }
+                }
+            }
         }
 
         item(key = "recent_header") { LocalSectionHeader("最近添加", onMoreClick = navigation.openSongs) }

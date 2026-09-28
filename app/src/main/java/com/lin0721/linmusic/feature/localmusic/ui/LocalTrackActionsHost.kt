@@ -9,6 +9,8 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
+import androidx.compose.material.icons.rounded.PlaylistRemove
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material3.AlertDialog
@@ -32,6 +34,7 @@ import com.lin0721.linmusic.core.ui.theme.ScreenSlideDurationMs
 import com.lin0721.linmusic.feature.localmusic.domain.LocalTrack
 import com.lin0721.linmusic.feature.localmusic.domain.LocalTrackSource
 import com.lin0721.linmusic.feature.localmusic.ui.components.rememberLocalCoverUrl
+import com.lin0721.linmusic.feature.localmusic.ui.playlist.LocalPlaylistPickerSheet
 import com.lin0721.linmusic.feature.playlist.ui.OptionRow
 import com.lin0721.linmusic.feature.playlist.ui.PlaylistSongOptionsSheet
 
@@ -47,6 +50,8 @@ fun LocalTrackActionsHost(
     val userProfile by viewModel.userProfile.collectAsStateWithLifecycle()
     val likedSongIds by viewModel.likedSongIds.collectAsStateWithLifecycle()
     val collectState by viewModel.collectState.collectAsStateWithLifecycle()
+    val playlists by viewModel.playlists.collectAsStateWithLifecycle()
+    val pickerTracks by viewModel.playlistPickerTracks.collectAsStateWithLifecycle()
     var deleteTarget by remember { mutableStateOf<LocalTrack?>(null) }
     var collectSongId by remember { mutableStateOf<Long?>(null) }
     var showLoginSheet by remember { mutableStateOf(false) }
@@ -83,6 +88,14 @@ fun LocalTrackActionsHost(
                 onAlbumClick = navigation.openOnlineAlbum,
                 onRequireLogin = { showLoginSheet = true },
                 extraOptions = {
+                    OptionRow(icon = Icons.AutoMirrored.Rounded.PlaylistAdd, text = "加入本地歌单") {
+                        viewModel.openPlaylistPicker(listOf(track))
+                    }
+                    menu.playlistId?.let { playlistId ->
+                        OptionRow(icon = Icons.Rounded.PlaylistRemove, text = "从歌单移除") {
+                            viewModel.removeFromPlaylist(playlistId, track)
+                        }
+                    }
                     OptionRow(icon = Icons.Rounded.Info, text = "查看详情") {
                         viewModel.openDetail(track)
                     }
@@ -109,9 +122,22 @@ fun LocalTrackActionsHost(
                 onPlayNextClick = { viewModel.playNext(track) },
                 onShareClick = { shareLocalTrackFile(context, track) },
                 onDetailClick = { viewModel.openDetail(track) },
-                onDeleteClick = { deleteTarget = track }
+                onDeleteClick = { deleteTarget = track },
+                onAddToPlaylistClick = { viewModel.openPlaylistPicker(listOf(track)) },
+                onRemoveFromPlaylistClick = menu.playlistId?.let { playlistId -> { viewModel.removeFromPlaylist(playlistId, track) } }
             )
         }
+    }
+
+    pickerTracks?.let { tracks ->
+        LocalPlaylistPickerSheet(
+            tracks = tracks,
+            playlists = playlists,
+            onDismiss = { viewModel.closePlaylistPicker() },
+            onCreate = { name -> viewModel.createPlaylist(name, tracks) },
+            onToggleSingle = { playlist, track -> viewModel.togglePlaylistMembership(playlist, track) },
+            onAddBatch = { playlist -> viewModel.addTracksToPlaylist(playlist, tracks) }
+        )
     }
 
     state.detailTrack?.let { track ->

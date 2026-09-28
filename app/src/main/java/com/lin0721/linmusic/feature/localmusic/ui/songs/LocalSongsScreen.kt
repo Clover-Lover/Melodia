@@ -19,6 +19,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.rounded.Checklist
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Delete
@@ -91,6 +92,13 @@ fun LocalSongsScreen(
         actions = {
             if (success == null || success.tracks.isEmpty()) return@SecondaryScreenScaffold
             if (success.isSelectionMode) {
+                if (success.selectedUris.isNotEmpty()) {
+                    MelodiaIconButton(onClick = {
+                        viewModel.openPlaylistPicker(success.filteredTracks.filter { it.uri.toString() in success.selectedUris })
+                    }) {
+                        Icon(Icons.AutoMirrored.Rounded.PlaylistAdd, contentDescription = "加入本地歌单", tint = Color.White)
+                    }
+                }
                 MelodiaIconButton(onClick = {
                     if (success.selectedUris.isEmpty()) viewModel.toggleSelectionMode() else confirmDeleteSelected = true
                 }) {
