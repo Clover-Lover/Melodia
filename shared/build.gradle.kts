@@ -25,6 +25,8 @@ kotlin {
             api(project.dependencies.platform(libs.koin.bom))
             api(libs.koin.core)
             api(libs.androidx.datastore.preferences.core)
+            api(libs.androidx.lifecycle.viewmodel)
+            api(libs.zxing.core)
             implementation(libs.bouncycastle)
             // Android 自带 org.json，只在编译期引用
             compileOnly(libs.org.json)

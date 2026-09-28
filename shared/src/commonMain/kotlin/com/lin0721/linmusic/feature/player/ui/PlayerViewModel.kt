@@ -1,7 +1,6 @@
 package com.lin0721.linmusic.feature.player.ui
 
 import com.lin0721.linmusic.core.player.LyricsResolver
-import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lin0721.linmusic.core.preferences.FullPlayerCardLayout
@@ -9,12 +8,12 @@ import com.lin0721.linmusic.core.preferences.FullPlayerCardSetting
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.core.download.DownloadTrackInfo
-import com.lin0721.linmusic.core.download.SongDownloadManager
+import com.lin0721.linmusic.core.download.SongDownloader
+import com.lin0721.linmusic.core.network.NetworkStateProvider
 import com.lin0721.linmusic.core.model.ArtistAlbum
 import com.lin0721.linmusic.core.model.ArtistDetailInfo
 import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.model.ArtistInfo
-import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.player.domain.LyricLine
 import com.lin0721.linmusic.feature.artist.data.ArtistRepository
 import com.lin0721.linmusic.core.comment.data.CommentRepository
@@ -25,7 +24,7 @@ import com.lin0721.linmusic.core.ui.components.PlaylistCollectState
 import com.lin0721.linmusic.feature.playlist.domain.SongCollectDelegate
 import com.lin0721.linmusic.core.player.data.PlaybackRepository
 import com.lin0721.linmusic.feature.player.data.PlayerRepository
-import com.lin0721.linmusic.core.player.PlayerManager
+import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.QueueItem
 import com.lin0721.linmusic.feature.player.domain.SongWikiData
 import kotlinx.coroutines.Job
@@ -97,22 +96,20 @@ data class PlayerSongDetailState(
         get() = currentArtistItem?.isFollowed ?: false
 }
 
-private const val TAG = "PlayerViewModel"
-
 class PlayerViewModel(
     private val loadLikedSongIdsUseCase: LoadLikedSongIdsUseCase,
-    private val context: Context,
+    private val networkStateProvider: NetworkStateProvider,
     private val playerRepository: PlayerRepository,
     private val playbackRepository: PlaybackRepository,
     private val artistRepository: ArtistRepository,
     private val commentRepository: CommentRepository,
     private val songLikeRepository: SongLikeRepository,
     private val songCollectDelegate: SongCollectDelegate,
-    val playerManager: PlayerManager,
+    val playerManager: PlaybackController,
     private val userPreferences: UserPreferences,
     private val settingsPreferences: SettingsPreferences,
     private val resourceProvider: ResourceProvider,
-    private val songDownloadManager: SongDownloadManager,
+    private val songDownloadManager: SongDownloader,
     private val lyricsResolver: LyricsResolver
 ) : ViewModel() {
 
@@ -131,14 +128,7 @@ class PlayerViewModel(
     )
 
     // 判断当前是否连接 WiFi
-    fun isWifiConnected(): Boolean {
-        return kotlin.runCatching {
-            val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
-            val activeNetwork = connectivityManager.activeNetwork ?: return false
-            val capabilities = connectivityManager.getNetworkCapabilities(activeNetwork) ?: return false
-            capabilities.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI)
-        }.onFailure { AppLogger.w(TAG, "Wi-Fi 状态检测异常", it) }.getOrDefault(false)
-    }
+    fun isWifiConnected(): Boolean = networkStateProvider.isWifiConnected()
 
     // 根据网络状态动态获取并组合成当前的活动播放音质 Flow
     val activeQuality: StateFlow<String> = settingsPreferences.wifiQuality
@@ -236,7 +226,7 @@ class PlayerViewModel(
     private fun observeLikedState() {
         viewModelScope.launch {
             combine(
-                playerManager.currentTrack.map { it?.mediaId?.toLongOrNull() ?: -1L },
+                playerManager.nowPlaying.map { it?.songId ?: -1L },
                 songLikeRepository.likedSongIds
             ) { songId, likedIds ->
                 songId > 0L && songId in likedIds
@@ -300,8 +290,8 @@ class PlayerViewModel(
 
     private fun observeTrackChanges() {
         viewModelScope.launch {
-            playerManager.currentTrack
-                .map { it?.mediaId?.toLongOrNull() ?: -1L }
+            playerManager.nowPlaying
+                .map { it?.songId ?: -1L }
                 .distinctUntilChanged()
                 .collectLatest { songId ->
                     if (songId != -1L && songId != currentSongId) {
@@ -611,7 +601,7 @@ class PlayerViewModel(
                                 coverUrl = track.al.picUrl
                             )
                         }
-                        playerManager.playQueue(items, 0, playContext = PlayerManager.CONTEXT_INTELLIGENCE)
+                        playerManager.playQueue(items, 0, playContext = PlaybackController.CONTEXT_INTELLIGENCE)
                         _toastEvent.emit("已开启心动模式")
                     } else {
                         _toastEvent.emit("获取心动推荐失败")

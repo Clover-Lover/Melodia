@@ -1,7 +1,5 @@
 package com.lin0721.linmusic.core.auth
 
-import android.graphics.Bitmap
-import android.graphics.Color
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.zxing.BarcodeFormat
@@ -27,8 +25,9 @@ private const val MAX_CONSECUTIVE_POLL_FAILURES = 5
 sealed interface QrLoginState {
     data object Idle : QrLoginState
     data object Loading : QrLoginState
-    data class WaitingScan(val qrBitmap: Bitmap) : QrLoginState
-    data class WaitingConfirm(val qrBitmap: Bitmap) : QrLoginState
+    // 二维码点阵，由界面层按平台转成图片
+    data class WaitingScan(val qrMatrix: BitMatrix) : QrLoginState
+    data class WaitingConfirm(val qrMatrix: BitMatrix) : QrLoginState
     data object Expired : QrLoginState
     data class Error(val message: String) : QrLoginState
 }
@@ -53,19 +52,19 @@ class LoginViewModel(
                 _qrState.value = QrLoginState.Error("二维码生成失败，请重试")
                 return@launch
             }
-            val bitmap = try {
-                withContext(Dispatchers.Default) { generateQrBitmap(QR_LOGIN_URL_PREFIX + key) }
+            val matrix = try {
+                withContext(Dispatchers.Default) { generateQrMatrix(QR_LOGIN_URL_PREFIX + key) }
             } catch (e: Exception) {
-                AppLogger.e(TAG, "二维码图片生成失败", e)
+                AppLogger.e(TAG, "二维码点阵生成失败", e)
                 _qrState.value = QrLoginState.Error("二维码生成失败，请重试")
                 return@launch
             }
-            _qrState.value = QrLoginState.WaitingScan(bitmap)
-            pollQrStatus(key, bitmap, onLoginSuccess)
+            _qrState.value = QrLoginState.WaitingScan(matrix)
+            pollQrStatus(key, matrix, onLoginSuccess)
         }
     }
 
-    private fun pollQrStatus(key: String, bitmap: Bitmap, onLoginSuccess: (String) -> Unit) {
+    private fun pollQrStatus(key: String, matrix: BitMatrix, onLoginSuccess: (String) -> Unit) {
         pollJob = viewModelScope.launch {
             var consecutiveFailures = 0
             while (true) {
@@ -85,8 +84,8 @@ class LoginViewModel(
                         _qrState.value = QrLoginState.Expired
                         return@launch
                     }
-                    801 -> _qrState.value = QrLoginState.WaitingScan(bitmap)
-                    802 -> _qrState.value = QrLoginState.WaitingConfirm(bitmap)
+                    801 -> _qrState.value = QrLoginState.WaitingScan(matrix)
+                    802 -> _qrState.value = QrLoginState.WaitingConfirm(matrix)
                     803 -> {
                         val cookies = response.cookies
                         if (cookies.isNullOrEmpty()) {
@@ -133,22 +132,8 @@ class LoginViewModel(
         return true
     }
 
-    // 一次性 setPixels 批量写入
-    private fun generateQrBitmap(content: String): Bitmap {
-        val matrix: BitMatrix = MultiFormatWriter().encode(
-            content, BarcodeFormat.QR_CODE, QR_SIZE_PX, QR_SIZE_PX
-        )
-        val pixels = IntArray(QR_SIZE_PX * QR_SIZE_PX)
-        for (y in 0 until QR_SIZE_PX) {
-            val rowOffset = y * QR_SIZE_PX
-            for (x in 0 until QR_SIZE_PX) {
-                pixels[rowOffset + x] = if (matrix.get(x, y)) Color.BLACK else Color.WHITE
-            }
-        }
-        val bitmap = Bitmap.createBitmap(QR_SIZE_PX, QR_SIZE_PX, Bitmap.Config.RGB_565)
-        bitmap.setPixels(pixels, 0, QR_SIZE_PX, 0, 0, QR_SIZE_PX, QR_SIZE_PX)
-        return bitmap
-    }
+    private fun generateQrMatrix(content: String): BitMatrix =
+        MultiFormatWriter().encode(content, BarcodeFormat.QR_CODE, QR_SIZE_PX, QR_SIZE_PX)
 
     override fun onCleared() {
         stopQrPolling()

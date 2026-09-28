@@ -8,7 +8,7 @@ import com.lin0721.linmusic.core.auth.UserProfile
 import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.network.ResourceProvider
 import com.lin0721.linmusic.core.network.toUserMessage
-import com.lin0721.linmusic.core.player.PlayerManager
+import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.QueueItem
 import com.lin0721.linmusic.core.songlike.LoadLikedSongIdsUseCase
 import com.lin0721.linmusic.core.songlike.SongLikeRepository
@@ -36,7 +36,7 @@ import kotlinx.coroutines.launch
 class SearchViewModel(
     private val repository: SearchRepository,
     private val historyPreferences: SearchHistoryPreferences,
-    val playerManager: PlayerManager,
+    val playerManager: PlaybackController,
     userPreferences: UserPreferences,
     private val resourceProvider: ResourceProvider,
     private val songCollectDelegate: SongCollectDelegate,

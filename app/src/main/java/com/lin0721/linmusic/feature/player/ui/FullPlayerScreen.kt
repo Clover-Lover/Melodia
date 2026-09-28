@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.MediaItem
 import com.lin0721.linmusic.core.download.ui.DownloadQualityPickerSheet
+import com.lin0721.linmusic.core.player.PlayerManager
 import com.lin0721.linmusic.core.player.rememberQueueItemCoverUrl
 import com.lin0721.linmusic.core.ui.components.SwipeToSkipCover
 import com.lin0721.linmusic.core.ui.components.ToastManager
@@ -60,6 +61,7 @@ import dev.chrisbanes.haze.haze
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
+import org.koin.compose.koinInject
 
 // 侧栏→全屏铺开到这个进度时竖排列表淡出完毕，宽屏两栏从这里开始淡入
 private const val WideCrossfadeSplit = 0.6f
@@ -100,6 +102,8 @@ fun FullPlayerScreen(
 
     val context = LocalContext.current
     val viewModel: PlayerViewModel = koinViewModel()
+    // 输出设备切换为 Android 专属能力，不在跨平台接口里
+    val playerManager: PlayerManager = koinInject()
     val songDetailState by viewModel.songDetailState.collectAsStateWithLifecycle()
     val songDetail = songDetailState.songDetail
     // 大播放按钮专用：弱网缓冲期间也要立刻显示"暂停中"图标，不能等音频真正流出的 isPlaying；
@@ -714,7 +718,7 @@ fun FullPlayerScreen(
                 showTimerSheet = false
             },
             onTimerDismiss = { showTimerSheet = false },
-            onOutputDeviceSelected = { deviceId -> viewModel.playerManager.setPreferredAudioDevice(deviceId) },
+            onOutputDeviceSelected = { deviceId -> playerManager.setPreferredAudioDevice(deviceId) },
             onOutputDeviceDismiss = { showOutputDeviceSheet = false }
         )
 

@@ -93,7 +93,7 @@ fun PlaylistScreen(
     onNavigateToProfile: (Long) -> Unit = {}
 ) {
     val uiState      by viewModel.uiState.collectAsStateWithLifecycle()
-    val currentTrack by viewModel.playerManager.currentTrack.collectAsStateWithLifecycle()
+    val currentTrack by viewModel.playerManager.nowPlaying.collectAsStateWithLifecycle()
     val isPlaying by viewModel.playerManager.isPlaying.collectAsStateWithLifecycle()
     val playMode by viewModel.playerManager.playMode.collectAsStateWithLifecycle()
     val playContext by viewModel.playerManager.playContext.collectAsStateWithLifecycle()

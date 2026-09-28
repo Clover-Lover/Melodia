@@ -35,7 +35,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import com.lin0721.linmusic.core.player.PlayerManager
+import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.QueueItem
 
 private const val TAG = "HomeViewModel"
@@ -46,7 +46,7 @@ class HomeViewModel(
     private val playbackRepository: PlaybackRepository,
     private val homeRepository: HomeRepository,
     private val recentRepository: RecentRepository,
-    val playerManager: PlayerManager,
+    val playerManager: PlaybackController,
     private val userPreferences: UserPreferences,
     private val authRepository: AuthRepository,
     private val resourceProvider: ResourceProvider,
@@ -274,12 +274,12 @@ class HomeViewModel(
 
     // 开启相似歌曲漫游
     fun startRoaming() {
-        val current = playerManager.currentTrack.value
+        val current = playerManager.nowPlaying.value
         if (current != null) {
-            val songId = current.mediaId?.toLongOrNull() ?: return
-            val title = current.mediaMetadata.title?.toString() ?: ""
-            val artist = current.mediaMetadata.artist?.toString() ?: ""
-            val coverUrl = current.mediaMetadata.artworkUri?.toString() ?: ""
+            val songId = current.songId ?: return
+            val title = current.title
+            val artist = current.artist
+            val coverUrl = current.artworkUri.orEmpty()
             viewModelScope.launch {
                 playbackRepository.getSimilarSongs(songId).collect { result ->
                     result.onSuccess { simiSongs ->
@@ -331,23 +331,23 @@ class HomeViewModel(
 
     // 开启心动模式
     fun startIntelligenceMode() {
-        val current = playerManager.currentTrack.value
+        val current = playerManager.nowPlaying.value
         if (current != null) {
-            val songId = current.mediaId?.toLongOrNull() ?: return
+            val songId = current.songId ?: return
             viewModelScope.launch {
                 playbackRepository.getIntelligenceSongs(songId, 0).collect { result ->
                     result.onSuccess { tracks ->
                         if (tracks.isNotEmpty()) {
                             val currentItem = QueueItem(
                                 songId,
-                                current.mediaMetadata.title?.toString() ?: "",
-                                current.mediaMetadata.artist?.toString() ?: "",
-                                current.mediaMetadata.artworkUri?.toString() ?: ""
+                                current.title,
+                                current.artist,
+                                current.artworkUri.orEmpty()
                             )
                             val items = listOf(currentItem) + tracks.map { track ->
                                 QueueItem(track.id, track.name, track.ar.joinToString("/") { it.name }, track.al.picUrl)
                             }
-                            playerManager.playQueue(items, 0, playContext = PlayerManager.CONTEXT_INTELLIGENCE)
+                            playerManager.playQueue(items, 0, playContext = PlaybackController.CONTEXT_INTELLIGENCE)
                             _toastEvent.emit("已开启心动模式")
                         } else {
                             _toastEvent.emit("获取心动推荐失败")
@@ -368,7 +368,7 @@ class HomeViewModel(
                                                         val items = listOf(currentItem) + tracks.map { track ->
                                                             QueueItem(track.id, track.name, track.ar.joinToString("/") { it.name }, track.al.picUrl)
                             }
-                            playerManager.playQueue(items, 0, playContext = PlayerManager.CONTEXT_INTELLIGENCE)
+                            playerManager.playQueue(items, 0, playContext = PlaybackController.CONTEXT_INTELLIGENCE)
                             _toastEvent.emit("已从《${firstSong.name}》开启心动模式")
                         }.onFailure {
                             _toastEvent.emit(it.toUserMessage(resourceProvider))

@@ -1,20 +1,20 @@
 package com.lin0721.linmusic.feature.library.ui
 
-import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.core.auth.UserProfile
 import com.lin0721.linmusic.core.auth.SyncProfileAfterLoginUseCase
 import com.lin0721.linmusic.core.download.DownloadTrackInfo
-import com.lin0721.linmusic.core.download.SongDownloadManager
+import com.lin0721.linmusic.core.download.SongDownloader
+import com.lin0721.linmusic.feature.library.data.LibraryPreferences
 import com.lin0721.linmusic.core.download.yearFromEpochMillis
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.userartist.UserArtistRepository
 import com.lin0721.linmusic.feature.create.data.CreateRepository
 import com.lin0721.linmusic.core.userplaylist.UserPlaylistRepository
 import com.lin0721.linmusic.feature.library.data.LibraryRepository
-import com.lin0721.linmusic.core.player.PlayerManager
+import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.playlistmutation.PlaylistMutationBus
 import com.lin0721.linmusic.core.playlistmutation.PlaylistMutationEvent
 import com.lin0721.linmusic.core.network.ResourceProvider
@@ -72,14 +72,13 @@ class LibraryViewModel(
     private val userPlaylistRepository: UserPlaylistRepository,
     private val userArtistRepository: UserArtistRepository,
     private val userPreferences: UserPreferences,
-    val playerManager: PlayerManager,
-    private val context: Context,
+    val playerManager: PlaybackController,
+    private val libraryPreferences: LibraryPreferences,
     private val resourceProvider: ResourceProvider,
     private val playlistMutationBus: PlaylistMutationBus,
-    private val songDownloadManager: SongDownloadManager
+    private val songDownloadManager: SongDownloader
 ) : ViewModel() {
 
-    private val sharedPrefs = context.getSharedPreferences("library_prefs", Context.MODE_PRIVATE)
     private val _pinnedIds = MutableStateFlow<Set<String>>(getPinnedIdsFromPrefs())
 
     private val _uiState = MutableStateFlow<LibraryUiState>(LibraryUiState.Loading)
@@ -162,40 +161,32 @@ class LibraryViewModel(
         }
     }
 
-    private fun getPinnedIdsFromPrefs(): Set<String> {
-        return sharedPrefs.getStringSet("pinned_ids", emptySet()) ?: emptySet()
-    }
+    private fun getPinnedIdsFromPrefs(): Set<String> = libraryPreferences.pinnedIds()
 
     private fun savePinnedIdsToPrefs(ids: Set<String>) {
-        sharedPrefs.edit().putStringSet("pinned_ids", ids).apply()
+        libraryPreferences.setPinnedIds(ids)
     }
 
-    private fun getCustomPlaylistOrderFromPrefs(): List<String> {
-        val raw = sharedPrefs.getString("custom_playlist_order", "") ?: ""
-        return if (raw.isBlank()) emptyList() else raw.split(",")
-    }
+    private fun getCustomPlaylistOrderFromPrefs(): List<String> = libraryPreferences.customPlaylistOrder()
 
     private fun saveCustomPlaylistOrderToPrefs(order: List<String>) {
-        sharedPrefs.edit().putString("custom_playlist_order", order.joinToString(",")).apply()
+        libraryPreferences.setCustomPlaylistOrder(order)
     }
 
     private fun getSortOrderFromPrefs(): LibrarySortOrder {
-        val raw = sharedPrefs.getString("sort_order", null)
+        val raw = libraryPreferences.sortOrderName()
         return raw?.let { runCatching { LibrarySortOrder.valueOf(it) }.getOrNull() } ?: LibrarySortOrder.RECENTLY_PLAYED
     }
 
     private fun saveSortOrderToPrefs(order: LibrarySortOrder) {
-        sharedPrefs.edit().putString("sort_order", order.name).apply()
+        libraryPreferences.setSortOrderName(order.name)
     }
 
-    private fun getGridViewFromPrefs(): Boolean {
-        // 读取视图切换记忆，默认列表视图 (false)
-        return sharedPrefs.getBoolean("is_grid_view", false)
-    }
+    private fun getGridViewFromPrefs(): Boolean = libraryPreferences.isGridView()
 
     fun updateGridView(isGrid: Boolean) {
         _isGridView.value = isGrid
-        sharedPrefs.edit().putBoolean("is_grid_view", isGrid).apply()
+        libraryPreferences.setGridView(isGrid)
     }
 
     fun loadLibraryData(profileOverride: UserProfile? = null) {

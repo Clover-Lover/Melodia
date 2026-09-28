@@ -42,7 +42,7 @@ class LyricsResolverTest {
     }
 
     private fun resolver(repo: PlaybackRepository, local: LocalMusicApi, localUri: String?) =
-        LyricsResolver(repo, local, localUriOf = { localUri })
+        LyricsResolver(repo, local::readLyrics, localUriOf = { localUri })
 
     @Test
     fun `未匹配的本地歌只读本地歌词不请求网易`() = runTest {

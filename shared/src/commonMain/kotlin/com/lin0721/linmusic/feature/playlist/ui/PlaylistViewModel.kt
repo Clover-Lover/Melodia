@@ -5,7 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.core.auth.UserProfile
 import com.lin0721.linmusic.core.download.DownloadTrackInfo
-import com.lin0721.linmusic.core.download.SongDownloadManager
+import com.lin0721.linmusic.core.download.SongDownloader
 import com.lin0721.linmusic.core.download.yearFromEpochMillis
 import com.lin0721.linmusic.core.model.PlaylistDetail
 import com.lin0721.linmusic.core.model.Track
@@ -20,7 +20,7 @@ import com.lin0721.linmusic.feature.library.data.LibraryRepository
 import com.lin0721.linmusic.core.songlike.SongLikeRepository
 import com.lin0721.linmusic.feature.playlist.data.PlaylistRepository
 import com.lin0721.linmusic.core.player.data.PlaybackRepository
-import com.lin0721.linmusic.core.player.PlayerManager
+import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.QueueItem
 import com.lin0721.linmusic.core.userplaylist.UserPlaylistRepository
 import kotlinx.coroutines.async
@@ -64,12 +64,12 @@ class PlaylistViewModel(
     private val userPlaylistRepository: UserPlaylistRepository,
     private val createPlaylistAndAddSongUseCase: CreatePlaylistAndAddSongUseCase,
     private val updatePlaylistCoverUseCase: UpdatePlaylistCoverUseCase,
-    val playerManager: PlayerManager,
+    val playerManager: PlaybackController,
     private val userPreferences: UserPreferences,
     private val resourceProvider: ResourceProvider,
     private val playlistMutationBus: PlaylistMutationBus,
     private val searchRepository: SearchRepository,
-    private val songDownloadManager: SongDownloadManager
+    private val songDownloadManager: SongDownloader
 ) : ViewModel() {
 
     private var allRecommendedTracks = listOf<Track>()

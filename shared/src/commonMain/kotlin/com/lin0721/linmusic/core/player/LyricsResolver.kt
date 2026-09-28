@@ -1,6 +1,5 @@
 package com.lin0721.linmusic.core.player
 
-import com.lin0721.linmusic.core.localmusic.LocalMusicApi
 import com.lin0721.linmusic.core.player.data.PlaybackRepository
 import com.lin0721.linmusic.core.player.domain.LyricLine
 import com.lin0721.linmusic.core.player.domain.LyricParser
@@ -12,7 +11,8 @@ import kotlinx.coroutines.flow.flow
 // 已匹配网易的歌优先网易歌词（逐字与翻译更全），拿不到再读本地
 class LyricsResolver(
     private val playbackRepository: PlaybackRepository,
-    private val localMusicApi: LocalMusicApi,
+    // 按来源 Uri 读取本地歌词原文，平台无本地音乐时返回 null
+    private val readLocalLyrics: suspend (sourceUri: String) -> String?,
     private val localUriOf: (songId: Long) -> String?
 ) {
 
@@ -29,7 +29,7 @@ class LyricsResolver(
                 return@flow
             }
         }
-        val lines = localMusicApi.readLyrics(localUri)?.let(LyricParser::parseLrc).orEmpty()
+        val lines = readLocalLyrics(localUri)?.let(LyricParser::parseLrc).orEmpty()
         emit(Result.success(lines))
     }
 }

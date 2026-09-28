@@ -6,6 +6,8 @@ import com.lin0721.linmusic.core.download.DownloadPreferences
 import com.lin0721.linmusic.core.network.AndroidNetworkStateProvider
 import com.lin0721.linmusic.core.network.AndroidResourceProvider
 import com.lin0721.linmusic.core.network.NetworkStateProvider
+import com.lin0721.linmusic.feature.library.data.AndroidLibraryPreferences
+import com.lin0721.linmusic.feature.library.data.LibraryPreferences
 import com.lin0721.linmusic.core.network.ResourceProvider
 import com.lin0721.linmusic.core.network.crypto.XeapiKeyStore
 import com.lin0721.linmusic.core.network.crypto.XeapiKeyStoreImpl
@@ -25,6 +27,7 @@ val localModule = module {
     single { ContentFilter(get()) }
     single<ResourceProvider> { AndroidResourceProvider(androidContext()) }
     single<NetworkStateProvider> { AndroidNetworkStateProvider(androidContext()) }
+    single<LibraryPreferences> { AndroidLibraryPreferences(androidContext()) }
     single { SearchHistoryPreferences(PreferencesStores.get(androidContext(), PreferencesStores.SEARCH_HISTORY)) }
     single<XeapiKeyStore> { XeapiKeyStoreImpl(PreferencesStores.get(androidContext(), PreferencesStores.XEAPI_KEY)) }
     single { DownloadPreferences(androidContext()) }
