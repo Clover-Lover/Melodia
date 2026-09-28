@@ -39,19 +39,24 @@ object LyricParser {
         }.sortedBy { it.timeMs }
     }
 
-    private val lrcPattern = Regex("""\[(\d{2}):(\d{2})[.:](\d{2,3})](.*)""")
+    private val lrcTimeTag = Regex("""\[(\d{2,}):(\d{2})[.:](\d{2,3})]""")
 
+    // 本地 .lrc 常把重复段落写成一行多个时间标签，如 [00:12.00][01:30.00]副歌，每个标签各展开成一行
     fun parseLrc(lrcText: String): List<LyricLine> {
-        return lrcText.lines().mapNotNull { line ->
-            lrcPattern.find(line)?.let { match ->
-                val min = match.groupValues[1].toLongOrNull() ?: return@let null
-                val sec = match.groupValues[2].toLongOrNull() ?: return@let null
+        return lrcText.lines().flatMap { rawLine ->
+            var rest = rawLine.trim()
+            val times = mutableListOf<Long>()
+            while (true) {
+                val match = lrcTimeTag.matchAt(rest, 0) ?: break
+                val min = match.groupValues[1].toLongOrNull() ?: break
+                val sec = match.groupValues[2].toLongOrNull() ?: break
                 val msRaw = match.groupValues[3]
                 val ms = if (msRaw.length == 2) msRaw.toLong() * 10 else msRaw.toLong()
-                val text = match.groupValues[4].trim()
-                if (text.isEmpty()) return@let null
-                LyricLine(timeMs = min * 60_000 + sec * 1000 + ms, text = text)
+                times += min * 60_000 + sec * 1000 + ms
+                rest = rest.substring(match.range.last + 1)
             }
+            val text = rest.trim()
+            if (times.isEmpty() || text.isEmpty()) emptyList() else times.map { LyricLine(timeMs = it, text = text) }
         }.sortedBy { it.timeMs }
     }
 }

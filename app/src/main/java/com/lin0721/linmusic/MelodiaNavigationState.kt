@@ -46,6 +46,28 @@ sealed class Screen {
     @Serializable
     data object LocalMusic : Screen()
     @Serializable
+    data object LocalMusicSettings : Screen()
+    @Serializable
+    data object LocalSongs : Screen()
+    @Serializable
+    data object LocalArtists : Screen()
+    @Serializable
+    data object LocalAlbums : Screen()
+    @Serializable
+    data object LocalFolders : Screen()
+    @Serializable
+    data class LocalArtist(val name: String) : Screen()
+    @Serializable
+    data class LocalAlbum(val key: String) : Screen()
+    @Serializable
+    data class LocalFolder(val path: String) : Screen()
+    @Serializable
+    data object LocalPlaylists : Screen()
+    @Serializable
+    data class LocalPlaylist(val id: Long) : Screen()
+    @Serializable
+    data class LocalTagEditor(val uri: String) : Screen()
+    @Serializable
     data object Message : Screen()
     @Serializable
     data object Account : Screen()

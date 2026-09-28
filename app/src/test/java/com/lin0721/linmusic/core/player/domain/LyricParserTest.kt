@@ -63,6 +63,20 @@ class LyricParserTest {
         assertTrue(LyricParser.parseLrc("").isEmpty())
     }
 
+    @Test
+    fun `一行多个时间标签各展开成一行`() {
+        val lines = LyricParser.parseLrc("[00:12.00][01:30.50]副歌\n[00:20.00]主歌")
+        assertEquals(listOf(12_000L, 20_000L, 90_500L), lines.map { it.timeMs })
+        assertEquals(listOf("副歌", "主歌", "副歌"), lines.map { it.text })
+    }
+
+    @Test
+    fun `非时间标签的元信息行被忽略`() {
+        val lines = LyricParser.parseLrc("[ti:Winter Bells]\n[ar:茶太]\n[00:01.00]正文")
+        assertEquals(1, lines.size)
+        assertEquals("正文", lines[0].text)
+    }
+
     // ======================= YRC 逐字解析 =======================
 
     @Test

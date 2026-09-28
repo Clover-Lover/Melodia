@@ -25,6 +25,8 @@ bouncycastle = "1.85.2"
 workManager = "2.10.1"
 documentfile = "1.0.1"
 taglib = "1.0.5"
+room = "2.8.5"
+ksp = "2.3.12"
 
 [libraries]
 bouncycastle = { group = "org.bouncycastle", name = "bcprov-jdk18on", version.ref = "bouncycastle" }
@@ -85,6 +87,9 @@ androidx-documentfile = { group = "androidx.documentfile", name = "documentfile"
 
 # TagLib 音频标签
 taglib = { group = "io.github.kyant0", name = "taglib", version.ref = "taglib" }
+androidx-room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
+androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
+androidx-room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
 # 图片裁剪（歌单封面裁正方形）
 android-image-cropper = { group = "com.vanniktech", name = "android-image-cropper", version.ref = "imageCropper" }
 
@@ -95,3 +100,4 @@ zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxing" 
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
