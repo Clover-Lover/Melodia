@@ -10,6 +10,12 @@ import com.lin0721.linmusic.core.network.crypto.XeapiKeyStore
 import com.lin0721.linmusic.core.network.crypto.XeapiKeyStoreImpl
 import com.lin0721.linmusic.core.player.LyricsResolver
 import com.lin0721.linmusic.core.player.PlaybackController
+import com.lin0721.linmusic.core.player.data.PlaybackRepository
+import com.lin0721.linmusic.core.log.AppLogger
+import com.lin0721.linmusic.desktop.player.MpvPlaybackController
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import com.lin0721.linmusic.core.preferences.PreferencesStores
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.desktop.platform.DesktopLibraryPreferences
@@ -28,6 +34,19 @@ import com.lin0721.linmusic.feature.search.ui.SearchViewModel
 import org.koin.core.module.dsl.singleOf
 import org.koin.dsl.module
 
+private const val TAG = "DesktopModule"
+
+// libmpv 缺失或加载失败时退回不出声的占位实现，保证界面仍可使用
+private fun createPlaybackController(repository: PlaybackRepository): PlaybackController = try {
+    MpvPlaybackController(repository, CoroutineScope(SupervisorJob() + Dispatchers.Main))
+} catch (e: LinkageError) {
+    AppLogger.e(TAG, "libmpv 加载失败，播放不可用", e)
+    SilentPlaybackController()
+} catch (e: IllegalStateException) {
+    AppLogger.e(TAG, "libmpv 初始化失败，播放不可用", e)
+    SilentPlaybackController()
+}
+
 private fun store(name: String) = PreferencesStores.get(DesktopPaths.preferencesFile(name))
 
 val desktopPlatformModule = module {
@@ -41,7 +60,7 @@ val desktopPlatformModule = module {
     single<NetworkStateProvider> { NetworkStateProvider { true } }
     single<LibraryPreferences> { DesktopLibraryPreferences() }
     single<SongDownloader> { UnsupportedSongDownloader() }
-    single<PlaybackController> { SilentPlaybackController() }
+    single<PlaybackController> { createPlaybackController(get()) }
     // 桌面第一版没有本地音乐，只取在线歌词
     single { LyricsResolver(get(), readLocalLyrics = { null }, localUriOf = { null }) }
 }

@@ -25,11 +25,16 @@ dependencies {
     implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)
     implementation(libs.kotlinx.coroutines.swing)
+    implementation(libs.jna)
 }
 
 compose.desktop {
     application {
         mainClass = "com.lin0721.linmusic.desktop.MainKt"
+        // 开发运行时从本地 native 目录加载 libmpv；安装包的放置方式在打包阶段处理
+        jvmArgs("-Djna.library.path=${project.file("native").absolutePath}")
+        // 中文系统默认 GBK，统一日志输出编码
+        jvmArgs("-Dstdout.encoding=UTF-8", "-Dstderr.encoding=UTF-8")
         nativeDistributions {
             targetFormats(TargetFormat.Msi)
             packageName = "Melodia"

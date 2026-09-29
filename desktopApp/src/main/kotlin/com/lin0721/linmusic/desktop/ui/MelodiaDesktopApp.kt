@@ -38,6 +38,9 @@ import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.desktop.ui.theme.DesktopDimens
 import com.lin0721.linmusic.feature.home.ui.HomeViewModel
 import com.lin0721.linmusic.feature.library.ui.LibraryViewModel
+import com.lin0721.linmusic.feature.player.ui.PlayerViewModel
+import com.lin0721.linmusic.desktop.player.MpvPlaybackController
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.merge
 import org.koin.core.context.GlobalContext
 
@@ -48,6 +51,8 @@ fun WindowScope.MelodiaDesktopApp(windowState: WindowState, onClose: () -> Unit)
     val libraryViewModel = remember { koin.get<LibraryViewModel>() }
     val loginViewModel = remember { koin.get<LoginViewModel>() }
     val playbackController = remember { koin.get<PlaybackController>() }
+    val playerViewModel = remember { koin.get<PlayerViewModel>() }
+    val mpvController = playbackController as? MpvPlaybackController
 
     val backStack = remember { BackStack(DesktopRoute.Home) }
     val userProfile by homeViewModel.userProfile.collectAsState()
@@ -56,7 +61,9 @@ fun WindowScope.MelodiaDesktopApp(windowState: WindowState, onClose: () -> Unit)
     val isMaximized = windowState.placement == WindowPlacement.Maximized
 
     LaunchedEffect(Unit) {
-        merge(homeViewModel.toastEvent, libraryViewModel.toastEvent).collect { snackbarHostState.showSnackbar(it) }
+        val playbackMessages = mpvController?.messages ?: emptyFlow()
+        merge(homeViewModel.toastEvent, libraryViewModel.toastEvent, playbackMessages)
+            .collect { snackbarHostState.showSnackbar(it) }
     }
 
     Box(Modifier.fillMaxSize().background(DesktopColors.WindowBackground)) {
@@ -96,10 +103,15 @@ fun WindowScope.MelodiaDesktopApp(windowState: WindowState, onClose: () -> Unit)
                     }
                 }
                 Pane(Modifier.width(DesktopDimens.NowPlayingWidth)) {
-                    NowPlayingPanel(playbackController)
+                    NowPlayingPanel(playbackController, playerViewModel)
                 }
             }
-            PlayerBar(playbackController)
+            val volume = mpvController?.volume?.collectAsState()?.value
+            PlayerBar(
+                controller = playbackController,
+                volume = volume,
+                onVolumeChange = { mpvController?.setVolume(it) }
+            )
         }
         SnackbarHost(snackbarHostState, Modifier.align(Alignment.BottomCenter).padding(bottom = 96.dp))
         WindowResizeHandles(enabled = !isMaximized)

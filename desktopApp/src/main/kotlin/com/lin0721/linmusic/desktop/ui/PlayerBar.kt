@@ -13,6 +13,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.VolumeDown
+import androidx.compose.material.icons.automirrored.rounded.VolumeOff
+import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Repeat
@@ -41,9 +44,15 @@ import com.lin0721.linmusic.core.player.PlayMode
 import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.desktop.ui.theme.DesktopDimens
+import kotlin.math.roundToInt
 
 @Composable
-fun PlayerBar(controller: PlaybackController, modifier: Modifier = Modifier) {
+fun PlayerBar(
+    controller: PlaybackController,
+    volume: Int?,
+    onVolumeChange: (Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
     val nowPlaying by controller.nowPlaying.collectAsState()
     val isPlaying by controller.playWhenReady.collectAsState()
     val playMode by controller.playMode.collectAsState()
@@ -99,8 +108,45 @@ fun PlayerBar(controller: PlaybackController, modifier: Modifier = Modifier) {
             }
             ProgressRow(position, duration, enabled = hasTrack && duration > 0, onSeek = controller::seekTo)
         }
-        Box(Modifier.weight(0.3f))
+        Row(Modifier.weight(0.3f), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
+            // 占位播放器没有音量能力时不显示
+            if (volume != null) VolumeControl(volume, onVolumeChange)
+        }
     }
+}
+
+@Composable
+private fun VolumeControl(volume: Int, onVolumeChange: (Int) -> Unit) {
+    // 静音前的音量，再点一次恢复
+    var lastAudible by remember { mutableStateOf(if (volume > 0) volume else 100) }
+    IconButton(onClick = {
+        if (volume > 0) {
+            lastAudible = volume
+            onVolumeChange(0)
+        } else {
+            onVolumeChange(lastAudible)
+        }
+    }) {
+        Icon(
+            when {
+                volume == 0 -> Icons.AutoMirrored.Rounded.VolumeOff
+                volume < 50 -> Icons.AutoMirrored.Rounded.VolumeDown
+                else -> Icons.AutoMirrored.Rounded.VolumeUp
+            },
+            "音量",
+            tint = DesktopColors.TextGray
+        )
+    }
+    Slider(
+        value = volume / 100f,
+        onValueChange = { onVolumeChange((it * 100).roundToInt()) },
+        colors = SliderDefaults.colors(
+            thumbColor = DesktopColors.TextPrimary,
+            activeTrackColor = DesktopColors.TextPrimary,
+            inactiveTrackColor = DesktopColors.SurfaceLight
+        ),
+        modifier = Modifier.width(120.dp).height(20.dp)
+    )
 }
 
 @Composable
