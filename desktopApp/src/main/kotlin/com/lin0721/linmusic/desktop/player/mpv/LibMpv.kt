@@ -2,6 +2,7 @@ package com.lin0721.linmusic.desktop.player.mpv
 
 import com.sun.jna.Library
 import com.sun.jna.Native
+import com.sun.jna.NativeLibrary
 import com.sun.jna.Pointer
 
 // libmpv client API 的最小 JNA 映射，签名对照 mpv/client.h
@@ -21,11 +22,19 @@ internal interface LibMpv : Library {
     fun mpv_error_string(error: Int): String?
 
     companion object {
-        fun load(): LibMpv = Native.load(
-            "libmpv-2",
-            LibMpv::class.java,
-            mapOf(Library.OPTION_STRING_ENCODING to "UTF-8")
-        )
+        private const val LIBRARY_NAME = "libmpv-2"
+
+        fun load(): LibMpv {
+            // Compose 在开发运行与安装包里都会通过该属性给出平台资源目录，DLL 放在那里
+            System.getProperty("compose.application.resources.dir")?.let {
+                NativeLibrary.addSearchPath(LIBRARY_NAME, it)
+            }
+            return Native.load(
+                LIBRARY_NAME,
+                LibMpv::class.java,
+                mapOf(Library.OPTION_STRING_ENCODING to "UTF-8")
+            )
+        }
     }
 }
 

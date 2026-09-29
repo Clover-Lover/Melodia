@@ -1,7 +1,5 @@
 package com.lin0721.linmusic.desktop
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -11,12 +9,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.graphics.painter.Painter
-import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Tray
@@ -38,6 +34,7 @@ import com.lin0721.linmusic.di.networkModule
 import com.lin0721.linmusic.di.repositoryModule
 import com.lin0721.linmusic.feature.player.ui.PlayerViewModel
 import kotlinx.coroutines.launch
+import org.jetbrains.skia.Image
 import org.koin.core.context.startKoin
 import java.awt.Dimension
 
@@ -85,10 +82,9 @@ fun main() {
             onDispose { hotkeys.stop() }
         }
 
-        val notePainter = rememberVectorPainter(Icons.Rounded.MusicNote)
-        val trayIcon = remember(notePainter) { TintedPainter(notePainter, Color.White) }
+        val appIcon = remember { loadAppIcon() }
         Tray(
-            icon = trayIcon,
+            icon = appIcon,
             tooltip = "Melodia",
             onAction = { isMainVisible = true },
             menu = {
@@ -115,6 +111,7 @@ fun main() {
             visible = isMainVisible,
             state = windowState,
             title = "Melodia",
+            icon = appIcon,
             undecorated = true
         ) {
             LaunchedEffect(Unit) {
@@ -142,11 +139,9 @@ fun main() {
     }
 }
 
-// 托盘位于深色任务栏，矢量图标默认黑色需着色
-private class TintedPainter(private val source: Painter, private val color: Color) : Painter() {
-    override val intrinsicSize: Size get() = source.intrinsicSize
-
-    override fun DrawScope.onDraw() {
-        with(source) { draw(size, colorFilter = ColorFilter.tint(color)) }
-    }
+// 窗口与托盘共用的应用图标；资源缺失时退回空白图标而不中断启动
+private fun loadAppIcon(): Painter {
+    val bytes = Thread.currentThread().contextClassLoader?.getResourceAsStream("melodia.png")?.use { it.readBytes() }
+        ?: return BitmapPainter(ImageBitmap(32, 32))
+    return BitmapPainter(Image.makeFromEncoded(bytes).toComposeImageBitmap())
 }

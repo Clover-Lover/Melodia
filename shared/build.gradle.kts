@@ -13,7 +13,12 @@ kotlin {
             jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
         }
     }
-    jvm("desktop")
+    // 与 desktopApp 一致；未指定时会跟随编译用 JDK，产出安装包内置运行时无法加载的高版本字节码
+    jvm("desktop") {
+        compilerOptions {
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+        }
+    }
 
     sourceSets {
         commonMain.dependencies {
