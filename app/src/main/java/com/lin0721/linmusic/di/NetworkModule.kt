@@ -22,6 +22,7 @@ import com.lin0721.linmusic.feature.home.data.HomeApi
 import com.lin0721.linmusic.feature.music.data.MusicApi
 import com.lin0721.linmusic.feature.podcast.data.PodcastApi
 import com.lin0721.linmusic.feature.library.data.LibraryApi
+import com.lin0721.linmusic.feature.message.data.MessageApi
 import com.lin0721.linmusic.feature.listendata.data.ListenDataApi
 import com.lin0721.linmusic.feature.newworks.data.NewWorksApi
 import com.lin0721.linmusic.feature.player.data.PlayerApi
@@ -144,6 +145,7 @@ val networkModule = module {
     // ─── 按业务域拆分的 API Service ───
     single<HomeApi> { get<Retrofit>().create(HomeApi::class.java) }
     single<MusicApi> { get<Retrofit>().create(MusicApi::class.java) }
+    single<MessageApi> { get<Retrofit>().create(MessageApi::class.java) }
     single<PodcastApi> { get<Retrofit>().create(PodcastApi::class.java) }
     single<PlaylistApi> { get<Retrofit>().create(PlaylistApi::class.java) }
     single<CreateApi> { get<Retrofit>().create(CreateApi::class.java) }

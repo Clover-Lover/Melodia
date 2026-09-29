@@ -210,7 +210,10 @@ fun MelodiaNavHost(
                 com.lin0721.linmusic.feature.cloud.ui.CloudScreen(onBack = onBack)
             }
             is Screen.Message -> {
-                com.lin0721.linmusic.feature.message.ui.MessageScreen(onBack = onBack)
+                com.lin0721.linmusic.feature.message.ui.MessageScreen(
+                    onBack = onBack,
+                    onUserClick = onNavigateToProfile
+                )
             }
             is Screen.Account -> {
                 com.lin0721.linmusic.feature.account.ui.AccountScreen(onBack = onBack)
