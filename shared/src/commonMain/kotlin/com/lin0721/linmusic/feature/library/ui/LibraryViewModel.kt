@@ -296,7 +296,7 @@ class LibraryViewModel(
                         filteredItems = (state as? LibraryUiState.Success)?.filteredItems ?: emptyList(),
                         artistCount = subcount?.artistCount ?: artists.size,
                         playlistCount = subcount?.playlistCount ?: playlists.size,
-                        albumCount = subcount?.albumCount ?: albums.size
+                        albumCount = albums.size
                     )
                 }
 
