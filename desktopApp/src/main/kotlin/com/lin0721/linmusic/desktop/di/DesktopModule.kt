@@ -9,6 +9,7 @@ import com.lin0721.linmusic.core.network.ResourceProvider
 import com.lin0721.linmusic.core.network.crypto.XeapiKeyStore
 import com.lin0721.linmusic.core.network.crypto.XeapiKeyStoreImpl
 import com.lin0721.linmusic.core.player.LyricsResolver
+import com.lin0721.linmusic.core.player.PlaybackPreferences
 import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.data.PlaybackRepository
 import com.lin0721.linmusic.core.log.AppLogger
@@ -38,8 +39,12 @@ import org.koin.dsl.module
 private const val TAG = "DesktopModule"
 
 // libmpv 缺失或加载失败时退回不出声的占位实现，保证界面仍可使用
-private fun createPlaybackController(repository: PlaybackRepository): PlaybackController = try {
-    MpvPlaybackController(repository, CoroutineScope(SupervisorJob() + Dispatchers.Main))
+private fun createPlaybackController(
+    repository: PlaybackRepository,
+    settingsPreferences: SettingsPreferences,
+    playbackPreferences: PlaybackPreferences
+): PlaybackController = try {
+    MpvPlaybackController(repository, settingsPreferences, playbackPreferences, CoroutineScope(SupervisorJob() + Dispatchers.Main))
 } catch (e: LinkageError) {
     AppLogger.e(TAG, "libmpv 加载失败，播放不可用", e)
     SilentPlaybackController()
@@ -54,6 +59,7 @@ val desktopPlatformModule = module {
     single { UserPreferences(store(PreferencesStores.USER)) }
     single { SettingsPreferences(store(PreferencesStores.SETTINGS)) }
     single { SearchHistoryPreferences(store(PreferencesStores.SEARCH_HISTORY)) }
+    single { PlaybackPreferences(store(PreferencesStores.PLAYBACK)) }
     single<XeapiKeyStore> { XeapiKeyStoreImpl(store(PreferencesStores.XEAPI_KEY)) }
     single { ContentFilter(get()) }
     single<ResourceProvider> { DesktopResourceProvider() }
@@ -61,7 +67,7 @@ val desktopPlatformModule = module {
     single<NetworkStateProvider> { NetworkStateProvider { true } }
     single<LibraryPreferences> { DesktopLibraryPreferences() }
     single<SongDownloader> { UnsupportedSongDownloader() }
-    single<PlaybackController> { createPlaybackController(get()) }
+    single<PlaybackController> { createPlaybackController(get(), get(), get()) }
     // 桌面第一版没有本地音乐，只取在线歌词
     single { LyricsResolver(get(), readLocalLyrics = { null }, localUriOf = { null }) }
 }

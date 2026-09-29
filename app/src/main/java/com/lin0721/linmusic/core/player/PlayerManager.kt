@@ -238,8 +238,8 @@ class PlayerManager(
 
         val lastTrack = stateStore.loadLastTrack()
         if (lastTrack != null && _currentTrack.value == null) {
-            setCurrentTrack(lastTrack.mediaItem)
-            progress.setPosition(lastTrack.positionMs)
+            setCurrentTrack(lastTrack.toRestoredMediaItem())
+            progress.setPosition(lastTrack.lastPositionMs)
             if (lastTrack.durationMs > 0L) {
                 progress.setDuration(lastTrack.durationMs)
             }

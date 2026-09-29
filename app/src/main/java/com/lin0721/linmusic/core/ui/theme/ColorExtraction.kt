@@ -139,7 +139,7 @@ private const val HUE_GROUP_RADIUS = 20f / 360f
 // 组内代表色偏向深色的程度，深色更适合做深色背景
 private const val DARK_PREFERENCE_POWER = 2
 
-// 最终 base 只保留色相，色度/明度统一钳到固定区间（区间取自 Spotify 实测背景色），
+// 最终 base 只保留色相，色度/明度统一钳到固定区间，
 // 避免高饱和封面过艳、低饱和封面发灰
 internal const val MIN_BASE_CHROMA = 0.15f
 private const val MAX_BASE_CHROMA = 0.30f
@@ -149,7 +149,7 @@ private const val MAX_BASE_LIGHTNESS = 0.5f
 // 中性组胜出时只带一点封面整体色调
 internal const val NEUTRAL_BASE_CHROMA = 0.06f
 
-// 规则对齐 Spotify 实测效果：面积最大的色系胜出（中性组按 NEUTRAL_WIN_RATIO 折算后与各彩色色相组比面积），
+// 面积最大的色系胜出（中性组按 NEUTRAL_WIN_RATIO 折算后与各彩色色相组比面积），
 // 胜出组里挑一个偏深的真实颜色取色相
 internal fun pickBaseColor(swatches: List<VibrantSwatch>): Color {
     val candidates = swatches.filter {

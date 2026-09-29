@@ -76,6 +76,7 @@ fun WindowScope.MelodiaDesktopApp(windowState: WindowState, onClose: () -> Unit)
             searchViewModel.toastEvent,
             playlistViewModel.toastEvent,
             categoryViewModel.toastEvent,
+            playerViewModel.toastEvent,
             playbackMessages
         )
             .collect { snackbarHostState.showSnackbar(it) }

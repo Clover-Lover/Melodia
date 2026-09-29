@@ -1,17 +1,10 @@
 package com.lin0721.linmusic.core.player
 
-import android.net.Uri
-import android.os.Bundle
-import androidx.media3.common.MediaItem
-import androidx.media3.common.MediaMetadata
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-
-// 上次退出时的曲目、进度与总时长
-data class RestoredTrack(val mediaItem: MediaItem, val positionMs: Long, val durationMs: Long = 0L)
 
 // 播放状态持久化：封装队列、播放模式与当前曲目的读写，写入统一异步执行
 class PlaybackStateStore(
@@ -25,26 +18,9 @@ class PlaybackStateStore(
 
     suspend fun loadQueueState(): QueueState = preferences.queueState.first()
 
-    // 从持久化状态重建上次播放的曲目，无历史记录时返回 null
-    suspend fun loadLastTrack(): RestoredTrack? {
-        val lastState = preferences.playbackState.first()
-        if (lastState.songId == -1L) return null
-
-        val bundle = Bundle().apply { putLong("songId", lastState.songId) }
-        val metadata = MediaMetadata.Builder()
-            .setTitle(lastState.title)
-            .setArtist(lastState.artist)
-            .setArtworkUri(lastState.coverUrl.takeIf { it.isNotBlank() }?.let { Uri.parse(it) })
-            .setExtras(bundle)
-            .build()
-
-        val mediaItem = MediaItem.Builder()
-            .setMediaId(lastState.songId.toString())
-            .setMediaMetadata(metadata)
-            .build()
-
-        return RestoredTrack(mediaItem, lastState.lastPositionMs, lastState.durationMs)
-    }
+    // 上次退出时的曲目、进度与总时长，无历史记录时返回 null
+    suspend fun loadLastTrack(): PlaybackState? =
+        preferences.playbackState.first().takeIf { it.songId != -1L }
 
     fun savePlayMode(mode: PlayMode) {
         scope.launch { preferences.savePlayMode(mode) }

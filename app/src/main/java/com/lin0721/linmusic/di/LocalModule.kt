@@ -21,7 +21,7 @@ import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
 
 val localModule = module {
-    single { PlaybackPreferences(androidContext()) }
+    single { PlaybackPreferences(PreferencesStores.get(androidContext(), PreferencesStores.PLAYBACK)) }
     single { UserPreferences(PreferencesStores.get(androidContext(), PreferencesStores.USER)) }
     single { SettingsPreferences(PreferencesStores.get(androidContext(), PreferencesStores.SETTINGS)) }
     single { ContentFilter(get()) }
