@@ -57,6 +57,17 @@ fun PlaylistPage(
     }
     val uiState by viewModel.uiState.collectAsState()
     val nowPlaying by controller.nowPlaying.collectAsState()
+    val likedSongIds by viewModel.likedSongIds.collectAsState()
+    val collectState by viewModel.collectState.collectAsState()
+    val actions = rememberTrackActions(
+        likedSongIds = likedSongIds,
+        collectState = collectState,
+        onToggleLike = viewModel::toggleLikeSong,
+        onPlayNext = viewModel::addTrackToPlayNext,
+        onPrepareCollect = viewModel::prepareCollectDialog,
+        onSaveCollect = viewModel::savePlaylistCollection,
+        onCreateAndAdd = viewModel::createPlaylistAndAddSong
+    )
 
     when (val state = uiState) {
         PlaylistUiState.Loading -> Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -108,6 +119,7 @@ fun PlaylistPage(
                         track = track,
                         isCurrent = nowPlaying?.songId == track.id,
                         onPlay = { viewModel.playSongInList(track, tracks) },
+                        actions = actions,
                         modifier = Modifier.padding(horizontal = 16.dp)
                     )
                 }

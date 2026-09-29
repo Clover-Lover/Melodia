@@ -24,6 +24,7 @@ import com.lin0721.linmusic.desktop.platform.DesktopPaths
 import com.lin0721.linmusic.desktop.platform.DesktopResourceProvider
 import com.lin0721.linmusic.desktop.platform.SilentPlaybackController
 import com.lin0721.linmusic.desktop.platform.UnsupportedSongDownloader
+import com.lin0721.linmusic.feature.artist.ui.ArtistViewModel
 import com.lin0721.linmusic.feature.home.ui.HomeViewModel
 import com.lin0721.linmusic.feature.library.data.LibraryPreferences
 import com.lin0721.linmusic.feature.library.ui.LibraryViewModel
@@ -82,4 +83,5 @@ val desktopViewModelModule = module {
     singleOf(::PlaylistCategoryViewModel)
     singleOf(::PlaylistViewModel)
     singleOf(::PlayerViewModel)
+    singleOf(::ArtistViewModel)
 }

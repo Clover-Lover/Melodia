@@ -44,8 +44,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lin0721.linmusic.core.model.Artist
 import com.lin0721.linmusic.core.player.NowPlaying
 import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.PlaybackController.Companion.CONTEXT_INTELLIGENCE
@@ -89,12 +91,34 @@ fun NowPlayingPanel(
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(top = 16.dp)
         )
-        Text(track.artist, color = DesktopColors.TextGray, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        NowPlayingArtists(track, playerViewModel, 14.sp)
         LyricPreviewCard(
             lines = detailState.lyrics,
             isLoading = detailState.isLyricsLoading,
             currentIndex = currentLyricIndex,
             modifier = Modifier.padding(top = 16.dp)
+        )
+    }
+}
+
+// 歌曲详情到达后歌手名可点击跳转，之前先展示队列里的纯文本
+@Composable
+internal fun NowPlayingArtists(track: NowPlaying, playerViewModel: PlayerViewModel, fontSize: TextUnit) {
+    val navigator = LocalDesktopNavigator.current
+    val detailState by playerViewModel.songDetailState.collectAsState()
+    val artists = detailState.artists
+        .takeIf { detailState.songDetail?.id == track.songId }
+        ?.map { Artist(id = it.artistId, name = it.artistName) }
+        .orEmpty()
+    if (artists.isEmpty()) {
+        Text(track.artist, color = DesktopColors.TextGray, fontSize = fontSize, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    } else {
+        Text(
+            artistLinks(artists, navigator.openArtist),
+            color = DesktopColors.TextGray,
+            fontSize = fontSize,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
     }
 }

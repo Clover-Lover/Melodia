@@ -48,6 +48,8 @@ fun LibrarySidebar(
     isLoggedIn: Boolean,
     onLoginClick: () -> Unit,
     onPlaylistClick: (LibraryItem) -> Unit,
+    onAlbumClick: (LibraryItem) -> Unit,
+    onArtistClick: (LibraryItem) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -100,8 +102,13 @@ fun LibrarySidebar(
             is LibraryUiState.Success -> LazyColumn(Modifier.fillMaxSize()) {
                 items(state.filteredItems, key = { it.id }) { item ->
                     LibraryRow(item) {
-                        // 歌手与专辑页在后续阶段接入
-                        if (item.type == LibraryItemType.PLAYLIST) onPlaylistClick(item)
+                        when (item.type) {
+                            LibraryItemType.PLAYLIST -> onPlaylistClick(item)
+                            LibraryItemType.ALBUM -> onAlbumClick(item)
+                            LibraryItemType.ARTIST -> onArtistClick(item)
+                            // 桌面端暂不支持 MV 播放
+                            LibraryItemType.MV -> Unit
+                        }
                     }
                 }
             }

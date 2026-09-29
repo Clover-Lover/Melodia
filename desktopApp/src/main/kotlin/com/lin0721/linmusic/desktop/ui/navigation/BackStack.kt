@@ -11,6 +11,7 @@ sealed interface DesktopRoute {
     data object Search : DesktopRoute
     data object Browse : DesktopRoute
     data class PlaylistCategory(val name: String) : DesktopRoute
+    data class Artist(val id: Long, val name: String) : DesktopRoute
 }
 
 // 浏览器式历史：新导航清空前进栈，前进/后退只在两栈间搬移

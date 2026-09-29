@@ -125,6 +125,17 @@ private fun ResultsContent(
     val selectedType by viewModel.selectedType.collectAsState()
     val results by viewModel.resultsByType.getValue(selectedType).collectAsState()
     val nowPlaying by controller.nowPlaying.collectAsState()
+    val likedSongIds by viewModel.likedSongIds.collectAsState()
+    val collectState by viewModel.collectState.collectAsState()
+    val actions = rememberTrackActions(
+        likedSongIds = likedSongIds,
+        collectState = collectState,
+        onToggleLike = viewModel::toggleLikeSong,
+        onPlayNext = viewModel::addTrackToPlayNext,
+        onPrepareCollect = viewModel::prepareCollectDialog,
+        onSaveCollect = viewModel::savePlaylistCollection,
+        onCreateAndAdd = viewModel::createPlaylistAndAddSong
+    )
 
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.padding(24.dp, 16.dp, 24.dp, 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -168,7 +179,7 @@ private fun ResultsContent(
                 }
                 LazyColumn(state = listState, contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
                     itemsIndexed(state.items) { index, item ->
-                        ResultEntry(index, item, nowPlaying?.songId, viewModel, onOpenPlaylist)
+                        ResultEntry(index, item, nowPlaying?.songId, viewModel, actions, onOpenPlaylist)
                     }
                     if (state.isLoadingMore) {
                         item { Centered { CircularProgressIndicator(color = DesktopColors.Accent) } }
@@ -185,14 +196,17 @@ private fun ResultEntry(
     item: SearchResultItem,
     currentSongId: Long?,
     viewModel: SearchViewModel,
+    actions: TrackActions,
     onOpenPlaylist: (Long, String, Boolean) -> Unit
 ) {
+    val navigator = LocalDesktopNavigator.current
     when (item) {
         is SearchResultItem.SongItem -> TrackRow(
             index = index,
             track = item.track,
             isCurrent = currentSongId == item.track.id,
-            onPlay = { viewModel.playSong(item.track) }
+            onPlay = { viewModel.playSong(item.track) },
+            actions = actions
         )
         is SearchResultItem.PlaylistItem -> CollectionEntry(
             coverUrl = item.playlist.coverImgUrl,
@@ -206,13 +220,12 @@ private fun ResultEntry(
             subtitle = "专辑",
             onClick = { onOpenPlaylist(item.album.id, item.album.name, true) }
         )
-        // 歌手页在后续阶段接入，先只展示
         is SearchResultItem.ArtistItem -> CollectionEntry(
             coverUrl = item.artist.picUrl,
             title = item.artist.name,
             subtitle = "歌手",
             circle = true,
-            onClick = null
+            onClick = { navigator.openArtist(item.artist.id, item.artist.name) }
         )
     }
 }

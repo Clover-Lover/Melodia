@@ -13,7 +13,7 @@ import com.lin0721.linmusic.core.songlike.LoadLikedSongIdsUseCase
 import com.lin0721.linmusic.core.songlike.SongLikeRepository
 import com.lin0721.linmusic.feature.artist.data.ArtistRepository
 import com.lin0721.linmusic.feature.playlist.domain.SongCollectDelegate
-import com.lin0721.linmusic.core.player.PlayerManager
+import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.QueueItem
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectState
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectItem
@@ -37,7 +37,7 @@ class ArtistViewModel(
     private val loadLikedSongIdsUseCase: LoadLikedSongIdsUseCase,
     private val artistRepository: ArtistRepository,
     private val songLikeRepository: SongLikeRepository,
-    val playerManager: PlayerManager,
+    val playerManager: PlaybackController,
     private val userPreferences: UserPreferences,
     private val resourceProvider: ResourceProvider
 ) : ViewModel() {

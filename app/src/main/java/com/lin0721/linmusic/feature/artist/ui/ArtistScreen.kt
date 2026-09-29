@@ -42,7 +42,7 @@ fun ArtistScreen(
     val likedSongIds by viewModel.likedSongIds.collectAsStateWithLifecycle()
     val collectState by viewModel.collectState.collectAsStateWithLifecycle()
     val userProfile by viewModel.userProfile.collectAsStateWithLifecycle()
-    val currentTrack by viewModel.playerManager.currentTrack.collectAsStateWithLifecycle()
+    val currentTrack by viewModel.playerManager.nowPlaying.collectAsStateWithLifecycle()
     val isPlaying by viewModel.playerManager.isPlaying.collectAsStateWithLifecycle()
 
     var showLoginSheet by remember { mutableStateOf(false) }

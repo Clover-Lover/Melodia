@@ -44,11 +44,13 @@ import com.lin0721.linmusic.core.player.PlayMode
 import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.desktop.ui.theme.DesktopDimens
+import com.lin0721.linmusic.feature.player.ui.PlayerViewModel
 import kotlin.math.roundToInt
 
 @Composable
 fun PlayerBar(
     controller: PlaybackController,
+    playerViewModel: PlayerViewModel,
     volume: Int?,
     onVolumeChange: (Int) -> Unit,
     modifier: Modifier = Modifier
@@ -70,7 +72,7 @@ fun PlayerBar(
                 Cover(track.artworkUri, 56.dp)
                 Column(Modifier.padding(start = 12.dp)) {
                     Text(track.title, color = DesktopColors.TextPrimary, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(track.artist, color = DesktopColors.TextGray, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    NowPlayingArtists(track, playerViewModel, 12.sp)
                 }
             }
         }
