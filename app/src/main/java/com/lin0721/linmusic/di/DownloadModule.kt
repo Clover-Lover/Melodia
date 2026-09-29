@@ -3,6 +3,7 @@ package com.lin0721.linmusic.di
 import com.lin0721.linmusic.core.download.DownloadNotificationHelper
 import com.lin0721.linmusic.core.download.DownloadWorkerFactory
 import com.lin0721.linmusic.core.download.SongDownloadManager
+import com.lin0721.linmusic.core.download.SongDownloader
 import com.lin0721.linmusic.core.download.data.DownloadApi
 import okhttp3.OkHttpClient
 import org.koin.core.qualifier.named
@@ -39,4 +40,5 @@ val downloadModule = module {
     }
 
     single { SongDownloadManager(context = get(), downloadPreferences = get()) }
+    single<SongDownloader> { get<SongDownloadManager>() }
 }

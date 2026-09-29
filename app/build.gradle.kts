@@ -108,6 +108,7 @@ ksp {
 }
 
 dependencies {
+    implementation(project(":shared"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
@@ -135,6 +136,7 @@ dependencies {
 
     // Image loading - Coil
     implementation(libs.coil.compose)
+    implementation(libs.coil.network.okhttp)
 
     // Media3 & Media
     implementation(libs.androidx.media3.exoplayer)
@@ -154,7 +156,7 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
-    testImplementation("org.json:json:20230227")
+    testImplementation(libs.org.json)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))

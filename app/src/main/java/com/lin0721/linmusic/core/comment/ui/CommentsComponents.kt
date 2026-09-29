@@ -54,7 +54,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
+import coil3.compose.AsyncImage
 import com.lin0721.linmusic.core.ui.components.MelodiaTextButton
 import com.lin0721.linmusic.core.ui.components.MelodiaButton
 import com.lin0721.linmusic.core.model.CommentItem
@@ -499,34 +499,6 @@ fun formatLikedCount(count: Int): String {
         count >= 1000 -> "${count / 1000}k+"
         else -> count.toString()
     }
-}
-
-sealed interface CommentsState {
-    val sortType: CommentSortType
-    val totalCount: Int?
-
-    data class Loading(
-        override val sortType: CommentSortType = CommentSortType.RECOMMEND,
-        override val totalCount: Int? = null
-    ) : CommentsState
-
-    data class Success(
-        val hotComments: List<CommentItem>,
-        val comments: List<CommentItem>,
-        val total: Int,
-        override val sortType: CommentSortType = CommentSortType.RECOMMEND,
-        val cursor: String = "0",
-        val hasMore: Boolean = false,
-        val isLoadingMore: Boolean = false
-    ) : CommentsState {
-        override val totalCount: Int get() = total
-    }
-
-    data class Error(
-        val message: String,
-        override val sortType: CommentSortType = CommentSortType.RECOMMEND,
-        override val totalCount: Int? = null
-    ) : CommentsState
 }
 
 // 单条评论扫光骨架条目

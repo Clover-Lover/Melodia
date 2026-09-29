@@ -13,16 +13,6 @@ import kotlinx.coroutines.flow.map
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 
-// 待下载歌曲信息
-data class DownloadTrackInfo(
-    val songId: Long,
-    val songName: String,
-    val artistName: String,
-    val albumName: String = "",
-    val coverUrl: String? = null,
-    val albumYear: Int = 0
-)
-
 // 下载任务快照
 data class DownloadWorkSnapshot(
     val workId: UUID,
@@ -31,19 +21,11 @@ data class DownloadWorkSnapshot(
     val state: WorkInfo.State
 )
 
-// 时间戳转年份
-fun yearFromEpochMillis(epochMillis: Long): Int {
-    if (epochMillis <= 0) return 0
-    return runCatching {
-        java.time.Instant.ofEpochMilli(epochMillis).atZone(java.time.ZoneId.systemDefault()).year
-    }.getOrDefault(0)
-}
-
 // 歌曲下载任务调度管理器
 class SongDownloadManager(
     private val context: Context,
     private val downloadPreferences: DownloadPreferences
-) {
+) : SongDownloader {
 
     companion object {
         private const val TAG_DOWNLOAD = "song_download"
@@ -55,7 +37,7 @@ class SongDownloadManager(
 
     suspend fun isDownloaded(songId: Long): Boolean = downloadPreferences.isDownloaded(songId)
 
-    fun enqueueSingle(track: DownloadTrackInfo, level: String): UUID {
+    override fun enqueueSingle(track: DownloadTrackInfo, level: String): UUID {
         val request = buildRequest(track, level)
         workManager.enqueueUniqueWork(uniqueWorkName(track.songId), ExistingWorkPolicy.REPLACE, request)
         return request.id
@@ -69,7 +51,7 @@ class SongDownloadManager(
     }
 
     // 批量下载入队
-    fun enqueueBatch(tracks: List<DownloadTrackInfo>, level: String, batchTag: String, batchLabel: String): List<UUID> =
+    override fun enqueueBatch(tracks: List<DownloadTrackInfo>, level: String, batchTag: String, batchLabel: String): List<UUID> =
         tracks.map { track ->
             val request = buildRequest(track, level, batchTag = batchTag, batchLabel = batchLabel)
             workManager.enqueueUniqueWork(uniqueWorkName(track.songId), ExistingWorkPolicy.REPLACE, request)

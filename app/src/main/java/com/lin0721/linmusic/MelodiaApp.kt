@@ -79,6 +79,7 @@ import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.haze
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
+import com.lin0721.linmusic.core.player.PlayerManager
 import com.lin0721.linmusic.core.ui.theme.LocalMelodiaWindowSizeClass
 import com.lin0721.linmusic.core.ui.theme.MelodiaWindowSizeClass
 import com.lin0721.linmusic.core.ui.theme.rememberMelodiaWindowSizeClass
@@ -116,7 +117,9 @@ fun MelodiaApp() {
     val viewModel: HomeViewModel = koinViewModel()
     val settingsPreferences: SettingsPreferences = koinInject()
     val showCreateEntry by settingsPreferences.showCreateEntry.collectAsStateWithLifecycle(initialValue = true)
-    val currentTrack by viewModel.playerManager.currentTrack.collectAsStateWithLifecycle()
+    // 迷你条、面板等 Android 组件直接消费 Media3 MediaItem，取具体实现
+    val playerManager: PlayerManager = koinInject()
+    val currentTrack by playerManager.currentTrack.collectAsStateWithLifecycle()
     val previousQueueItem by viewModel.playerManager.previousQueueItem.collectAsStateWithLifecycle()
     val nextQueueItem by viewModel.playerManager.nextQueueItem.collectAsStateWithLifecycle()
     val isPlaying by viewModel.playerManager.isPlaying.collectAsStateWithLifecycle()
