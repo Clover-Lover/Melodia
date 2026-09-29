@@ -22,7 +22,7 @@ interface LibraryApi {
     ): AlbumSublistResponse
 
     // 获取用户各分类收藏数
-    @POST("/eapi/user/subcount")
+    @POST("/weapi/subcount")
     suspend fun getUserSubcount(
         @Body body: EmptyBody = EmptyBody()
     ): UserSubcountResponse
@@ -79,15 +79,16 @@ data class AlbumSubItem(
     val subTime: Long = 0
 )
 
+// 服务端不返回专辑收藏数，专辑计数需取收藏专辑列表长度
 @Serializable
 data class UserSubcountResponse(
     val code: Int = 0,
     val artistCount: Int = 0,
-    val playlistCount: Int = 0,
     val mvCount: Int = 0,
-    val createPlaylistCount: Int = 0,
-    val subPlaylistCount: Int = 0,
-    val albumCount: Int = 0
+    val createdPlaylistCount: Int = 0,
+    val subPlaylistCount: Int = 0
 ) {
     val isSuccess: Boolean get() = code == 200
+
+    val playlistCount: Int get() = createdPlaylistCount + subPlaylistCount
 }
