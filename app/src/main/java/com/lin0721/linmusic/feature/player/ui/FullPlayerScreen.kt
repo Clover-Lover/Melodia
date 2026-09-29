@@ -242,6 +242,11 @@ fun FullPlayerScreen(
     }
 
     fun shareCurrentSong() {
+        // 未匹配云端的本地歌曲只有负数占位 id，拼出的链接无效
+        if (songDetailState.isLocalOnly) {
+            ToastManager.showToast("本地歌曲未匹配到云端信息，暂不支持分享")
+            return
+        }
         val shareText = "《$title》- $artist https://music.163.com/song?id=${currentTrack.mediaId}"
         val intent = Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"
@@ -382,7 +387,7 @@ fun FullPlayerScreen(
 
         // 竖排列表：手机、侧栏与竖屏全屏。横屏铺开时贴右固定不动、随进度淡出，让位给宽屏两栏
         if (showColumnLayout) {
-            Box(
+            BoxWithConstraints(
                 modifier = Modifier
                     .fillMaxSize()
                     .graphicsLayer {
@@ -394,15 +399,24 @@ fun FullPlayerScreen(
                         alpha = crossfade * columnReflowAlpha.value
                     }
             ) {
+                // 列宽用左右内边距留出而不是收窄 LazyColumn 本身，否则两侧空白区不在可滚动范围内，
+                // 手指落在那里既滚不动列表也触发不了下拉收起
+                val columnMaxWidth = if (isColumnFullscreenWidth) fullscreenColumnMaxWidth else contentMaxWidth
+                val sideSpace = if (columnMaxWidth.isSpecified) {
+                    (maxWidth - columnMaxWidth).coerceAtLeast(0.dp)
+                } else {
+                    0.dp
+                }
+                val startInset = if (canUseWideLayout) sideSpace else sideSpace / 2
+                val endInset = if (canUseWideLayout) 0.dp else sideSpace / 2
                 LazyColumn(
                     state = listState,
                     modifier = Modifier
-                        .align(if (canUseWideLayout) Alignment.TopEnd else Alignment.TopCenter)
-                        .fillMaxHeight()
-                        .widthIn(max = if (isColumnFullscreenWidth) fullscreenColumnMaxWidth else contentMaxWidth)
-                        .fillMaxWidth()
+                        .fillMaxSize()
                         .haze(hazeState),
                     contentPadding = PaddingValues(
+                        start = startInset,
+                        end = endInset,
                         top = melodiaStatusBarTopPadding(),
                         bottom = (if (allCardsHidden) MelodiaSpacing.md else 80.dp) + melodiaNavigationBarBottomPadding()
                     )

@@ -56,6 +56,8 @@ fun SongMoreOptionsSheet(
     isLiked: Boolean,
     sleepTimerRemaining: Long,
     currentQuality: String,
+    // 本地歌曲未匹配到云端：没有网易 songId，依赖云端数据的操作全部隐藏
+    isLocalOnly: Boolean,
     onToggleLike: () -> Unit,
     onAlbumClick: () -> Unit,
     onArtistClick: () -> Unit,
@@ -145,7 +147,17 @@ fun SongMoreOptionsSheet(
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = MelodiaSpacing.sm)
             )
 
-            // 1. 专辑信息项
+            if (isLocalOnly) {
+                Text(
+                    text = "本地歌曲未匹配到云端信息，仅支持部分操作",
+                    color = TextGray,
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)
+                )
+            }
+
+            if (!isLocalOnly) {
+                // 1. 专辑信息项
                 OptionRow(
                     icon = Icons.Rounded.Album,
                     text = "专辑: $albumName",
@@ -184,8 +196,11 @@ fun SongMoreOptionsSheet(
                         }
                     }
                 )
+            }
 
-                // 4. 心动模式：开=以当前歌曲为种子开启，关=恢复开启前的队列
+            // 4. 心动模式：开=以当前歌曲为种子开启，关=恢复开启前的队列
+            // 本地歌曲无法作为种子开启，但已处于心动模式时仍保留关闭入口
+            if (!isLocalOnly || isIntelligence) {
                 OptionRow(
                     icon = Icons.Rounded.AutoAwesome,
                     text = if (isIntelligence) "关闭心动模式" else "打开心动模式",
@@ -197,7 +212,9 @@ fun SongMoreOptionsSheet(
                         }
                     }
                 )
+            }
 
+            if (!isLocalOnly) {
                 // 5. 开始相似歌曲漫游
                 OptionRow(
                     icon = Icons.Rounded.Explore,
@@ -358,7 +375,7 @@ fun SongMoreOptionsSheet(
                         }
                     }
                 }
-
+            }
 
                 // 9. 定时关闭
                 val timerText = if (sleepTimerRemaining > 0L) {

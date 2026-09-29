@@ -86,6 +86,7 @@ fun FullPlayerSheets(
             isLiked = songState.isLiked,
             sleepTimerRemaining = sleepTimerRemaining,
             currentQuality = activeQuality,
+            isLocalOnly = songState.isLocalOnly,
             onToggleLike = onToggleLike,
             onAlbumClick = onAlbumClick,
             onArtistClick = onArtistClick,
