@@ -41,9 +41,9 @@ fun parseNotice(dto: MessageNoticeDto): NoticeItem {
     val root = parseObject(dto.notice) ?: return unsupported
     val rootUser = parseUser(root.obj("user")) ?: return unsupported
     return when (root.int("type")) {
-        NOTICE_TYPE_COMMENT -> parseCommentNotice(dto, root, rootUser) ?: unsupported
-        NOTICE_TYPE_TRACK -> parseTrackNotice(dto, root, rootUser) ?: unsupported
-        NOTICE_TYPE_PLAYLIST -> parsePlaylistNotice(dto, root, rootUser) ?: unsupported
+        NOTICE_TYPE_COMMENT -> parseCommentLikeNotice(dto, root, rootUser) ?: unsupported
+        NOTICE_TYPE_TRACK -> parseEventLikeNotice(dto, root, rootUser) ?: unsupported
+        NOTICE_TYPE_PLAYLIST -> parsePlaylistCollectedNotice(dto, root, rootUser) ?: unsupported
         else -> unsupported
     }
 }
@@ -59,31 +59,31 @@ fun parseForward(key: Long, obj: JsonObject): ForwardMessage {
     )
 }
 
-private fun parseCommentNotice(dto: MessageNoticeDto, root: JsonObject, rootUser: MessageUser): NoticeItem? {
+// 样本核实：comment 是"我的评论"（comment.user 恒为我自己），外层 user 才是发起动作的人
+private fun parseCommentLikeNotice(dto: MessageNoticeDto, root: JsonObject, rootUser: MessageUser): NoticeItem? {
     val comment = root.obj("comment") ?: return null
-    return NoticeItem.Comment(
+    return NoticeItem.CommentLike(
         id = dto.id,
         time = dto.time,
-        user = parseUser(comment.obj("user")) ?: rootUser,
-        content = comment.string("content").orEmpty(),
-        isReply = comment.obj("beRepliedUser") != null,
+        user = rootUser,
+        commentContent = comment.string("content").orEmpty(),
         songId = comment.string("threadId")?.let(::parseSongIdFromThreadId)
     )
 }
 
-private fun parseTrackNotice(dto: MessageNoticeDto, root: JsonObject, rootUser: MessageUser): NoticeItem? {
+private fun parseEventLikeNotice(dto: MessageNoticeDto, root: JsonObject, rootUser: MessageUser): NoticeItem? {
     val track = root.obj("track") ?: return null
     val inner = parseObject(track.string("json"))
     val songName = inner?.obj("song")?.string("name")?.takeIf { it.isNotBlank() }
     val text = inner?.string("msg")?.let(::cleanDisplayText)?.takeIf { it.isNotEmpty() }
         ?: songName?.let { "分享单曲《$it》" }
         .orEmpty()
-    return NoticeItem.TrackPost(dto.id, dto.time, rootUser, text)
+    return NoticeItem.EventLike(dto.id, dto.time, rootUser, text)
 }
 
-private fun parsePlaylistNotice(dto: MessageNoticeDto, root: JsonObject, rootUser: MessageUser): NoticeItem? {
+private fun parsePlaylistCollectedNotice(dto: MessageNoticeDto, root: JsonObject, rootUser: MessageUser): NoticeItem? {
     val playlist = root.obj("playlist") ?: return null
-    return NoticeItem.PlaylistUpdate(
+    return NoticeItem.PlaylistCollected(
         id = dto.id,
         time = dto.time,
         user = rootUser,

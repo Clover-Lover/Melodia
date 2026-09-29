@@ -122,7 +122,7 @@ class MessageViewModel(
 
     // 通知里的评论只带 threadId，歌名逐首补查；失败不重试，界面退化为不显示歌名
     private fun resolveSongNames(items: List<NoticeItem>) {
-        val pending = items.filterIsInstance<NoticeItem.Comment>()
+        val pending = items.filterIsInstance<NoticeItem.CommentLike>()
             .mapNotNull { it.songId }
             .distinct()
             .filter { requestedSongIds.add(it) }

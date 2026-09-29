@@ -25,40 +25,38 @@ class MessageParsersTest {
     }
 
     @Test
-    fun `回复类评论通知解析出用户、内容与歌曲id`() {
+    fun `评论类通知的发起人取外层user，评论内容与歌曲id来自我的评论`() {
         val item = parseNotice(
             notice(
                 body = """
                 {"type":6,"user":{"userId":11,"nickname":"甲","avatarUrl":"http://a/1.jpg"},
-                 "comment":{"user":{"userId":22,"nickname":"乙","avatarUrl":"http://a/2.jpg"},
-                  "beRepliedUser":{"userId":33},"content":"回复内容","threadId":"R_SO_4_555","resourceType":4}}
+                 "comment":{"user":{"userId":22,"nickname":"我","avatarUrl":"http://a/2.jpg"},
+                  "beRepliedUser":{"userId":33},"content":"我的评论","threadId":"R_SO_4_555","resourceType":4}}
                 """.trimIndent()
             )
         )
 
-        item as NoticeItem.Comment
-        assertEquals(22L, item.user.uid)
-        assertEquals("乙", item.user.nickname)
-        assertEquals("回复内容", item.content)
-        assertTrue(item.isReply)
+        item as NoticeItem.CommentLike
+        assertEquals(11L, item.user.uid)
+        assertEquals("甲", item.user.nickname)
+        assertEquals("我的评论", item.commentContent)
         assertEquals(555L, item.songId)
         assertEquals(1000L, item.time)
     }
 
     @Test
-    fun `非回复且非单曲的评论通知不带歌曲id，评论用户缺失时回落到外层用户`() {
+    fun `非单曲的评论通知不带歌曲id`() {
         val item = parseNotice(
             notice(
                 body = """
                 {"type":6,"user":{"userId":11,"nickname":"甲"},
-                 "comment":{"beRepliedUser":null,"content":"内容","threadId":"A_PL_9_1"}}
+                 "comment":{"content":"内容","threadId":"A_PL_9_1"}}
                 """.trimIndent()
             )
         )
 
-        item as NoticeItem.Comment
+        item as NoticeItem.CommentLike
         assertEquals(11L, item.user.uid)
-        assertTrue(!item.isReply)
         assertNull(item.songId)
     }
 
@@ -66,37 +64,37 @@ class MessageParsersTest {
     fun `动态通知优先取msg，缺失时用歌曲名兜底，都没有则文案为空`() {
         val withMsg = parseNotice(
             notice(body = """{"type":1,"user":{"userId":1},"track":{"json":"{\"msg\":\"新歌来了\",\"song\":{\"name\":\"某歌\"}}"}}""")
-        ) as NoticeItem.TrackPost
+        ) as NoticeItem.EventLike
         val withSong = parseNotice(
             notice(body = """{"type":1,"user":{"userId":1},"track":{"json":"{\"msg\":\"\",\"song\":{\"name\":\"某歌\"}}"}}""")
-        ) as NoticeItem.TrackPost
+        ) as NoticeItem.EventLike
         val empty = parseNotice(
             notice(body = """{"type":1,"user":{"userId":1},"track":{"json":"not json"}}""")
-        ) as NoticeItem.TrackPost
+        ) as NoticeItem.EventLike
 
-        assertEquals("新歌来了", withMsg.text)
-        assertEquals("分享单曲《某歌》", withSong.text)
-        assertEquals("", empty.text)
+        assertEquals("新歌来了", withMsg.eventText)
+        assertEquals("分享单曲《某歌》", withSong.eventText)
+        assertEquals("", empty.eventText)
     }
 
     @Test
     fun `动态文案开头的零宽字符与换行被清除，全是零宽字符时按无文案处理`() {
         val leading = parseNotice(
             notice(body = """{"type":1,"user":{"userId":1},"track":{"json":"{\"msg\":\"\\u200b\\n正文\\n\"}"}}""")
-        ) as NoticeItem.TrackPost
+        ) as NoticeItem.EventLike
         val onlyZeroWidth = parseNotice(
             notice(body = """{"type":1,"user":{"userId":1},"track":{"json":"{\"msg\":\"\\u200b\\n\"}"}}""")
-        ) as NoticeItem.TrackPost
+        ) as NoticeItem.EventLike
 
-        assertEquals("正文", leading.text)
-        assertEquals("", onlyZeroWidth.text)
+        assertEquals("正文", leading.eventText)
+        assertEquals("", onlyZeroWidth.eventText)
     }
 
     @Test
     fun `歌单更新通知解析名称与曲目数`() {
         val item = parseNotice(
             notice(body = """{"type":2,"user":{"userId":7,"nickname":"丙"},"playlist":{"name":"我的歌单","trackCount":18}}""")
-        ) as NoticeItem.PlaylistUpdate
+        ) as NoticeItem.PlaylistCollected
 
         assertEquals("我的歌单", item.playlistName)
         assertEquals(18, item.trackCount)

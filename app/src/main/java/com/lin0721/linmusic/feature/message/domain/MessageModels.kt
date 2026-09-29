@@ -37,25 +37,26 @@ sealed interface NoticeItem {
     val id: Long
     val time: Long
 
-    // songId 来自 threadId，仅单曲评论可解析；歌名由 ViewModel 补查
-    data class Comment(
+    // 别人对我的评论有了动作（推断为点赞）；user 是发起人，commentContent 是我的评论原文，
+    // songId 来自 threadId，仅单曲评论可解析，歌名由 ViewModel 补查
+    data class CommentLike(
         override val id: Long,
         override val time: Long,
         val user: MessageUser,
-        val content: String,
-        val isReply: Boolean,
+        val commentContent: String,
         val songId: Long?
     ) : NoticeItem
 
-    // 关注对象发布的动态，只保留文案摘要
-    data class TrackPost(
+    // 别人赞了我的动态（样本核实：track.user 恒为我自己，发起人是外层 user）；eventText 是我的动态文案
+    data class EventLike(
         override val id: Long,
         override val time: Long,
         val user: MessageUser,
-        val text: String
+        val eventText: String
     ) : NoticeItem
 
-    data class PlaylistUpdate(
+    // 我的歌单被别人操作（推断为收藏：playlist.userId 恒为我自己，发起人是外层 user）
+    data class PlaylistCollected(
         override val id: Long,
         override val time: Long,
         val user: MessageUser,

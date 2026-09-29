@@ -169,28 +169,28 @@ fun NoticeRow(
     onUserClick: (Long) -> Unit
 ) {
     when (item) {
-        is NoticeItem.Comment -> MessageRowFrame(
+        is NoticeItem.CommentLike -> MessageRowFrame(
             user = item.user,
-            action = if (item.isReply) "回复了你的评论" else "评论了你",
+            action = "赞了你的评论",
             time = item.time,
             onUserClick = onUserClick
         ) {
-            MessageContentText(item.content)
+            if (item.commentContent.isNotBlank()) MessageQuote(item.commentContent.trim())
             item.songId?.let { songNames[it] }?.let { MessageSubText("《$it》") }
         }
 
-        is NoticeItem.TrackPost -> MessageRowFrame(
+        is NoticeItem.EventLike -> MessageRowFrame(
             user = item.user,
-            action = "发布了动态",
+            action = "赞了你的动态",
             time = item.time,
             onUserClick = onUserClick
         ) {
-            MessageContentText(item.text)
+            if (item.eventText.isNotBlank()) MessageQuote(item.eventText.trim())
         }
 
-        is NoticeItem.PlaylistUpdate -> MessageRowFrame(
+        is NoticeItem.PlaylistCollected -> MessageRowFrame(
             user = item.user,
-            action = "更新了歌单",
+            action = "收藏了你的歌单",
             time = item.time,
             onUserClick = onUserClick
         ) {
