@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -24,9 +23,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.WindowScope
 import androidx.compose.ui.window.WindowState
@@ -39,6 +36,10 @@ import com.lin0721.linmusic.desktop.ui.theme.DesktopDimens
 import com.lin0721.linmusic.feature.home.ui.HomeViewModel
 import com.lin0721.linmusic.feature.library.ui.LibraryViewModel
 import com.lin0721.linmusic.feature.player.ui.PlayerViewModel
+import com.lin0721.linmusic.feature.playlist.ui.PlaylistViewModel
+import com.lin0721.linmusic.feature.search.ui.DiscoveryUiState
+import com.lin0721.linmusic.feature.search.ui.PlaylistCategoryViewModel
+import com.lin0721.linmusic.feature.search.ui.SearchViewModel
 import com.lin0721.linmusic.desktop.player.MpvPlaybackController
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.merge
@@ -52,6 +53,9 @@ fun WindowScope.MelodiaDesktopApp(windowState: WindowState, onClose: () -> Unit)
     val loginViewModel = remember { koin.get<LoginViewModel>() }
     val playbackController = remember { koin.get<PlaybackController>() }
     val playerViewModel = remember { koin.get<PlayerViewModel>() }
+    val searchViewModel = remember { koin.get<SearchViewModel>() }
+    val playlistViewModel = remember { koin.get<PlaylistViewModel>() }
+    val categoryViewModel = remember { koin.get<PlaylistCategoryViewModel>() }
     val mpvController = playbackController as? MpvPlaybackController
 
     val backStack = remember { BackStack(DesktopRoute.Home) }
@@ -59,10 +63,21 @@ fun WindowScope.MelodiaDesktopApp(windowState: WindowState, onClose: () -> Unit)
     var showLogin by rememberSaveable { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val isMaximized = windowState.placement == WindowPlacement.Maximized
+    val searchInput by searchViewModel.inputState.collectAsState()
+    val discovery by searchViewModel.discoveryState.collectAsState()
+    val defaultKeyword = (discovery as? DiscoveryUiState.Success)?.defaultKeyword.orEmpty()
+    val openSearch = { backStack.navigate(DesktopRoute.Search) }
 
     LaunchedEffect(Unit) {
         val playbackMessages = mpvController?.messages ?: emptyFlow()
-        merge(homeViewModel.toastEvent, libraryViewModel.toastEvent, playbackMessages)
+        merge(
+            homeViewModel.toastEvent,
+            libraryViewModel.toastEvent,
+            searchViewModel.toastEvent,
+            playlistViewModel.toastEvent,
+            categoryViewModel.toastEvent,
+            playbackMessages
+        )
             .collect { snackbarHostState.showSnackbar(it) }
     }
 
@@ -72,6 +87,21 @@ fun WindowScope.MelodiaDesktopApp(windowState: WindowState, onClose: () -> Unit)
                 backStack = backStack,
                 isMaximized = isMaximized,
                 userProfile = userProfile,
+                searchQuery = searchInput.query,
+                searchPlaceholder = defaultKeyword.ifBlank { "想播放什么？" },
+                onSearchQueryChange = { query ->
+                    openSearch()
+                    // 发现态下开始输入才切到输入态，聚焦本身不切换，保证热搜榜可见
+                    searchViewModel.activateSearch()
+                    searchViewModel.updateQuery(query)
+                },
+                onSearchFocused = openSearch,
+                onSearchSubmit = {
+                    openSearch()
+                    searchViewModel.searchWithKeyword(searchInput.query.ifBlank { defaultKeyword })
+                },
+                isBrowseActive = backStack.current == DesktopRoute.Browse,
+                onBrowseClick = { backStack.navigate(DesktopRoute.Browse) },
                 onAvatarClick = { if (userProfile == null) showLogin = true },
                 onMinimize = { windowState.isMinimized = true },
                 onToggleMaximize = {
@@ -99,7 +129,32 @@ fun WindowScope.MelodiaDesktopApp(windowState: WindowState, onClose: () -> Unit)
                             viewModel = homeViewModel,
                             onPlaylistClick = { id, title -> backStack.navigate(DesktopRoute.Playlist(id, title)) }
                         )
-                        is DesktopRoute.Playlist -> PendingPage(route.title)
+                        is DesktopRoute.Playlist -> PlaylistPage(
+                            playlistId = route.id,
+                            isAlbum = route.isAlbum,
+                            viewModel = playlistViewModel,
+                            controller = playbackController
+                        )
+                        DesktopRoute.Browse -> BrowsePage(
+                            viewModel = searchViewModel,
+                            onHotSearchClick = { keyword ->
+                                backStack.navigate(DesktopRoute.Search)
+                                searchViewModel.searchWithKeyword(keyword)
+                            },
+                            onCategoryClick = { backStack.navigate(DesktopRoute.PlaylistCategory(it)) }
+                        )
+                        is DesktopRoute.PlaylistCategory -> PlaylistCategoryPage(
+                            category = route.name,
+                            viewModel = categoryViewModel,
+                            onPlaylistClick = { id, title -> backStack.navigate(DesktopRoute.Playlist(id, title)) }
+                        )
+                        DesktopRoute.Search -> SearchPage(
+                            viewModel = searchViewModel,
+                            controller = playbackController,
+                            onOpenPlaylist = { id, title, isAlbum ->
+                                backStack.navigate(DesktopRoute.Playlist(id, title, isAlbum))
+                            }
+                        )
                     }
                 }
                 Pane(Modifier.width(DesktopDimens.NowPlayingWidth)) {
@@ -135,14 +190,5 @@ private fun Pane(modifier: Modifier, content: @Composable () -> Unit) {
         modifier.fillMaxHeight().clip(RoundedCornerShape(DesktopDimens.PaneRadius)).background(DesktopColors.Pane)
     ) {
         content()
-    }
-}
-
-// 歌单页在 4b 接入，4a 仅验证导航与前进后退
-@Composable
-private fun PendingPage(title: String) {
-    Column(Modifier.fillMaxSize().padding(32.dp)) {
-        Text(title, color = DesktopColors.TextPrimary, fontSize = 28.sp, fontWeight = FontWeight.Bold)
-        Text("歌单详情将在下一步接入", color = DesktopColors.TextGray, fontSize = 14.sp, modifier = Modifier.padding(top = 8.dp))
     }
 }

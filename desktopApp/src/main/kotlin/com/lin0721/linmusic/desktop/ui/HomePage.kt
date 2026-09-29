@@ -40,7 +40,7 @@ import com.lin0721.linmusic.feature.home.ui.HomeFeedData
 import com.lin0721.linmusic.feature.home.ui.HomeUiState
 import com.lin0721.linmusic.feature.home.ui.HomeViewModel
 
-private val CardWidth = 168.dp
+internal val CardWidth = 168.dp
 
 // 距离底部还剩几项时提前拉下一页货架
 private const val LOAD_MORE_THRESHOLD = 2
@@ -206,7 +206,7 @@ private fun <T> ShelfRow(title: String, items: List<T>, itemContent: @Composable
 }
 
 @Composable
-private fun CardTile(coverUrl: String, title: String, caption: String, onClick: () -> Unit) {
+internal fun CardTile(coverUrl: String, title: String, caption: String, onClick: () -> Unit) {
     Column(
         Modifier.width(CardWidth).clip(RoundedCornerShape(6.dp)).clickable(onClick = onClick)
     ) {

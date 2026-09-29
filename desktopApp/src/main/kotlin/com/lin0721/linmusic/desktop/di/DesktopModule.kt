@@ -30,6 +30,7 @@ import com.lin0721.linmusic.feature.player.ui.PlayerViewModel
 import com.lin0721.linmusic.feature.playlist.ui.PlaylistViewModel
 import com.lin0721.linmusic.feature.profile.ui.ProfileViewModel
 import com.lin0721.linmusic.feature.search.data.SearchHistoryPreferences
+import com.lin0721.linmusic.feature.search.ui.PlaylistCategoryViewModel
 import com.lin0721.linmusic.feature.search.ui.SearchViewModel
 import org.koin.core.module.dsl.singleOf
 import org.koin.dsl.module
@@ -72,6 +73,7 @@ val desktopViewModelModule = module {
     singleOf(::LibraryViewModel)
     singleOf(::ProfileViewModel)
     singleOf(::SearchViewModel)
+    singleOf(::PlaylistCategoryViewModel)
     singleOf(::PlaylistViewModel)
     singleOf(::PlayerViewModel)
 }

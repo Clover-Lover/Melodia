@@ -7,7 +7,10 @@ import androidx.compose.runtime.derivedStateOf
 
 sealed interface DesktopRoute {
     data object Home : DesktopRoute
-    data class Playlist(val id: Long, val title: String) : DesktopRoute
+    data class Playlist(val id: Long, val title: String, val isAlbum: Boolean = false) : DesktopRoute
+    data object Search : DesktopRoute
+    data object Browse : DesktopRoute
+    data class PlaylistCategory(val name: String) : DesktopRoute
 }
 
 // 浏览器式历史：新导航清空前进栈，前进/后退只在两栈间搬移

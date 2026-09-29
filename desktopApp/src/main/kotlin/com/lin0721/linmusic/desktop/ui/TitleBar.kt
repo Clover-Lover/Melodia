@@ -1,6 +1,8 @@
 package com.lin0721.linmusic.desktop.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.TooltipArea
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -16,10 +18,20 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.window.WindowDraggableArea
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBackIos
 import androidx.compose.material.icons.automirrored.rounded.ArrowForwardIos
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Explore
 import androidx.compose.material.icons.rounded.CropSquare
 import androidx.compose.material.icons.rounded.FilterNone
 import androidx.compose.material.icons.rounded.Home
@@ -60,6 +72,13 @@ fun WindowScope.TitleBar(
     backStack: BackStack,
     isMaximized: Boolean,
     userProfile: UserProfile?,
+    searchQuery: String,
+    searchPlaceholder: String,
+    onSearchQueryChange: (String) -> Unit,
+    onSearchFocused: () -> Unit,
+    onSearchSubmit: () -> Unit,
+    isBrowseActive: Boolean,
+    onBrowseClick: () -> Unit,
     onAvatarClick: () -> Unit,
     onMinimize: () -> Unit,
     onToggleMaximize: () -> Unit,
@@ -94,16 +113,15 @@ fun WindowScope.TitleBar(
             ) {
                 Icon(Icons.Rounded.Home, "首页", tint = DesktopColors.TextPrimary)
             }
-            // 搜索页在 4b 接入，此处先保留入口外观
-            Row(
-                Modifier.width(420.dp).height(44.dp).clip(RoundedCornerShape(22.dp))
-                    .background(DesktopColors.Surface).padding(horizontal = 14.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(Icons.Rounded.Search, null, tint = DesktopColors.TextGray)
-                Spacer(Modifier.width(10.dp))
-                Text("想播放什么？", color = DesktopColors.TextGray, fontSize = 14.sp)
-            }
+            SearchBox(
+                query = searchQuery,
+                placeholder = searchPlaceholder,
+                onQueryChange = onSearchQueryChange,
+                onFocused = onSearchFocused,
+                onSubmit = onSearchSubmit,
+                isBrowseActive = isBrowseActive,
+                onBrowseClick = onBrowseClick
+            )
         }
         Row(Modifier.align(Alignment.CenterEnd).fillMaxHeight(), verticalAlignment = Alignment.CenterVertically) {
             Box(
@@ -124,6 +142,77 @@ fun WindowScope.TitleBar(
                 onClick = onToggleMaximize
             )
             WindowButton(Icons.Rounded.Close, "关闭", hoverColor = CloseHover, onClick = onClose)
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun SearchBox(
+    query: String,
+    placeholder: String,
+    onQueryChange: (String) -> Unit,
+    onFocused: () -> Unit,
+    onSubmit: () -> Unit,
+    isBrowseActive: Boolean,
+    onBrowseClick: () -> Unit
+) {
+    Row(
+        Modifier.width(420.dp).height(44.dp).clip(RoundedCornerShape(22.dp))
+            .background(DesktopColors.Surface).padding(horizontal = 14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(Icons.Rounded.Search, null, tint = DesktopColors.TextGray)
+        Spacer(Modifier.width(10.dp))
+        Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+            if (query.isEmpty()) {
+                Text(placeholder, color = DesktopColors.TextGray, fontSize = 14.sp, maxLines = 1)
+            }
+            BasicTextField(
+                value = query,
+                onValueChange = onQueryChange,
+                singleLine = true,
+                textStyle = TextStyle(color = DesktopColors.TextPrimary, fontSize = 14.sp),
+                cursorBrush = SolidColor(DesktopColors.TextPrimary),
+                modifier = Modifier.fillMaxWidth()
+                    .onFocusChanged { if (it.isFocused) onFocused() }
+                    .onPreviewKeyEvent { event ->
+                        if (event.type == KeyEventType.KeyDown && event.key == Key.Enter) {
+                            onSubmit()
+                            true
+                        } else {
+                            false
+                        }
+                    }
+            )
+        }
+        if (query.isNotEmpty()) {
+            Icon(
+                Icons.Rounded.Close,
+                "清空",
+                tint = DesktopColors.TextGray,
+                modifier = Modifier.size(18.dp).clickable { onQueryChange("") }
+            )
+        }
+        Box(Modifier.padding(horizontal = 10.dp).width(1.dp).height(24.dp).background(DesktopColors.SurfaceLight))
+        TooltipArea(
+            tooltip = {
+                Text(
+                    "浏览",
+                    color = DesktopColors.TextPrimary,
+                    fontSize = 12.sp,
+                    modifier = Modifier.clip(RoundedCornerShape(4.dp)).background(DesktopColors.SurfaceLight)
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                )
+            },
+            delayMillis = 400
+        ) {
+            Icon(
+                Icons.Rounded.Explore,
+                "浏览",
+                tint = if (isBrowseActive) DesktopColors.TextPrimary else DesktopColors.TextGray,
+                modifier = Modifier.size(22.dp).clickable(onClick = onBrowseClick)
+            )
         }
     }
 }

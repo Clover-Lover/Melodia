@@ -1,0 +1,281 @@
+package com.lin0721.linmusic.desktop.ui
+
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.lin0721.linmusic.core.player.PlaybackController
+import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
+import com.lin0721.linmusic.feature.search.domain.SearchResultItem
+import com.lin0721.linmusic.feature.search.domain.SearchSuggestion
+import com.lin0721.linmusic.feature.search.domain.SearchType
+import com.lin0721.linmusic.feature.search.ui.SearchMode
+import com.lin0721.linmusic.feature.search.ui.SearchResultsUiState
+import com.lin0721.linmusic.feature.search.ui.SearchViewModel
+
+private const val RESULT_LOAD_MORE_THRESHOLD = 5
+
+@Composable
+fun SearchPage(
+    viewModel: SearchViewModel,
+    controller: PlaybackController,
+    onOpenPlaylist: (id: Long, title: String, isAlbum: Boolean) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val mode by viewModel.mode.collectAsState()
+    val input by viewModel.inputState.collectAsState()
+    Box(modifier.fillMaxSize()) {
+        when {
+            mode == SearchMode.Results -> ResultsContent(viewModel, controller, onOpenPlaylist)
+            input.query.isBlank() -> RecentContent(viewModel)
+            else -> SuggestionContent(viewModel)
+        }
+    }
+}
+
+// 热搜与歌单分类在浏览页，这里只列最近搜索
+@Composable
+private fun RecentContent(viewModel: SearchViewModel) {
+    val history by viewModel.history.collectAsState()
+    LazyColumn(contentPadding = PaddingValues(24.dp)) {
+        if (history.isEmpty()) {
+            item { Text("输入关键词后按回车搜索", color = DesktopColors.TextGray) }
+            return@LazyColumn
+        }
+        item {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                SectionHeader("最近搜索", Modifier.weight(1f))
+                TextButton(onClick = viewModel::clearHistory) {
+                    Text("清空", color = DesktopColors.TextGray)
+                }
+            }
+        }
+        items(history) { keyword ->
+            ListEntry(Icons.Rounded.History, keyword, onClick = { viewModel.searchWithKeyword(keyword) }) {
+                Icon(
+                    Icons.Rounded.Close,
+                    "删除",
+                    tint = DesktopColors.TextGray,
+                    modifier = Modifier.clickable { viewModel.removeHistory(keyword) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SuggestionContent(viewModel: SearchViewModel) {
+    val input by viewModel.inputState.collectAsState()
+    LazyColumn(contentPadding = PaddingValues(24.dp)) {
+        item {
+            ListEntry(Icons.Rounded.Search, "搜索“${input.query}”", onClick = { viewModel.searchWithKeyword(input.query) })
+        }
+        // 歌手/专辑直达页后续接入，联想项统一按文字搜索
+        items(input.currentSuggestions) { suggestion ->
+            val label = when (suggestion) {
+                is SearchSuggestion.ArtistMatch -> "歌手：${suggestion.text}"
+                is SearchSuggestion.AlbumMatch -> "专辑：${suggestion.text} - ${suggestion.artistName}"
+                else -> suggestion.text
+            }
+            ListEntry(Icons.Rounded.Search, label, onClick = { viewModel.searchWithKeyword(suggestion.text) })
+        }
+    }
+}
+
+@Composable
+private fun ResultsContent(
+    viewModel: SearchViewModel,
+    controller: PlaybackController,
+    onOpenPlaylist: (Long, String, Boolean) -> Unit
+) {
+    val selectedType by viewModel.selectedType.collectAsState()
+    val results by viewModel.resultsByType.getValue(selectedType).collectAsState()
+    val nowPlaying by controller.nowPlaying.collectAsState()
+
+    Column(Modifier.fillMaxSize()) {
+        Row(Modifier.padding(24.dp, 16.dp, 24.dp, 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            SearchType.entries.forEach { type ->
+                FilterChip(
+                    selected = selectedType == type,
+                    onClick = { viewModel.selectType(type) },
+                    label = { Text(type.label) },
+                    shape = RoundedCornerShape(16.dp),
+                    colors = FilterChipDefaults.filterChipColors(
+                        containerColor = DesktopColors.Surface,
+                        labelColor = DesktopColors.TextPrimary,
+                        selectedContainerColor = DesktopColors.TextPrimary,
+                        selectedLabelColor = DesktopColors.Pane
+                    ),
+                    border = null
+                )
+            }
+        }
+        when (val state = results) {
+            SearchResultsUiState.Idle, SearchResultsUiState.Loading ->
+                Centered { CircularProgressIndicator(color = DesktopColors.Accent) }
+            SearchResultsUiState.Empty -> Centered { Text("没有找到相关结果", color = DesktopColors.TextGray) }
+            is SearchResultsUiState.Error -> Centered {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(state.message, color = DesktopColors.TextGray)
+                    TextButton(onClick = viewModel::retrySearch) { Text("重试", color = DesktopColors.TextPrimary) }
+                }
+            }
+            is SearchResultsUiState.Success -> {
+                val listState = rememberLazyListState()
+                val shouldLoadMore by remember(state) {
+                    derivedStateOf {
+                        val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+                        state.hasMore && !state.isLoadingMore &&
+                            lastVisible >= listState.layoutInfo.totalItemsCount - RESULT_LOAD_MORE_THRESHOLD
+                    }
+                }
+                LaunchedEffect(shouldLoadMore) {
+                    if (shouldLoadMore) viewModel.loadMore()
+                }
+                LazyColumn(state = listState, contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
+                    itemsIndexed(state.items) { index, item ->
+                        ResultEntry(index, item, nowPlaying?.songId, viewModel, onOpenPlaylist)
+                    }
+                    if (state.isLoadingMore) {
+                        item { Centered { CircularProgressIndicator(color = DesktopColors.Accent) } }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ResultEntry(
+    index: Int,
+    item: SearchResultItem,
+    currentSongId: Long?,
+    viewModel: SearchViewModel,
+    onOpenPlaylist: (Long, String, Boolean) -> Unit
+) {
+    when (item) {
+        is SearchResultItem.SongItem -> TrackRow(
+            index = index,
+            track = item.track,
+            isCurrent = currentSongId == item.track.id,
+            onPlay = { viewModel.playSong(item.track) }
+        )
+        is SearchResultItem.PlaylistItem -> CollectionEntry(
+            coverUrl = item.playlist.coverImgUrl,
+            title = item.playlist.name,
+            subtitle = "${item.playlist.trackCount} 首 · ${item.playlist.creator?.nickname.orEmpty()}",
+            onClick = { onOpenPlaylist(item.playlist.id, item.playlist.name, false) }
+        )
+        is SearchResultItem.AlbumItem -> CollectionEntry(
+            coverUrl = item.album.picUrl,
+            title = item.album.name,
+            subtitle = "专辑",
+            onClick = { onOpenPlaylist(item.album.id, item.album.name, true) }
+        )
+        // 歌手页在后续阶段接入，先只展示
+        is SearchResultItem.ArtistItem -> CollectionEntry(
+            coverUrl = item.artist.picUrl,
+            title = item.artist.name,
+            subtitle = "歌手",
+            circle = true,
+            onClick = null
+        )
+    }
+}
+
+@Composable
+private fun CollectionEntry(
+    coverUrl: String,
+    title: String,
+    subtitle: String,
+    circle: Boolean = false,
+    onClick: (() -> Unit)?
+) {
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(4.dp))
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Cover(coverUrl, 56.dp, shape = if (circle) CircleShape else RoundedCornerShape(4.dp))
+        Column(Modifier.padding(start = 12.dp)) {
+            Text(title, color = DesktopColors.TextPrimary, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(subtitle, color = DesktopColors.TextGray, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+    }
+}
+
+@Composable
+private fun ListEntry(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    text: String,
+    onClick: () -> Unit,
+    trailing: @Composable () -> Unit = {}
+) {
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(4.dp)).clickable(onClick = onClick)
+            .padding(horizontal = 8.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(icon, null, tint = DesktopColors.TextGray)
+        Text(
+            text,
+            color = DesktopColors.TextPrimary,
+            fontSize = 15.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f).padding(start = 12.dp)
+        )
+        trailing()
+    }
+}
+
+@Composable
+private fun SectionHeader(text: String, modifier: Modifier = Modifier) {
+    Text(
+        text,
+        color = DesktopColors.TextPrimary,
+        fontSize = 22.sp,
+        fontWeight = FontWeight.Bold,
+        modifier = modifier.padding(bottom = 12.dp)
+    )
+}
+
+@Composable
+private fun Centered(content: @Composable () -> Unit) {
+    Box(Modifier.fillMaxWidth().padding(top = 48.dp), contentAlignment = Alignment.Center) { content() }
+}
