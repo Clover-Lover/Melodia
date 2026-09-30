@@ -1,6 +1,5 @@
 package com.lin0721.linmusic.desktop.ui
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -38,7 +37,6 @@ import com.google.zxing.common.BitMatrix
 import com.lin0721.linmusic.core.auth.LoginViewModel
 import com.lin0721.linmusic.core.auth.QrLoginState
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
-import com.lin0721.linmusic.desktop.ui.theme.WindowBorder
 import java.awt.image.BufferedImage
 
 @Composable
@@ -59,8 +57,7 @@ fun LoginDialog(
     Dialog(onDismissRequest = onDismiss) {
         Surface(
             shape = RoundedCornerShape(12.dp),
-            color = DesktopColors.Surface,
-            border = BorderStroke(1.dp, WindowBorder.color())
+            color = DesktopColors.Surface
         ) {
             Column(
                 Modifier.width(360.dp).padding(28.dp),

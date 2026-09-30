@@ -1,7 +1,6 @@
 package com.lin0721.linmusic.desktop.ui.tray
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -42,7 +41,6 @@ import androidx.compose.ui.window.DialogWindow
 import androidx.compose.ui.window.rememberDialogState
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
-import com.lin0721.linmusic.desktop.ui.theme.WindowBorder
 import java.awt.GraphicsEnvironment
 import java.awt.Image
 import java.awt.MouseInfo
@@ -154,7 +152,6 @@ private fun TrayMenuWindow(
             window.addWindowFocusListener(listener)
             onDispose { window.removeWindowFocusListener(listener) }
         }
-        LaunchedEffect(anchor) { WindowBorder.refresh() }
         LaunchedEffect(anchor) {
             window.pack()
             window.location = menuLocation(anchor, window.width, window.height)
@@ -169,7 +166,6 @@ private fun TrayMenuWindow(
                     .shadow(8.dp, MenuShape)
                     .clip(MenuShape)
                     .background(DesktopColors.Surface)
-                    .border(1.dp, WindowBorder.color(), MenuShape)
                     .padding(vertical = 4.dp)
             ) {
                 if (header != null) {

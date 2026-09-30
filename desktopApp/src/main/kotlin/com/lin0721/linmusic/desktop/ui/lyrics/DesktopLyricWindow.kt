@@ -1,7 +1,6 @@
 package com.lin0721.linmusic.desktop.ui.lyrics
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -33,7 +32,6 @@ import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.desktop.platform.win.User32
-import com.lin0721.linmusic.desktop.ui.theme.WindowBorder
 import com.sun.jna.Native
 import com.lin0721.linmusic.feature.player.ui.PlayerViewModel
 import java.awt.Toolkit
@@ -100,7 +98,7 @@ fun DesktopLyricWindow(
 
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             WindowDraggableArea(
-                Modifier.clip(PillShape).background(PillBackground).border(1.dp, WindowBorder.color(), PillShape)
+                Modifier.clip(PillShape).background(PillBackground)
                     .onPointerEvent(PointerEventType.Press) { event ->
                         // 与 Android 一致：双击关闭
                         if (event.awtEventOrNull?.clickCount == 2) onHide()

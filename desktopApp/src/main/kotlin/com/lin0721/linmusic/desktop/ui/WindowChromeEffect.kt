@@ -21,7 +21,7 @@ private const val DISPLAYABLE_POLL_MS = 50L
 // 主窗口的系统圆角与边框线；窗口未获焦点时强调色退为中性线
 @Composable
 fun WindowScope.WindowChromeEffect(maximized: Boolean) {
-    var focused by remember { mutableStateOf(true) }
+    var focused by remember(window) { mutableStateOf(window.isFocused) }
     val accent by WindowBorder.accentRgb.collectAsState()
 
     DisposableEffect(window) {
@@ -50,6 +50,6 @@ fun WindowScope.WindowChromeEffect(maximized: Boolean) {
     }
     LaunchedEffect(window, maximized, focused, accent) {
         while (!window.isDisplayable) delay(DISPLAYABLE_POLL_MS)
-        WindowChrome.applyFrame(window, maximized, WindowBorder.opaqueRgb(accent.takeIf { focused }))
+        WindowChrome.applyFrame(window, maximized, WindowBorder.opaqueRgb(accent.takeIf { focused }, focused))
     }
 }
