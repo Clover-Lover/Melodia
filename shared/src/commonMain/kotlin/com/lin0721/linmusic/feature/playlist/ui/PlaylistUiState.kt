@@ -13,10 +13,14 @@ sealed interface PlaylistUiState {
         val playlist: PlaylistDetail,
         val recommendedSongs: List<Track> = emptyList(),
         val isSubscribed: Boolean = false,
-        val hasMoreTracks: Boolean = false,
+        // 尚未补全的曲目 id（按歌单顺序）。按 id 记录而非用 tracks.size 对齐，
+        // 因为屏蔽歌手过滤、删歌、排序都会让 tracks 条数与 trackIds 脱节
+        val pendingTrackIds: List<Long> = emptyList(),
         val isLoadingMoreTracks: Boolean = false,
         val trackPlayCounts: Map<Long, Int> = emptyMap()
-    ) : PlaylistUiState
+    ) : PlaylistUiState {
+        val hasMoreTracks: Boolean get() = pendingTrackIds.isNotEmpty()
+    }
     data class Error(val message: String) : PlaylistUiState
 }
 

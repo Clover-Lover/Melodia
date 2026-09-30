@@ -97,7 +97,10 @@ class SongCollectDelegate(
                     val detailResult = playlistRepository.getPlaylistDetail(playlist.id).firstOrNull()
                     val detail = detailResult?.getOrNull()
                     if (detail != null) {
-                        val trackIds = Collections.synchronizedSet(detail.tracks.map { it.id }.toMutableSet())
+                        // 超过1000首的歌单 tracks 会被服务端截断，完整成员要以 trackIds 为准
+                        val trackIds = Collections.synchronizedSet(
+                            (detail.tracks.map { it.id } + detail.trackIds.map { it.id }).toMutableSet()
+                        )
                         playlistTrackIdsCache[playlist.id] = trackIds
                         if (trackIds.contains(songId)) {
                             _state.update { state ->
