@@ -5,6 +5,7 @@ import com.lin0721.linmusic.core.model.PlaylistDetail
 import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.network.apiFlow
 import com.lin0721.linmusic.feature.player.data.PlayerRepository
+import com.lin0721.linmusic.feature.playlist.domain.pendingTrackIds
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
@@ -24,8 +25,15 @@ class PlaylistRepositoryImpl(
         isSuccess = { it.isSuccess && it.playlist != null },
         code = { it.code },
         transform = { response ->
-            val filteredTracks = contentFilter.filterBlockedArtists(response.playlist!!.tracks) { it.ar.map { a -> a.id } }
-            response.playlist.copy(tracks = filteredTracks)
+            val playlist = response.playlist!!
+            val filteredTracks = contentFilter.filterBlockedArtists(playlist.tracks) { it.ar.map { a -> a.id } }
+            // 被屏蔽歌手过滤掉的曲目同步从 trackIds 剔除，避免后续分页按数量对齐时错位、总数也与可见曲目一致
+            val keptIds = filteredTracks.mapTo(HashSet()) { it.id }
+            val blockedIds = playlist.tracks.mapNotNullTo(HashSet()) { t -> t.id.takeIf { it !in keptIds } }
+            playlist.copy(
+                tracks = filteredTracks,
+                trackIds = if (blockedIds.isEmpty()) playlist.trackIds else playlist.trackIds.filter { it.id !in blockedIds }
+            )
         }
     )
 
@@ -36,8 +44,7 @@ class PlaylistRepositoryImpl(
 
     override fun loadAllTracks(detail: PlaylistDetail): Flow<Result<List<Track>>> = flow {
         // 按 id 而非数量对齐：tracks 经屏蔽歌手过滤后可能少于服务端实际下发的数量
-        val loadedIds = detail.tracks.mapTo(HashSet()) { it.id }
-        val missingIds = detail.trackIds.map { it.id }.filter { it !in loadedIds }
+        val missingIds = pendingTrackIds(detail)
         val all = detail.tracks.toMutableList()
         for (chunk in missingIds.chunked(TRACK_CHUNK_SIZE)) {
             val result = loadMoreTracks(chunk).first()

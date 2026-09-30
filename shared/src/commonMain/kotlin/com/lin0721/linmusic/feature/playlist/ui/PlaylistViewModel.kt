@@ -14,6 +14,8 @@ import com.lin0721.linmusic.core.player.PlaySource
 import com.lin0721.linmusic.core.songlike.LoadLikedSongIdsUseCase
 import com.lin0721.linmusic.core.comment.data.CommentRepository
 import com.lin0721.linmusic.feature.playlist.domain.CreatePlaylistAndAddSongUseCase
+import com.lin0721.linmusic.feature.playlist.domain.pendingTrackIds
+import com.lin0721.linmusic.feature.playlist.domain.withLoadedTracks
 import com.lin0721.linmusic.feature.playlist.domain.SongCollectDelegate
 import com.lin0721.linmusic.feature.playlist.domain.UpdatePlaylistCoverUseCase
 import com.lin0721.linmusic.feature.home.data.HomeRepository
@@ -183,7 +185,7 @@ class PlaylistViewModel(
                         _uiState.value = PlaylistUiState.Success(
                             detail,
                             isSubscribed = detail.subscribed,
-                            hasMoreTracks = detail.trackIds.size > detail.tracks.size
+                            pendingTrackIds = pendingTrackIds(detail)
                         )
                         val baseSong = detail.tracks.firstOrNull()
 
@@ -224,12 +226,7 @@ class PlaylistViewModel(
     fun loadMoreTracks() {
         val current = _uiState.value as? PlaylistUiState.Success ?: return
         if (!current.hasMoreTracks || current.isLoadingMoreTracks) return
-        val allIds = current.playlist.trackIds.map { it.id }
-        val nextIds = allIds.drop(current.playlist.tracks.size).take(TRACK_PAGE_SIZE)
-        if (nextIds.isEmpty()) {
-            _uiState.update { state -> if (state is PlaylistUiState.Success) state.copy(hasMoreTracks = false) else state }
-            return
-        }
+        val nextIds = current.pendingTrackIds.take(TRACK_PAGE_SIZE)
         val playlistId = current.playlist.id
         _uiState.update { state -> if (state is PlaylistUiState.Success) state.copy(isLoadingMoreTracks = true) else state }
         viewModelScope.launch {
@@ -238,10 +235,9 @@ class PlaylistViewModel(
                     onSuccess = { newTracks ->
                         _uiState.update { state ->
                             if (state is PlaylistUiState.Success && state.playlist.id == playlistId) {
-                                val updatedTracks = state.playlist.tracks + newTracks
                                 state.copy(
-                                    playlist = state.playlist.copy(tracks = updatedTracks),
-                                    hasMoreTracks = updatedTracks.size < allIds.size,
+                                    playlist = state.playlist.withLoadedTracks(nextIds, newTracks),
+                                    pendingTrackIds = state.pendingTrackIds.drop(nextIds.size),
                                     isLoadingMoreTracks = false
                                 )
                             } else state
@@ -256,35 +252,46 @@ class PlaylistViewModel(
         }
     }
 
-    // 按批追加曲目直到 stopWhen 满足或者已加载全部；成功则把结果写回 uiState 并返回完整列表，失败返回 null 并提示 toast
+    // 按批追加曲目直到 stopWhen 满足或者已加载全部；已成功的批次无论后面是否失败都写回 uiState，
+    // 成功返回完整列表，失败返回 null 并提示 toast
     private suspend fun loadTracksUntil(stopWhen: (List<Track>) -> Boolean): List<Track>? {
         val current = _uiState.value as? PlaylistUiState.Success ?: return null
         val playlistId = current.playlist.id
-        val allIds = current.playlist.trackIds.map { it.id }
         val loadedTracks = mutableListOf<Track>().apply { addAll(current.playlist.tracks) }
+        var detail = current.playlist
+        var pending = current.pendingTrackIds
         var failure: Throwable? = null
-        if (!stopWhen(loadedTracks)) {
-            for (chunk in allIds.drop(loadedTracks.size).chunked(TRACK_PAGE_SIZE)) {
-                val result = playlistRepository.loadMoreTracks(chunk).first()
-                result.fold(
-                    onSuccess = { loadedTracks.addAll(it) },
-                    onFailure = { e -> failure = e }
-                )
-                if (failure != null || stopWhen(loadedTracks)) break
+        while (pending.isNotEmpty() && !stopWhen(loadedTracks)) {
+            val chunk = pending.take(TRACK_PAGE_SIZE)
+            val result = playlistRepository.loadMoreTracks(chunk).first()
+            val newTracks = result.getOrNull()
+            if (newTracks == null) {
+                failure = result.exceptionOrNull() ?: IllegalStateException("补全歌单曲目失败")
+                break
             }
+            loadedTracks.addAll(newTracks)
+            detail = detail.withLoadedTracks(chunk, newTracks)
+            pending = pending.drop(chunk.size)
         }
-        if (failure != null) {
-            _toastEvent.emit(failure.toUserMessage(resourceProvider))
-            return null
-        }
+        val addedTracks = detail.tracks.drop(current.playlist.tracks.size)
+        val droppedIds = current.playlist.trackIds.map { it.id }.toSet() - detail.trackIds.map { it.id }.toSet()
         _uiState.update { state ->
             if (state is PlaylistUiState.Success && state.playlist.id == playlistId) {
+                // 期间用户可能删歌或改序，基于最新状态追加而不是整体覆盖
                 state.copy(
-                    playlist = state.playlist.copy(tracks = loadedTracks),
-                    hasMoreTracks = loadedTracks.size < allIds.size,
+                    playlist = state.playlist.copy(
+                        tracks = state.playlist.tracks + addedTracks,
+                        trackIds = state.playlist.trackIds.filter { it.id !in droppedIds }
+                    ),
+                    pendingTrackIds = pending,
                     isLoadingMoreTracks = false
                 )
             } else state
+        }
+        val error = failure
+        if (error != null) {
+            _toastEvent.emit(error.toUserMessage(resourceProvider))
+            return null
         }
         return loadedTracks
     }
