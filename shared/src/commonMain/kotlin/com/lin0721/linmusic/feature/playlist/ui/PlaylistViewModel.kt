@@ -77,6 +77,8 @@ class PlaylistViewModel(
 
     private var isAlbumMode = false
     private var loadJob: Job? = null
+    // 起播/下载前补全全部曲目的任务，切换歌单时需一并取消，避免补全完成后误播上一个歌单
+    private var fullTrackJob: Job? = null
 
     private val _uiState = MutableStateFlow<PlaylistUiState>(PlaylistUiState.Loading)
     val uiState: StateFlow<PlaylistUiState> = _uiState.asStateFlow()
@@ -131,6 +133,7 @@ class PlaylistViewModel(
         _uiState.value = PlaylistUiState.Loading
         allRecommendedTracks = emptyList()
         loadJob?.cancel() // 取消之前的加载任务
+        fullTrackJob?.cancel()
         if (id == -2L) {
             _historyRecommendState.update { it.copy(selectedDate = "最近一周") }
             loadJob = viewModelScope.launch {
@@ -323,6 +326,54 @@ class PlaylistViewModel(
                 _uiState.update { state -> if (state is PlaylistUiState.Success) state.copy(isLoadingMoreTracks = false) else state }
             }
         }
+    }
+
+    // 补全全部曲目后再交给 action 处理：超过服务端截断阈值（约1000首）的歌单，只用已加载部分会漏掉后面的曲目。
+    // 补全失败时 toast 已由 loadTracksUntil 提示，退化为使用已加载部分，保证操作不至于完全没反应
+    private fun withAllTracks(action: (tracks: List<Track>) -> Unit) {
+        val initial = _uiState.value as? PlaylistUiState.Success ?: return
+        if (!initial.hasMoreTracks) {
+            action(initial.playlist.tracks)
+            return
+        }
+        fullTrackJob?.cancel()
+        fullTrackJob = viewModelScope.launch {
+            // 滚动触发的分批补全可能正在进行，等它结束再接手，避免重复请求同一批
+            val settled = _uiState.first { it !is PlaylistUiState.Success || !it.isLoadingMoreTracks }
+            val playlistId = initial.playlist.id
+            if (settled !is PlaylistUiState.Success || settled.playlist.id != playlistId) return@launch
+            _uiState.update { state ->
+                if (state is PlaylistUiState.Success && state.playlist.id == playlistId) state.copy(isLoadingMoreTracks = true) else state
+            }
+            val loaded = try {
+                loadTracksUntil { false }
+            } finally {
+                _uiState.update { state ->
+                    if (state is PlaylistUiState.Success && state.playlist.id == playlistId) state.copy(isLoadingMoreTracks = false) else state
+                }
+            }
+            val current = _uiState.value as? PlaylistUiState.Success
+            if (current == null || current.playlist.id != playlistId) return@launch
+            action(loaded ?: current.playlist.tracks)
+        }
+    }
+
+    // 播放全部：需要时先补全全部曲目，shuffle 为真则打乱后起播
+    fun playAll(shuffle: Boolean) {
+        withAllTracks { tracks ->
+            val ordered = if (shuffle) tracks.shuffled() else tracks
+            ordered.firstOrNull()?.let { playSongInList(it, ordered) }
+        }
+    }
+
+    // 点击某首歌起播：队列必须包含歌单全部曲目，而不只是已滚动加载的部分
+    fun playTrackInPlaylist(track: Track) {
+        withAllTracks { tracks -> playSongInList(track, tracks) }
+    }
+
+    // 全部加入下一首播放
+    fun addAllTracksToPlayNext() {
+        withAllTracks { tracks -> addTracksToPlayNext(tracks) }
     }
 
     fun playSongInList(track: Track, allTracks: List<Track>) {
@@ -949,23 +1000,25 @@ class PlaylistViewModel(
         }
     }
 
-    // 批量下载歌单曲目
-    fun downloadPlaylist(playlistId: Long, playlistName: String, tracks: List<Track>, level: String) {
-        if (tracks.isEmpty()) {
-            viewModelScope.launch { _toastEvent.emit("没有可下载的歌曲") }
-            return
-        }
-        val downloadTracks = tracks.map { track ->
-            DownloadTrackInfo(
-                track.id, track.name, track.ar.joinToString("/") { it.name },
-                track.al.name, track.al.picUrl.takeIf { it.isNotBlank() },
-                yearFromEpochMillis(track.publishTime)
+    // 批量下载歌单曲目：超过1000首的歌单先补全全部曲目再入队
+    fun downloadPlaylist(playlistId: Long, playlistName: String, level: String) {
+        withAllTracks { tracks ->
+            if (tracks.isEmpty()) {
+                viewModelScope.launch { _toastEvent.emit("没有可下载的歌曲") }
+                return@withAllTracks
+            }
+            val downloadTracks = tracks.map { track ->
+                DownloadTrackInfo(
+                    track.id, track.name, track.ar.joinToString("/") { it.name },
+                    track.al.name, track.al.picUrl.takeIf { it.isNotBlank() },
+                    yearFromEpochMillis(track.publishTime)
+                )
+            }
+            songDownloadManager.enqueueBatch(
+                downloadTracks, level, batchTag = "playlist_$playlistId", batchLabel = playlistName
             )
+            viewModelScope.launch { _toastEvent.emit("已将 ${downloadTracks.size} 首歌曲加入下载队列") }
         }
-        songDownloadManager.enqueueBatch(
-            downloadTracks, level, batchTag = "playlist_$playlistId", batchLabel = playlistName
-        )
-        viewModelScope.launch { _toastEvent.emit("已将 ${downloadTracks.size} 首歌曲加入下载队列") }
     }
 
     // 下载单首歌曲

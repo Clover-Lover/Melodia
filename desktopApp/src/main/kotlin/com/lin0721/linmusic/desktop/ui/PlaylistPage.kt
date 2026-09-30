@@ -110,7 +110,7 @@ fun PlaylistPage(
                     PlaylistHeader(
                         playlist = state.playlist,
                         isAlbum = isAlbum,
-                        onPlayAll = { tracks.firstOrNull()?.let { viewModel.playSongInList(it, tracks) } }
+                        onPlayAll = { viewModel.playAll(shuffle = false) }
                     )
                 }
                 itemsIndexed(tracks, key = { index, track -> "${track.id}_$index" }) { index, track ->
@@ -118,7 +118,7 @@ fun PlaylistPage(
                         index = index,
                         track = track,
                         isCurrent = nowPlaying?.songId == track.id,
-                        onPlay = { viewModel.playSongInList(track, tracks) },
+                        onPlay = { viewModel.playTrackInPlaylist(track) },
                         actions = actions,
                         modifier = Modifier.padding(horizontal = 16.dp)
                     )

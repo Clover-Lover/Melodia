@@ -559,7 +559,8 @@ fun PlaylistScreen(
                     onAlbumClick   = onAlbumClick,
                     onToggleLike   = viewModel::toggleLikeSong,
                     onPlaySong     = { track ->
-                        viewModel.playSongInList(track, state.playlist.tracks)
+                        // 队列需包含歌单全部曲目，超过1000首时会先补全未加载的部分
+                        viewModel.playTrackInPlaylist(track)
                     },
                     onAddToPlayNext = { track ->
                         viewModel.addTrackToPlayNext(track)
@@ -569,12 +570,9 @@ fun PlaylistScreen(
                             // 已经是当前播放队列，播放键只做暂停/继续切换
                             viewModel.playerManager.togglePlayPause()
                         } else {
-                            val tracks = state.playlist.tracks
-                            if (tracks.isNotEmpty()) {
-                                // 随机开关是全局播放模式，起播时按当前开关状态决定顺序播放还是打乱播放
-                                val ordered = if (isShuffleActive) tracks.shuffled() else tracks
-                                viewModel.playSongInList(ordered.first(), ordered)
-                            }
+                            // 随机开关是全局播放模式，起播时按当前开关状态决定顺序播放还是打乱播放；
+                            // 超过1000首的歌单会先补全未加载的曲目再起播
+                            viewModel.playAll(shuffle = isShuffleActive)
                         }
                     },
                     isShuffleActive = isShuffleActive,
@@ -722,9 +720,7 @@ fun PlaylistScreen(
         if (showDownloadQualitySheet && successState != null) {
             com.lin0721.linmusic.core.download.ui.DownloadQualityPickerSheet(
                 onQualitySelected = { level ->
-                    viewModel.downloadPlaylist(
-                        successState.playlist.id, successState.playlist.name, successState.playlist.tracks, level
-                    )
+                    viewModel.downloadPlaylist(successState.playlist.id, successState.playlist.name, level)
                     showDownloadQualitySheet = false
                 },
                 onDismiss = { showDownloadQualitySheet = false }
@@ -854,7 +850,7 @@ fun PlaylistScreen(
                                 title = "加入播放队列"
                             ) {
                                 showMoreMenuSheet = false
-                                viewModel.addTracksToPlayNext(playlist.tracks)
+                                viewModel.addAllTracksToPlayNext()
                             }
                         )
                         add(

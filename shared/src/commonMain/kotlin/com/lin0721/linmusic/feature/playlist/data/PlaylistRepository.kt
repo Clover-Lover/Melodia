@@ -13,6 +13,9 @@ interface PlaylistRepository {
     // 按 trackIds 分页补全歌单曲目（服务端 playlist/detail 的 tracks 字段截断在约1000首之后使用）
     fun loadMoreTracks(trackIds: List<Long>): Flow<Result<List<Track>>>
 
+    // 补全详情里被服务端截断的曲目：按 trackIds 中尚未出现在 tracks 里的部分分批拉取，返回完整曲目列表
+    fun loadAllTracks(detail: PlaylistDetail): Flow<Result<List<Track>>>
+
     // 获取专辑详情，映射至统一领域模型 PlaylistDetail
     fun getAlbumDetail(id: Long): Flow<Result<PlaylistDetail>>
 

@@ -537,20 +537,30 @@ class LibraryViewModel(
         viewModelScope.launch {
             detailFlow.collect { result ->
                 result.onSuccess { detail ->
-                    if (detail.tracks.isEmpty()) {
-                        _toastEvent.emit(if (isAlbum) "该专辑没有可下载的歌曲" else "该歌单没有可下载的歌曲")
+                    // 超过1000首的歌单详情接口只下发前一部分曲目，需按 trackIds 补全后再入队
+                    val tracksResult = if (!isAlbum && detail.trackIds.size > detail.tracks.size) {
+                        playlistRepository.loadAllTracks(detail).first()
                     } else {
-                        val tracks = detail.tracks.map { track ->
-                            DownloadTrackInfo(
-                                track.id, track.name, track.ar.joinToString("/") { it.name },
-                                track.al.name, track.al.picUrl.takeIf { it.isNotBlank() },
-                                yearFromEpochMillis(track.publishTime)
+                        Result.success(detail.tracks)
+                    }
+                    tracksResult.onSuccess { allTracks ->
+                        if (allTracks.isEmpty()) {
+                            _toastEvent.emit(if (isAlbum) "该专辑没有可下载的歌曲" else "该歌单没有可下载的歌曲")
+                        } else {
+                            val tracks = allTracks.map { track ->
+                                DownloadTrackInfo(
+                                    track.id, track.name, track.ar.joinToString("/") { it.name },
+                                    track.al.name, track.al.picUrl.takeIf { it.isNotBlank() },
+                                    yearFromEpochMillis(track.publishTime)
+                                )
+                            }
+                            songDownloadManager.enqueueBatch(
+                                tracks, level, batchTag = "library_${item.type}_$id", batchLabel = item.title
                             )
+                            _toastEvent.emit("已将 ${tracks.size} 首歌曲加入下载队列")
                         }
-                        songDownloadManager.enqueueBatch(
-                            tracks, level, batchTag = "library_${item.type}_$id", batchLabel = item.title
-                        )
-                        _toastEvent.emit("已将 ${tracks.size} 首歌曲加入下载队列")
+                    }.onFailure { e ->
+                        _toastEvent.emit(e.toUserMessage(resourceProvider))
                     }
                 }.onFailure { e ->
                     _toastEvent.emit(e.toUserMessage(resourceProvider))
