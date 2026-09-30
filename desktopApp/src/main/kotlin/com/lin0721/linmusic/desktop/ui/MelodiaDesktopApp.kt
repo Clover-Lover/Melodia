@@ -117,7 +117,9 @@ fun WindowScope.MelodiaDesktopApp(windowState: WindowState, onClose: () -> Unit)
                     },
                     isBrowseActive = backStack.current == DesktopRoute.Browse,
                     onBrowseClick = { backStack.navigate(DesktopRoute.Browse) },
-                    onAvatarClick = { if (userProfile == null) showLogin = true },
+                    onLoginClick = { showLogin = true },
+                    onSettingsClick = { backStack.navigate(DesktopRoute.Settings) },
+                    onLogoutClick = homeViewModel::logout,
                     onMinimize = { windowState.isMinimized = true },
                     onToggleMaximize = {
                         windowState.placement = if (isMaximized) WindowPlacement.Floating else WindowPlacement.Maximized
@@ -174,7 +176,8 @@ fun WindowScope.MelodiaDesktopApp(windowState: WindowState, onClose: () -> Unit)
                                 viewModel = artistViewModel,
                                 controller = playbackController
                             )
-                            DesktopRoute.Search -> SearchPage(
+                            DesktopRoute.Settings -> SettingsPage()
+                        DesktopRoute.Search -> SearchPage(
                                 viewModel = searchViewModel,
                                 controller = playbackController,
                                 onOpenPlaylist = { id, title, isAlbum ->

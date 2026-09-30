@@ -1,0 +1,390 @@
+package com.lin0721.linmusic.desktop.ui
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.ArrowDropDown
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.RadioButtonDefaults
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isAltPressed
+import androidx.compose.ui.input.key.isCtrlPressed
+import androidx.compose.ui.input.key.isShiftPressed
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.lin0721.linmusic.core.preferences.SettingsPreferences
+import com.lin0721.linmusic.desktop.platform.AutoStart
+import com.lin0721.linmusic.desktop.platform.CloseAction
+import com.lin0721.linmusic.desktop.platform.DesktopPreferences
+import com.lin0721.linmusic.desktop.platform.GlobalHotkeys
+import com.lin0721.linmusic.desktop.platform.HotkeyAction
+import com.lin0721.linmusic.desktop.platform.HotkeyCombo
+import com.lin0721.linmusic.desktop.platform.win.User32
+import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.koin.core.context.GlobalContext
+import java.awt.event.KeyEvent as AwtKeyEvent
+
+// 与 Android 音质设置保持同一组选项
+private val QualityOptions = listOf(
+    "standard" to "标准音质",
+    "exhigh" to "极高音质",
+    "lossless" to "无损音质 (FLAC)",
+    "hires" to "Hi-Res 无损",
+    "jymaster" to "超清母带"
+)
+
+// Win32 虚拟键码与 AWT 键码不一致的按键
+private const val WIN_VK_INSERT = 0x2D
+private const val WIN_VK_DELETE = 0x2E
+
+@Composable
+fun SettingsPage(modifier: Modifier = Modifier) {
+    val koin = remember { GlobalContext.get() }
+    val settingsPreferences = remember { koin.get<SettingsPreferences>() }
+    val desktopPreferences = remember { koin.get<DesktopPreferences>() }
+    val hotkeys = remember { koin.get<GlobalHotkeys>() }
+    val scope = rememberCoroutineScope()
+
+    val quality by settingsPreferences.wifiQuality.collectAsState(initial = "lossless")
+    val showDesktopLyric by settingsPreferences.showDesktopLrc.collectAsState(initial = false)
+    val closeAction by desktopPreferences.closeAction.collectAsState(initial = CloseAction.TRAY)
+    val mediaKeysEnabled by desktopPreferences.mediaKeysEnabled.collectAsState(initial = true)
+    val hotkeyMap by desktopPreferences.hotkeys.collectAsState(initial = HotkeyCombo.defaults)
+    val failedHotkeys by hotkeys.failed.collectAsState()
+
+    Column(
+        modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 32.dp, vertical = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Text("设置", color = DesktopColors.TextPrimary, fontSize = 32.sp, fontWeight = FontWeight.Bold)
+
+        SettingsCard("播放") {
+            SettingRow("在线播放音质") {
+                QualitySelector(quality) { scope.launch { settingsPreferences.saveWifiQuality(it) } }
+            }
+        }
+
+        SettingsCard("桌面歌词") {
+            SettingRow("显示桌面歌词") {
+                SettingSwitch(showDesktopLyric) { scope.launch { settingsPreferences.saveShowDesktopLrc(it) } }
+            }
+        }
+
+        SettingsCard("窗口") {
+            SettingRow("关闭主窗口时") {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CloseOption("最小化到托盘", closeAction == CloseAction.TRAY) {
+                        scope.launch { desktopPreferences.saveCloseAction(CloseAction.TRAY) }
+                    }
+                    CloseOption("直接退出", closeAction == CloseAction.EXIT) {
+                        scope.launch { desktopPreferences.saveCloseAction(CloseAction.EXIT) }
+                    }
+                }
+            }
+            AutoStartRow()
+        }
+
+        SettingsCard("快捷键") {
+            SettingRow("媒体键（播放/暂停、上一首、下一首）") {
+                SettingSwitch(mediaKeysEnabled) { scope.launch { desktopPreferences.saveMediaKeysEnabled(it) } }
+            }
+            HotkeyEditor(
+                hotkeyMap = hotkeyMap,
+                failed = failedHotkeys,
+                hotkeys = hotkeys,
+                onSave = { scope.launch { desktopPreferences.saveHotkeys(it) } }
+            )
+        }
+    }
+}
+
+@Composable
+private fun SettingsCard(title: String, content: @Composable ColumnScope.() -> Unit) {
+    Column(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(DesktopColors.Surface).padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Text(title, color = DesktopColors.TextPrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        content()
+    }
+}
+
+@Composable
+private fun SettingRow(
+    title: String,
+    subtitle: String? = null,
+    subtitleColor: androidx.compose.ui.graphics.Color = DesktopColors.TextGray,
+    trailing: @Composable () -> Unit
+) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text(title, color = DesktopColors.TextPrimary, fontSize = 14.sp)
+            if (subtitle != null) Text(subtitle, color = subtitleColor, fontSize = 12.sp)
+        }
+        trailing()
+    }
+}
+
+@Composable
+private fun SettingSwitch(checked: Boolean, enabled: Boolean = true, onChange: (Boolean) -> Unit) {
+    Switch(
+        checked = checked,
+        onCheckedChange = onChange,
+        enabled = enabled,
+        colors = SwitchDefaults.colors(
+            checkedThumbColor = DesktopColors.TextPrimary,
+            checkedTrackColor = DesktopColors.Accent,
+            uncheckedThumbColor = DesktopColors.TextGray,
+            uncheckedTrackColor = DesktopColors.SurfaceLight
+        )
+    )
+}
+
+@Composable
+private fun QualitySelector(current: String, onSelect: (String) -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+    Box {
+        TextButton(onClick = { expanded = true }) {
+            Text(QualityOptions.firstOrNull { it.first == current }?.second ?: current, color = DesktopColors.TextPrimary)
+            Icon(Icons.Rounded.ArrowDropDown, null, tint = DesktopColors.TextGray)
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }, containerColor = DesktopColors.Surface) {
+            QualityOptions.forEach { (value, label) ->
+                DropdownMenuItem(
+                    text = { Text(label, color = if (value == current) DesktopColors.Accent else DesktopColors.TextPrimary) },
+                    onClick = {
+                        expanded = false
+                        onSelect(value)
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun CloseOption(label: String, selected: Boolean, onClick: () -> Unit) {
+    Row(
+        Modifier.clip(RoundedCornerShape(4.dp)).clickable(onClick = onClick).padding(end = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        RadioButton(
+            selected = selected,
+            onClick = onClick,
+            colors = RadioButtonDefaults.colors(selectedColor = DesktopColors.Accent, unselectedColor = DesktopColors.TextGray)
+        )
+        Text(label, color = DesktopColors.TextPrimary, fontSize = 14.sp)
+    }
+}
+
+@Composable
+private fun AutoStartRow() {
+    val navigator = LocalDesktopNavigator.current
+    val scope = rememberCoroutineScope()
+    // null 表示尚未读到注册表状态
+    var enabled by remember { mutableStateOf<Boolean?>(null) }
+    LaunchedEffect(Unit) {
+        enabled = withContext(Dispatchers.IO) { AutoStart.isEnabled() }
+    }
+    SettingRow(
+        title = "开机自动启动",
+        subtitle = if (AutoStart.isSupported) null else "仅安装版可用"
+    ) {
+        SettingSwitch(
+            checked = enabled == true,
+            enabled = AutoStart.isSupported && enabled != null
+        ) { target ->
+            scope.launch {
+                val ok = withContext(Dispatchers.IO) { AutoStart.setEnabled(target) }
+                if (ok) enabled = target else navigator.showMessage("修改开机启动失败")
+            }
+        }
+    }
+}
+
+@Composable
+private fun HotkeyEditor(
+    hotkeyMap: Map<HotkeyAction, HotkeyCombo?>,
+    failed: Set<HotkeyAction>,
+    hotkeys: GlobalHotkeys,
+    onSave: (Map<HotkeyAction, HotkeyCombo?>) -> Unit
+) {
+    val navigator = LocalDesktopNavigator.current
+    var recording by remember { mutableStateOf<HotkeyAction?>(null) }
+
+    // 离开页面时若仍在录制，恢复热键
+    DisposableEffect(Unit) {
+        onDispose { if (recording != null) hotkeys.resume() }
+    }
+
+    val stopRecording = {
+        if (recording != null) {
+            recording = null
+            hotkeys.resume()
+        }
+    }
+
+    HotkeyAction.entries.forEach { action ->
+        val combo = hotkeyMap[action]
+        val isFailed = combo != null && action in failed
+        SettingRow(
+            title = action.label,
+            subtitle = if (isFailed) "已被其他程序占用，未生效" else null,
+            subtitleColor = DesktopColors.Accent
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                HotkeyRecorder(
+                    combo = combo,
+                    isRecording = recording == action,
+                    onStart = {
+                        if (recording == null) hotkeys.pause()
+                        recording = action
+                    },
+                    onCancel = stopRecording,
+                    onRecorded = { newCombo ->
+                        val updated = hotkeyMap.toMutableMap()
+                        // 与其他动作重复时，从原动作上移除
+                        val conflict = updated.entries.firstOrNull { it.key != action && it.value == newCombo }?.key
+                        if (conflict != null) {
+                            updated[conflict] = null
+                            navigator.showMessage("${newCombo.label} 已从「${conflict.label}」移除")
+                        }
+                        updated[action] = newCombo
+                        onSave(updated)
+                        stopRecording()
+                    },
+                    onInvalid = navigator.showMessage
+                )
+                IconButton(
+                    onClick = { onSave(hotkeyMap + (action to null)) },
+                    enabled = combo != null,
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        Icons.Rounded.Close,
+                        "清除",
+                        tint = if (combo != null) DesktopColors.TextGray else DesktopColors.SurfaceLight,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+        }
+    }
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+        TextButton(onClick = { onSave(HotkeyCombo.defaults) }) {
+            Text("恢复默认", color = DesktopColors.TextPrimary)
+        }
+    }
+}
+
+@Composable
+private fun HotkeyRecorder(
+    combo: HotkeyCombo?,
+    isRecording: Boolean,
+    onStart: () -> Unit,
+    onCancel: () -> Unit,
+    onRecorded: (HotkeyCombo) -> Unit,
+    onInvalid: (String) -> Unit
+) {
+    val focusRequester = remember { FocusRequester() }
+    LaunchedEffect(isRecording) {
+        if (isRecording) focusRequester.requestFocus()
+    }
+    Box(
+        Modifier.widthIn(min = 160.dp)
+            .clip(RoundedCornerShape(4.dp))
+            .background(DesktopColors.Pane)
+            .border(1.dp, if (isRecording) DesktopColors.Accent else DesktopColors.SurfaceLight, RoundedCornerShape(4.dp))
+            .focusRequester(focusRequester)
+            .onFocusChanged { if (!it.isFocused && isRecording) onCancel() }
+            .onPreviewKeyEvent { event ->
+                if (!isRecording || event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                val awtCode = (event.nativeKeyEvent as? AwtKeyEvent)?.keyCode ?: return@onPreviewKeyEvent true
+                when (awtCode) {
+                    AwtKeyEvent.VK_ESCAPE -> onCancel()
+                    AwtKeyEvent.VK_CONTROL, AwtKeyEvent.VK_ALT, AwtKeyEvent.VK_SHIFT, AwtKeyEvent.VK_WINDOWS,
+                    AwtKeyEvent.VK_META, AwtKeyEvent.VK_ALT_GRAPH -> Unit
+                    else -> {
+                        val vk = when (awtCode) {
+                            AwtKeyEvent.VK_INSERT -> WIN_VK_INSERT
+                            AwtKeyEvent.VK_DELETE -> WIN_VK_DELETE
+                            else -> awtCode
+                        }
+                        var modifiers = 0
+                        if (event.isCtrlPressed) modifiers = modifiers or User32.MOD_CONTROL
+                        if (event.isAltPressed) modifiers = modifiers or User32.MOD_ALT
+                        if (event.isShiftPressed) modifiers = modifiers or User32.MOD_SHIFT
+                        when {
+                            !HotkeyCombo.isSupportedKey(vk) -> onInvalid("不支持该按键")
+                            !HotkeyCombo.isValid(modifiers, vk) -> onInvalid("快捷键需要包含 Ctrl 或 Alt")
+                            else -> onRecorded(HotkeyCombo(modifiers, vk))
+                        }
+                    }
+                }
+                true
+            }
+            .focusable()
+            .clickable(onClick = onStart)
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            when {
+                isRecording -> "请按下组合键…"
+                combo != null -> combo.label
+                else -> "未设置"
+            },
+            color = when {
+                isRecording -> DesktopColors.Accent
+                combo != null -> DesktopColors.TextPrimary
+                else -> DesktopColors.TextGray
+            },
+            fontSize = 14.sp
+        )
+    }
+}

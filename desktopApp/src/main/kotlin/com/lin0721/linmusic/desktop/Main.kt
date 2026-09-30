@@ -24,6 +24,8 @@ import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.desktop.di.desktopPlatformModule
 import com.lin0721.linmusic.desktop.di.desktopViewModelModule
+import com.lin0721.linmusic.desktop.platform.CloseAction
+import com.lin0721.linmusic.desktop.platform.DesktopPreferences
 import com.lin0721.linmusic.desktop.platform.GlobalHotkeys
 import com.lin0721.linmusic.desktop.platform.HotkeyAction
 import com.lin0721.linmusic.desktop.player.MpvPlaybackController
@@ -33,6 +35,7 @@ import com.lin0721.linmusic.desktop.ui.theme.MelodiaDesktopTheme
 import com.lin0721.linmusic.di.networkModule
 import com.lin0721.linmusic.di.repositoryModule
 import com.lin0721.linmusic.feature.player.ui.PlayerViewModel
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import org.jetbrains.skia.Image
 import org.koin.core.context.startKoin
@@ -48,12 +51,15 @@ fun main() {
     val mpvController = controller as? MpvPlaybackController
     val settingsPreferences = koin.get<SettingsPreferences>()
     val playerViewModel = koin.get<PlayerViewModel>()
+    val desktopPreferences = koin.get<DesktopPreferences>()
+    val hotkeys = koin.get<GlobalHotkeys>()
 
     application {
         val scope = rememberCoroutineScope()
         var isMainVisible by remember { mutableStateOf(true) }
         var isLyricLocked by remember { mutableStateOf(false) }
         val showDesktopLyric by settingsPreferences.showDesktopLrc.collectAsState(initial = false)
+        val closeAction by desktopPreferences.closeAction.collectAsState(initial = CloseAction.TRAY)
         val isPlaying by controller.playWhenReady.collectAsState()
 
         val setDesktopLyric: (Boolean) -> Unit = { enabled ->
@@ -65,21 +71,28 @@ fun main() {
             exitApplication()
         }
 
-        val hotkeys = remember {
-            GlobalHotkeys { action ->
-                when (action) {
-                    HotkeyAction.PlayPause -> controller.togglePlayPause()
-                    HotkeyAction.Previous -> controller.skipToPrevious()
-                    HotkeyAction.Next -> controller.playNext()
-                    HotkeyAction.VolumeUp -> mpvController?.let { it.setVolume(it.volume.value + VOLUME_STEP) }
-                    HotkeyAction.VolumeDown -> mpvController?.let { it.setVolume(it.volume.value - VOLUME_STEP) }
-                    HotkeyAction.ToggleDesktopLyric -> setDesktopLyric(!showDesktopLyric)
-                }
+        // 主窗口关闭按钮与 Alt+F4 统一按设置处理
+        val closeMainWindow = {
+            if (closeAction == CloseAction.EXIT) exit() else isMainVisible = false
+        }
+
+        hotkeys.onAction = { action ->
+            when (action) {
+                HotkeyAction.PlayPause -> controller.togglePlayPause()
+                HotkeyAction.Previous -> controller.skipToPrevious()
+                HotkeyAction.Next -> controller.playNext()
+                HotkeyAction.VolumeUp -> mpvController?.let { it.setVolume(it.volume.value + VOLUME_STEP) }
+                HotkeyAction.VolumeDown -> mpvController?.let { it.setVolume(it.volume.value - VOLUME_STEP) }
+                HotkeyAction.ToggleDesktopLyric -> setDesktopLyric(!showDesktopLyric)
             }
         }
         DisposableEffect(Unit) {
             hotkeys.start()
             onDispose { hotkeys.stop() }
+        }
+        LaunchedEffect(Unit) {
+            combine(desktopPreferences.hotkeys, desktopPreferences.mediaKeysEnabled, ::Pair)
+                .collect { (custom, mediaKeys) -> hotkeys.apply(custom, mediaKeys) }
         }
 
         val appIcon = remember { loadAppIcon() }
@@ -106,8 +119,7 @@ fun main() {
             position = WindowPosition(Alignment.Center)
         )
         Window(
-            // 关闭只隐藏到托盘，音乐继续播放
-            onCloseRequest = { isMainVisible = false },
+            onCloseRequest = closeMainWindow,
             visible = isMainVisible,
             state = windowState,
             title = "Melodia",
@@ -124,7 +136,7 @@ fun main() {
                 }
             }
             MelodiaDesktopTheme {
-                MelodiaDesktopApp(windowState = windowState, onClose = { isMainVisible = false })
+                MelodiaDesktopApp(windowState = windowState, onClose = closeMainWindow)
             }
         }
 

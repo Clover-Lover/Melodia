@@ -58,7 +58,6 @@ class MpvPlaybackController(
     private val scope: CoroutineScope
 ) : PlaybackController, MpvEngine.Listener {
 
-    private val engine = MpvEngine(this)
     private val playbackQueue = PlaybackQueue()
     private val stateStore = PlaybackStateStore(scope, preferences)
     private val sleepTimer = SleepTimer(scope) { pause() }
@@ -116,6 +115,9 @@ class MpvPlaybackController(
     private var reportingSongId: Long? = null
     private var playedMs = 0L
     private var playingSince: Long? = null
+
+    // 必须最后创建：mpv 事件线程一启动就可能回调，此前所有状态字段须已初始化
+    private val engine = MpvEngine(this)
 
     init {
         scope.launch {

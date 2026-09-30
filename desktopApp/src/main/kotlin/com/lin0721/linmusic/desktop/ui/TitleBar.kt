@@ -30,6 +30,8 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBackIos
 import androidx.compose.material.icons.automirrored.rounded.ArrowForwardIos
+import androidx.compose.material.icons.automirrored.rounded.Login
+import androidx.compose.material.icons.automirrored.rounded.Logout
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Explore
 import androidx.compose.material.icons.rounded.CropSquare
@@ -38,6 +40,9 @@ import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Remove
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -79,7 +84,9 @@ fun WindowScope.TitleBar(
     onSearchSubmit: () -> Unit,
     isBrowseActive: Boolean,
     onBrowseClick: () -> Unit,
-    onAvatarClick: () -> Unit,
+    onLoginClick: () -> Unit,
+    onSettingsClick: () -> Unit,
+    onLogoutClick: () -> Unit,
     onMinimize: () -> Unit,
     onToggleMaximize: () -> Unit,
     onClose: () -> Unit
@@ -124,17 +131,7 @@ fun WindowScope.TitleBar(
             )
         }
         Row(Modifier.align(Alignment.CenterEnd).fillMaxHeight(), verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                Modifier.padding(end = 12.dp).size(32.dp).clip(CircleShape).background(DesktopColors.Surface)
-                    .clickable(onClick = onAvatarClick),
-                contentAlignment = Alignment.Center
-            ) {
-                if (userProfile != null) {
-                    Cover(userProfile.avatarUrl, 32.dp, shape = CircleShape)
-                } else {
-                    Icon(Icons.Rounded.Person, "登录", tint = DesktopColors.TextGray, modifier = Modifier.size(20.dp))
-                }
-            }
+            AvatarMenu(userProfile, onLoginClick, onSettingsClick, onLogoutClick)
             WindowButton(Icons.Rounded.Remove, "最小化", onClick = onMinimize)
             WindowButton(
                 if (isMaximized) Icons.Rounded.FilterNone else Icons.Rounded.CropSquare,
@@ -144,6 +141,63 @@ fun WindowScope.TitleBar(
             WindowButton(Icons.Rounded.Close, "关闭", hoverColor = CloseHover, onClick = onClose)
         }
     }
+}
+
+// 未登录时菜单提供登录入口，设置页始终可达
+@Composable
+private fun AvatarMenu(
+    userProfile: UserProfile?,
+    onLoginClick: () -> Unit,
+    onSettingsClick: () -> Unit,
+    onLogoutClick: () -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Box(Modifier.padding(end = 12.dp)) {
+        Box(
+            Modifier.size(32.dp).clip(CircleShape).background(DesktopColors.Surface).clickable { expanded = true },
+            contentAlignment = Alignment.Center
+        ) {
+            if (userProfile != null) {
+                Cover(userProfile.avatarUrl, 32.dp, shape = CircleShape)
+            } else {
+                Icon(Icons.Rounded.Person, "账户", tint = DesktopColors.TextGray, modifier = Modifier.size(20.dp))
+            }
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }, containerColor = DesktopColors.Surface) {
+            if (userProfile != null) {
+                Text(
+                    userProfile.nickname,
+                    color = DesktopColors.TextGray,
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
+            } else {
+                AvatarMenuItem(Icons.AutoMirrored.Rounded.Login, "登录") {
+                    expanded = false
+                    onLoginClick()
+                }
+            }
+            AvatarMenuItem(Icons.Rounded.Settings, "设置") {
+                expanded = false
+                onSettingsClick()
+            }
+            if (userProfile != null) {
+                AvatarMenuItem(Icons.AutoMirrored.Rounded.Logout, "退出登录") {
+                    expanded = false
+                    onLogoutClick()
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AvatarMenuItem(icon: ImageVector, text: String, onClick: () -> Unit) {
+    DropdownMenuItem(
+        text = { Text(text, fontSize = 14.sp) },
+        leadingIcon = { Icon(icon, null, modifier = Modifier.size(18.dp)) },
+        onClick = onClick
+    )
 }
 
 @OptIn(ExperimentalFoundationApi::class)

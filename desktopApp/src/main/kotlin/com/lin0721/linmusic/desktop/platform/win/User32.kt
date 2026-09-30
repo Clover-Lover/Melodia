@@ -21,9 +21,11 @@ internal interface User32 : Library {
 
         const val WM_QUIT = 0x0012
         const val WM_HOTKEY = 0x0312
+        const val WM_APP = 0x8000
 
         const val MOD_ALT = 0x0001
         const val MOD_CONTROL = 0x0002
+        const val MOD_SHIFT = 0x0004
         const val MOD_NOREPEAT = 0x4000
 
         const val GWL_EXSTYLE = -20
