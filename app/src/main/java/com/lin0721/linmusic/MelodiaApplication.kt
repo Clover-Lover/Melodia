@@ -13,7 +13,11 @@ import com.lin0721.linmusic.core.AppEnvironment
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.log.CrashHandler
 import com.lin0721.linmusic.core.log.init
+import com.lin0721.linmusic.core.player.PlaybackController
+import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.core.update.UpdateManager
+import com.lin0721.linmusic.core.vehicle.LeapmotorMediaClaim
+import com.lin0721.linmusic.core.vehicle.LeapmotorSteeringControl
 import com.lin0721.linmusic.di.downloadModule
 import com.lin0721.linmusic.di.localModule
 import com.lin0721.linmusic.di.localMusicModule
@@ -38,6 +42,8 @@ class MelodiaApplication : Application() {
 
     private val updateManager: UpdateManager by inject()
     private val downloadWorkerFactory: DownloadWorkerFactory by inject()
+    private val playbackController = inject<PlaybackController>()
+    private val settingsPreferences: SettingsPreferences by inject()
 
     override fun onCreate() {
         super.onCreate()
@@ -82,6 +88,11 @@ class MelodiaApplication : Application() {
                 .setWorkerFactory(downloadWorkerFactory)
                 .build()
         )
+
+        // 零跑车机方向盘：必须进程级注册，任何入口启动都要生效
+        val mediaClaim = LeapmotorMediaClaim(this, playbackController, settingsPreferences)
+        mediaClaim.start()
+        LeapmotorSteeringControl(this, playbackController, onKeyReceived = mediaClaim::publishNow).register()
 
         // 延迟几秒后台检查更新，避开启动关键路径；进程生命周期内只检查这一次
         CoroutineScope(Dispatchers.IO).launch {
