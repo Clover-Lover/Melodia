@@ -395,6 +395,19 @@ class PlaylistViewModel(
         playerManager.playQueue(queueItems, startIndex, playlist?.name, source)
     }
 
+    // 点击推荐歌曲：插播到当前队列的下一首并立即播放，保留原队列。推荐歌曲不在歌单里，
+    // 不能走 playSongInList（找不到会回退到下标 0，播成歌单第一首）
+    fun playRecommendedTrack(track: Track) {
+        val item = QueueItem(track.id, track.name, track.ar.joinToString { it.name }, track.al.picUrl)
+        if (playerManager.queue.value.isEmpty()) {
+            playerManager.playQueue(listOf(item), 0)
+            return
+        }
+        val insertIndex = playerManager.currentIndex.value + 1
+        playerManager.addToPlayNext(listOf(item))
+        playerManager.playAtIndex(insertIndex)
+    }
+
     fun addTrackToPlayNext(track: Track) {
         val queueItem = QueueItem(track.id, track.name, track.ar.joinToString("/") { it.name }, track.al.picUrl)
         playerManager.addToPlayNext(listOf(queueItem))

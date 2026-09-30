@@ -562,6 +562,7 @@ fun PlaylistScreen(
                         // 队列需包含歌单全部曲目，超过1000首时会先补全未加载的部分
                         viewModel.playTrackInPlaylist(track)
                     },
+                    onPlayRecommendedSong = viewModel::playRecommendedTrack,
                     onAddToPlayNext = { track ->
                         viewModel.addTrackToPlayNext(track)
                     },
