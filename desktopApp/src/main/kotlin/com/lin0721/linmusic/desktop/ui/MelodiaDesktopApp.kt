@@ -1,10 +1,10 @@
 package com.lin0721.linmusic.desktop.ui
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -19,6 +19,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -30,6 +31,7 @@ import androidx.compose.ui.window.WindowScope
 import androidx.compose.ui.window.WindowState
 import com.lin0721.linmusic.core.auth.LoginViewModel
 import com.lin0721.linmusic.core.player.PlaybackController
+import com.lin0721.linmusic.desktop.platform.DesktopPreferences
 import com.lin0721.linmusic.desktop.ui.navigation.BackStack
 import com.lin0721.linmusic.desktop.ui.navigation.DesktopRoute
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
@@ -46,6 +48,7 @@ import com.lin0721.linmusic.desktop.player.MpvPlaybackController
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.merge
+import kotlinx.coroutines.launch
 import org.koin.core.context.GlobalContext
 
 @Composable
@@ -60,6 +63,7 @@ fun WindowScope.MelodiaDesktopApp(windowState: WindowState, onClose: () -> Unit)
     val playlistViewModel = remember { koin.get<PlaylistViewModel>() }
     val categoryViewModel = remember { koin.get<PlaylistCategoryViewModel>() }
     val artistViewModel = remember { koin.get<ArtistViewModel>() }
+    val desktopPreferences = remember { koin.get<DesktopPreferences>() }
     val mpvController = playbackController as? MpvPlaybackController
 
     val backStack = remember { BackStack(DesktopRoute.Home) }
@@ -67,6 +71,13 @@ fun WindowScope.MelodiaDesktopApp(windowState: WindowState, onClose: () -> Unit)
     var showLogin by rememberSaveable { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val isMaximized = windowState.placement == WindowPlacement.Maximized
+    val nowPlaying by playbackController.nowPlaying.collectAsState()
+    // 初值为关闭：读到已保存的开启状态后，侧栏随动画展开
+    val nowPlayingOpen by desktopPreferences.nowPlayingPanelOpen.collectAsState(initial = false)
+    val scope = rememberCoroutineScope()
+    val setNowPlayingOpen: (Boolean) -> Unit = { open ->
+        scope.launch { desktopPreferences.saveNowPlayingPanelOpen(open) }
+    }
     val searchInput by searchViewModel.inputState.collectAsState()
     val discovery by searchViewModel.discoveryState.collectAsState()
     val defaultKeyword = (discovery as? DiscoveryUiState.Success)?.defaultKeyword.orEmpty()
@@ -75,6 +86,7 @@ fun WindowScope.MelodiaDesktopApp(windowState: WindowState, onClose: () -> Unit)
     val navigator = DesktopNavigator(
         isLoggedIn = userProfile != null,
         openArtist = { id, name -> backStack.navigate(DesktopRoute.Artist(id, name)) },
+        openPlaylist = { id, name -> backStack.navigate(DesktopRoute.Playlist(id, name)) },
         openAlbum = { id, name -> backStack.navigate(DesktopRoute.Playlist(id, name, isAlbum = true)) },
         showMessage = { navigatorMessages.tryEmit(it) }
     )
@@ -95,7 +107,11 @@ fun WindowScope.MelodiaDesktopApp(windowState: WindowState, onClose: () -> Unit)
             .collect { snackbarHostState.showSnackbar(it) }
     }
 
-    CompositionLocalProvider(LocalDesktopNavigator provides navigator) {
+    val dockState = rememberNowPlayingDockState(hasTrack = nowPlaying != null, open = nowPlayingOpen)
+    CompositionLocalProvider(
+        LocalDesktopNavigator provides navigator,
+        LocalPaneWidthExtra provides { dockState.widthExtra }
+    ) {
         Box(Modifier.fillMaxSize().background(DesktopColors.WindowBackground)) {
             Column(Modifier.fillMaxSize()) {
                 TitleBar(
@@ -126,10 +142,7 @@ fun WindowScope.MelodiaDesktopApp(windowState: WindowState, onClose: () -> Unit)
                     },
                     onClose = onClose
                 )
-                Row(
-                    Modifier.weight(1f).padding(horizontal = DesktopDimens.PaneGap),
-                    horizontalArrangement = Arrangement.spacedBy(DesktopDimens.PaneGap)
-                ) {
+                Row(Modifier.weight(1f).padding(horizontal = DesktopDimens.PaneGap)) {
                     Pane(Modifier.width(DesktopDimens.SidebarWidth)) {
                         LibrarySidebar(
                             viewModel = libraryViewModel,
@@ -146,6 +159,7 @@ fun WindowScope.MelodiaDesktopApp(windowState: WindowState, onClose: () -> Unit)
                             }
                         )
                     }
+                    Spacer(Modifier.width(DesktopDimens.PaneGap))
                     Pane(Modifier.weight(1f)) {
                         when (val route = backStack.current) {
                             DesktopRoute.Home -> HomePage(
@@ -186,16 +200,23 @@ fun WindowScope.MelodiaDesktopApp(windowState: WindowState, onClose: () -> Unit)
                             )
                         }
                     }
-                    Pane(Modifier.width(DesktopDimens.NowPlayingWidth)) {
-                        NowPlayingPanel(playbackController, playerViewModel)
-                    }
+                    NowPlayingDock(
+                        state = dockState,
+                        hasTrack = nowPlaying != null,
+                        open = nowPlayingOpen,
+                        onOpenChange = setNowPlayingOpen,
+                        controller = playbackController,
+                        playerViewModel = playerViewModel
+                    )
                 }
                 val volume = mpvController?.volume?.collectAsState()?.value
                 PlayerBar(
                     controller = playbackController,
                     playerViewModel = playerViewModel,
                     volume = volume,
-                    onVolumeChange = { mpvController?.setVolume(it) }
+                    onVolumeChange = { mpvController?.setVolume(it) },
+                    nowPlayingOpen = nowPlayingOpen,
+                    onToggleNowPlaying = { setNowPlayingOpen(!nowPlayingOpen) }
                 )
             }
             SnackbarHost(snackbarHostState, Modifier.align(Alignment.BottomCenter).padding(bottom = 96.dp))

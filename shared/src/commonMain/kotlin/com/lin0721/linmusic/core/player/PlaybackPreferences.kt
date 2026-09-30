@@ -27,7 +27,8 @@ data class PlaybackState(
 data class QueueState(
     val queue: List<QueueItem> = emptyList(),
     val currentIndex: Int = -1,
-    val playContext: String? = null
+    val playContext: String? = null,
+    val playSource: PlaySource? = null
 )
 
 class PlaybackPreferences(private val dataStore: DataStore<Preferences>) {
@@ -43,6 +44,7 @@ class PlaybackPreferences(private val dataStore: DataStore<Preferences>) {
         private val KEY_QUEUE = stringPreferencesKey("play_queue")
         private val KEY_QUEUE_INDEX = intPreferencesKey("queue_index")
         private val KEY_PLAY_CONTEXT = stringPreferencesKey("play_context")
+        private val KEY_PLAY_SOURCE = stringPreferencesKey("play_source")
         private val json = Json { ignoreUnknownKeys = true }
     }
 
@@ -94,16 +96,23 @@ class PlaybackPreferences(private val dataStore: DataStore<Preferences>) {
         QueueState(
             queue = queue,
             currentIndex = prefs[KEY_QUEUE_INDEX] ?: -1,
-            playContext = prefs[KEY_PLAY_CONTEXT]
+            playContext = prefs[KEY_PLAY_CONTEXT],
+            playSource = prefs[KEY_PLAY_SOURCE]?.let { raw ->
+                runCatching { json.decodeFromString<PlaySource>(raw) }
+                    .onFailure { AppLogger.w(TAG, "播放来源反序列化失败", it) }
+                    .getOrNull()
+            }
         )
     }
 
-    suspend fun saveQueueState(queue: List<QueueItem>, currentIndex: Int, playContext: String?) {
+    suspend fun saveQueueState(queue: List<QueueItem>, currentIndex: Int, playContext: String?, playSource: PlaySource?) {
         dataStore.edit { prefs ->
             prefs[KEY_QUEUE] = json.encodeToString(queue)
             prefs[KEY_QUEUE_INDEX] = currentIndex
             if (playContext != null) prefs[KEY_PLAY_CONTEXT] = playContext
             else prefs.remove(KEY_PLAY_CONTEXT)
+            if (playSource != null) prefs[KEY_PLAY_SOURCE] = json.encodeToString(playSource)
+            else prefs.remove(KEY_PLAY_SOURCE)
         }
     }
 }

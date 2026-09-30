@@ -17,6 +17,7 @@ class PlaybackQueue {
     private var snapshotItems: List<QueueItem> = emptyList()
     private var snapshotIndex: Int = -1
     private var snapshotContext: String? = null
+    private var snapshotSource: PlaySource? = null
 
     private val _currentIndex = MutableStateFlow(-1)
     val currentIndex: StateFlow<Int> = _currentIndex.asStateFlow()
@@ -29,6 +30,9 @@ class PlaybackQueue {
 
     private val _playContext = MutableStateFlow<String?>(null)
     val playContext: StateFlow<String?> = _playContext.asStateFlow()
+
+    private val _playSource = MutableStateFlow<PlaySource?>(null)
+    val playSource: StateFlow<PlaySource?> = _playSource.asStateFlow()
 
     val size: Int get() = playItems.size
 
@@ -54,6 +58,10 @@ class PlaybackQueue {
 
     fun setPlayContext(context: String?) {
         _playContext.value = context
+    }
+
+    fun setPlaySource(source: PlaySource?) {
+        _playSource.value = source
     }
 
     fun setCurrentIndex(index: Int) {
@@ -83,7 +91,7 @@ class PlaybackQueue {
 
     // 从持久化数据恢复队列；index 是当前曲目在 items（原始顺序）里的下标。
     // 随机模式下要按当前 playMode 重新打乱，否则 playItems 会是未打乱的原始顺序，跟随机模式的语义不符
-    fun restore(items: List<QueueItem>, index: Int, context: String?) {
+    fun restore(items: List<QueueItem>, index: Int, context: String?, source: PlaySource? = null) {
         if (items.isEmpty()) return
         originalItems = items
         val safeIndex = index.coerceIn(0, items.size - 1)
@@ -96,6 +104,7 @@ class PlaybackQueue {
         }
         _items.value = playItems
         _playContext.value = context
+        _playSource.value = source
     }
 
     // 整体替换队列，随机模式下打乱并把起始曲目提到首位
@@ -247,6 +256,7 @@ class PlaybackQueue {
         snapshotItems = originalItems
         snapshotIndex = _currentIndex.value
         snapshotContext = _playContext.value
+        snapshotSource = _playSource.value
     }
 
     // 还原备份的队列，并把当前正在播放的曲目定位到新队列中
@@ -271,9 +281,11 @@ class PlaybackQueue {
 
         _items.value = playItems
         _playContext.value = snapshotContext
+        _playSource.value = snapshotSource
         snapshotItems = emptyList()
         snapshotIndex = -1
         snapshotContext = null
+        snapshotSource = null
     }
 
     // 打乱其余曲目并把当前曲目固定在首位，避免切到随机模式时当前歌曲被换掉

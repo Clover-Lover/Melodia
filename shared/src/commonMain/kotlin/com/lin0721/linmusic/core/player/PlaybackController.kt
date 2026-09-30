@@ -28,6 +28,7 @@ interface PlaybackController {
     val duration: StateFlow<Long>
     val sleepTimerRemaining: StateFlow<Long>
     val playContext: StateFlow<String?>
+    val playSource: StateFlow<PlaySource?>
     val currentIndex: StateFlow<Int>
     val playMode: StateFlow<PlayMode>
     val queue: StateFlow<List<QueueItem>>
@@ -38,7 +39,7 @@ interface PlaybackController {
     suspend fun initController()
     suspend fun shouldBlockPlaybackOnMobile(): Boolean
 
-    fun playQueue(items: List<QueueItem>, startIndex: Int, playContext: String? = null)
+    fun playQueue(items: List<QueueItem>, startIndex: Int, playContext: String? = null, source: PlaySource? = null)
     fun playAudio(
         songId: Long,
         url: String,

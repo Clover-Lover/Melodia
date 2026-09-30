@@ -1,6 +1,9 @@
 package com.lin0721.linmusic.desktop.ui
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.TooltipArea
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -37,6 +40,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -47,12 +52,17 @@ import com.lin0721.linmusic.desktop.ui.theme.DesktopDimens
 import com.lin0721.linmusic.feature.player.ui.PlayerViewModel
 import kotlin.math.roundToInt
 
+private const val TOOLTIP_DELAY_MS = 400
+
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun PlayerBar(
     controller: PlaybackController,
     playerViewModel: PlayerViewModel,
     volume: Int?,
     onVolumeChange: (Int) -> Unit,
+    nowPlayingOpen: Boolean,
+    onToggleNowPlaying: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val nowPlaying by controller.nowPlaying.collectAsState()
@@ -69,7 +79,14 @@ fun PlayerBar(
         Row(Modifier.weight(0.3f), verticalAlignment = Alignment.CenterVertically) {
             val track = nowPlaying
             if (track != null) {
-                Cover(track.artworkUri, 56.dp)
+                TooltipArea(
+                    tooltip = { TooltipLabel(if (nowPlayingOpen) "隐藏“正在播放”" else "显示“正在播放”") },
+                    delayMillis = TOOLTIP_DELAY_MS
+                ) {
+                    Box(Modifier.pointerHoverIcon(PointerIcon.Hand).clickable(onClick = onToggleNowPlaying)) {
+                        Cover(track.artworkUri, 56.dp)
+                    }
+                }
                 Column(Modifier.padding(start = 12.dp)) {
                     Text(track.title, color = DesktopColors.TextPrimary, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     NowPlayingArtists(track, playerViewModel, 12.sp)

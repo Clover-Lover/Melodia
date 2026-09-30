@@ -277,6 +277,29 @@ class PlaybackQueueTest {
     }
 
     @Test
+    fun `还原快照时同步还原播放来源`() {
+        val queue = queueOf(1, 2, 3, startIndex = 0)
+        val source = PlaySource(PlaySource.Kind.PLAYLIST, 7L, "我喜欢的音乐")
+        queue.setPlaySource(source)
+        queue.takeSnapshot()
+
+        queue.setPlaySource(null)
+        queue.replaceAll(listOf(item(1), item(9)), startIndex = 0)
+        assertNull(queue.playSource.value)
+
+        queue.restoreSnapshot()
+        assertEquals(source, queue.playSource.value)
+    }
+
+    @Test
+    fun `恢复队列时带回播放来源`() {
+        val queue = PlaybackQueue()
+        val source = PlaySource(PlaySource.Kind.ALBUM, 3L, "专辑")
+        queue.restore(listOf(item(1), item(2)), index = 0, context = "专辑", source = source)
+        assertEquals(source, queue.playSource.value)
+    }
+
+    @Test
     fun `无快照时还原不产生变化`() {
         val queue = queueOf(1, 2, 3, startIndex = 1)
         queue.restoreSnapshot()

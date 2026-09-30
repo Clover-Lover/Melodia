@@ -106,6 +106,7 @@ class PlayerManager(
     val positionUpdateInterval: StateFlow<Long> = progress.updateInterval
     override val sleepTimerRemaining: StateFlow<Long> = sleepTimer.remaining
     override val playContext: StateFlow<String?> = playbackQueue.playContext
+    override val playSource: StateFlow<PlaySource?> = playbackQueue.playSource
     override val currentIndex: StateFlow<Int> = playbackQueue.currentIndex
     override val playMode: StateFlow<PlayMode> = playbackQueue.playMode
     override val queue: StateFlow<List<QueueItem>> = playbackQueue.items
@@ -181,7 +182,7 @@ class PlayerManager(
             // 恢复队列
             try {
                 val qs = stateStore.loadQueueState()
-                playbackQueue.restore(qs.queue, qs.currentIndex, qs.playContext)
+                playbackQueue.restore(qs.queue, qs.currentIndex, qs.playContext, qs.playSource)
             } finally {
                 queueRestored.complete(Unit)
             }
@@ -261,7 +262,7 @@ class PlayerManager(
     }
 
     // 设置队列并从指定位置开始播放
-    override fun playQueue(items: List<QueueItem>, startIndex: Int, playContext: String?) {
+    override fun playQueue(items: List<QueueItem>, startIndex: Int, playContext: String?, source: PlaySource?) {
         if (items.isEmpty()) return
 
         if (playContext == SimilarRoamingController.CONTEXT_ROAMING) {
@@ -276,6 +277,7 @@ class PlayerManager(
             ?: playbackQueue.currentItem()?.songId
 
         playbackQueue.setPlayContext(playContext)
+        playbackQueue.setPlaySource(source)
         playbackQueue.replaceAll(items, startIndex)
         consecutiveErrors = 0
         saveQueueState()
@@ -298,6 +300,7 @@ class PlayerManager(
         val item = QueueItem(songId, title, artist, coverUrl)
         playbackQueue.replaceWithSingle(item)
         playbackQueue.setPlayContext(playContext)
+        playbackQueue.setPlaySource(null)
         consecutiveErrors = 0
         pendingStartPosition = startPosition
 

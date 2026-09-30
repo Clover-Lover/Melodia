@@ -20,6 +20,7 @@ class DesktopPreferences(private val dataStore: DataStore<Preferences>) {
         private val KEY_HOTKEYS = stringPreferencesKey("hotkeys")
         private val KEY_MEDIA_KEYS_ENABLED = booleanPreferencesKey("media_keys_enabled")
         private val KEY_CLOSE_ACTION = stringPreferencesKey("close_action")
+        private val KEY_NOW_PLAYING_OPEN = booleanPreferencesKey("now_playing_panel_open")
     }
 
     val hotkeys: Flow<Map<HotkeyAction, HotkeyCombo?>> = dataStore.data.map { prefs ->
@@ -35,6 +36,8 @@ class DesktopPreferences(private val dataStore: DataStore<Preferences>) {
         prefs[KEY_CLOSE_ACTION]?.let { name -> CloseAction.entries.firstOrNull { it.name == name } } ?: CloseAction.TRAY
     }.distinctUntilChanged()
 
+    val nowPlayingPanelOpen: Flow<Boolean> = dataStore.data.map { it[KEY_NOW_PLAYING_OPEN] ?: true }.distinctUntilChanged()
+
     suspend fun saveHotkeys(hotkeys: Map<HotkeyAction, HotkeyCombo?>) {
         dataStore.edit { prefs ->
             prefs[KEY_HOTKEYS] = hotkeys.entries.joinToString(";") { (action, combo) -> "${action.name}=${combo?.encode().orEmpty()}" }
@@ -47,6 +50,10 @@ class DesktopPreferences(private val dataStore: DataStore<Preferences>) {
 
     suspend fun saveCloseAction(action: CloseAction) {
         dataStore.edit { it[KEY_CLOSE_ACTION] = action.name }
+    }
+
+    suspend fun saveNowPlayingPanelOpen(open: Boolean) {
+        dataStore.edit { it[KEY_NOW_PLAYING_OPEN] = open }
     }
 
     // 解析失败的条目忽略，回落到默认值

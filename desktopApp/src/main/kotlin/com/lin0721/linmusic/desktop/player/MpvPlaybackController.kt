@@ -3,6 +3,7 @@ package com.lin0721.linmusic.desktop.player
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.player.NowPlaying
 import com.lin0721.linmusic.core.player.PlayMode
+import com.lin0721.linmusic.core.player.PlaySource
 import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.PlaybackController.Companion.CONTEXT_INTELLIGENCE
 import com.lin0721.linmusic.core.player.PlaybackPreferences
@@ -80,6 +81,7 @@ class MpvPlaybackController(
 
     override val sleepTimerRemaining: StateFlow<Long> = sleepTimer.remaining
     override val playContext: StateFlow<String?> = playbackQueue.playContext
+    override val playSource: StateFlow<PlaySource?> = playbackQueue.playSource
     override val currentIndex: StateFlow<Int> = playbackQueue.currentIndex
     override val playMode: StateFlow<PlayMode> = playbackQueue.playMode
     override val queue: StateFlow<List<QueueItem>> = playbackQueue.items
@@ -139,7 +141,7 @@ class MpvPlaybackController(
         if (_nowPlaying.value != null || !playbackQueue.isEmpty) return
 
         playbackQueue.setPlayMode(mode)
-        playbackQueue.restore(queueState.queue, queueState.currentIndex, queueState.playContext)
+        playbackQueue.restore(queueState.queue, queueState.currentIndex, queueState.playContext, queueState.playSource)
         if (lastTrack == null) return
 
         val current = playbackQueue.currentItem()
@@ -163,7 +165,7 @@ class MpvPlaybackController(
 
     override suspend fun shouldBlockPlaybackOnMobile(): Boolean = false
 
-    override fun playQueue(items: List<QueueItem>, startIndex: Int, playContext: String?) {
+    override fun playQueue(items: List<QueueItem>, startIndex: Int, playContext: String?, source: PlaySource?) {
         if (items.isEmpty()) return
 
         if (playContext == SimilarRoamingController.CONTEXT_ROAMING) {
@@ -175,6 +177,7 @@ class MpvPlaybackController(
 
         val playingSongId = _nowPlaying.value?.songId
         playbackQueue.setPlayContext(playContext)
+        playbackQueue.setPlaySource(source)
         playbackQueue.replaceAll(items, startIndex)
         consecutiveFailures = 0
         saveQueueState()
@@ -201,6 +204,7 @@ class MpvPlaybackController(
     ) {
         playbackQueue.replaceWithSingle(QueueItem(songId, title, artist, coverUrl))
         playbackQueue.setPlayContext(playContext)
+        playbackQueue.setPlaySource(null)
         consecutiveFailures = 0
         saveQueueState()
         playIndex(0, startPosition, knownUrl = url)
@@ -361,11 +365,12 @@ class MpvPlaybackController(
         val items = playbackQueue.original
         val index = playbackQueue.currentIndexInOriginal()
         val context = playbackQueue.playContext.value
+        val source = playbackQueue.playSource.value
         runBlocking(Dispatchers.IO) {
             withTimeoutOrNull(EXIT_SAVE_TIMEOUT_MS) {
                 runCatching {
                     if (state != null) preferences.savePlaybackState(state)
-                    preferences.saveQueueState(items, index, context)
+                    preferences.saveQueueState(items, index, context, source)
                 }.onFailure { AppLogger.w(TAG, "退出时保存播放状态失败", it) }
             }
         }

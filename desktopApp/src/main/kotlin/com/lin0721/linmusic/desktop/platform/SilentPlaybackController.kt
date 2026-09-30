@@ -2,6 +2,7 @@ package com.lin0721.linmusic.desktop.platform
 
 import com.lin0721.linmusic.core.player.NowPlaying
 import com.lin0721.linmusic.core.player.PlayMode
+import com.lin0721.linmusic.core.player.PlaySource
 import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.QueueItem
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,6 +27,9 @@ class SilentPlaybackController : PlaybackController {
     private val _playContext = MutableStateFlow<String?>(null)
     override val playContext: StateFlow<String?> = _playContext.asStateFlow()
 
+    private val _playSource = MutableStateFlow<PlaySource?>(null)
+    override val playSource: StateFlow<PlaySource?> = _playSource.asStateFlow()
+
     private val _currentIndex = MutableStateFlow(-1)
     override val currentIndex: StateFlow<Int> = _currentIndex.asStateFlow()
 
@@ -48,10 +52,11 @@ class SilentPlaybackController : PlaybackController {
 
     override suspend fun shouldBlockPlaybackOnMobile(): Boolean = false
 
-    override fun playQueue(items: List<QueueItem>, startIndex: Int, playContext: String?) {
+    override fun playQueue(items: List<QueueItem>, startIndex: Int, playContext: String?, source: PlaySource?) {
         if (items.isEmpty()) return
         _queue.value = items
         _playContext.value = playContext
+        _playSource.value = source
         moveTo(startIndex.coerceIn(0, items.lastIndex), play = true)
     }
 
@@ -64,7 +69,7 @@ class SilentPlaybackController : PlaybackController {
         startPosition: Long,
         playContext: String?
     ) {
-        playQueue(listOf(QueueItem(songId, title, artist, coverUrl)), 0, playContext)
+        playQueue(listOf(QueueItem(songId, title, artist, coverUrl)), 0, playContext, null)
     }
 
     override fun addToPlayNext(items: List<QueueItem>) {

@@ -8,6 +8,7 @@ import androidx.compose.runtime.compositionLocalOf
 class DesktopNavigator(
     val isLoggedIn: Boolean,
     val openArtist: (id: Long, name: String) -> Unit,
+    val openPlaylist: (id: Long, name: String) -> Unit,
     val openAlbum: (id: Long, name: String) -> Unit,
     val showMessage: (String) -> Unit
 )

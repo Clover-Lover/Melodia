@@ -31,7 +31,12 @@ class PlaybackStateStore(
     // 跟这里落盘的 original 顺序对不上，直接存会导致下次恢复时定位到完全不同的曲目
     fun saveQueue(queue: PlaybackQueue) {
         scope.launch(Dispatchers.Default) {
-            preferences.saveQueueState(queue.original, queue.currentIndexInOriginal(), queue.playContext.value)
+            preferences.saveQueueState(
+                queue.original,
+                queue.currentIndexInOriginal(),
+                queue.playContext.value,
+                queue.playSource.value
+            )
         }
     }
 

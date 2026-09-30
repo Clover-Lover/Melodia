@@ -1,6 +1,7 @@
 package com.lin0721.linmusic.desktop.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -10,6 +11,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -20,6 +22,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.Radio
 import androidx.compose.material.icons.rounded.Timer
@@ -41,6 +44,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -49,6 +54,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.model.Artist
 import com.lin0721.linmusic.core.player.NowPlaying
+import com.lin0721.linmusic.core.player.PlaySource
 import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.PlaybackController.Companion.CONTEXT_INTELLIGENCE
 import com.lin0721.linmusic.core.player.SimilarRoamingController
@@ -58,27 +64,26 @@ import com.lin0721.linmusic.feature.player.ui.PlayerViewModel
 
 private val LyricCardHeight = 280.dp
 
+private val HeaderButtonSize = 32.dp
+private val HeaderButtonOffset = 4.dp
+
 private val SleepTimerOptions = listOf(15, 30, 60, 90)
 
 @Composable
 fun NowPlayingPanel(
     controller: PlaybackController,
     playerViewModel: PlayerViewModel,
+    hovered: Boolean,
+    onClose: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val nowPlaying by controller.nowPlaying.collectAsState()
-    val track = nowPlaying
-    if (track == null) {
-        Box(modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
-            Text("还没有正在播放的歌曲", color = DesktopColors.TextGray, fontSize = 14.sp)
-        }
-        return
-    }
+    val track = nowPlaying ?: return
     val detailState by playerViewModel.songDetailState.collectAsState()
     val currentLyricIndex by playerViewModel.currentLyricIndex.collectAsState()
 
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
-        PanelHeader(track, controller, playerViewModel)
+        PanelHeader(track, controller, playerViewModel, hovered, onClose)
         BoxWithConstraints(Modifier.fillMaxWidth().padding(top = 8.dp)) {
             Cover(track.artworkUri, maxWidth, shape = RoundedCornerShape(8.dp))
         }
@@ -124,7 +129,13 @@ internal fun NowPlayingArtists(track: NowPlaying, playerViewModel: PlayerViewMod
 }
 
 @Composable
-private fun PanelHeader(track: NowPlaying, controller: PlaybackController, playerViewModel: PlayerViewModel) {
+private fun PanelHeader(
+    track: NowPlaying,
+    controller: PlaybackController,
+    playerViewModel: PlayerViewModel,
+    hovered: Boolean,
+    onClose: () -> Unit
+) {
     val playContext by controller.playContext.collectAsState()
     val sleepRemaining by controller.sleepTimerRemaining.collectAsState()
     var menuOpen by remember { mutableStateOf(false) }
@@ -133,13 +144,18 @@ private fun PanelHeader(track: NowPlaying, controller: PlaybackController, playe
     val sleepActive = sleepRemaining > 0L
 
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Text(
-            "正在播放",
-            color = DesktopColors.TextPrimary,
-            fontWeight = FontWeight.Bold,
-            fontSize = 15.sp,
-            modifier = Modifier.weight(1f)
-        )
+        // 按钮尺寸与偏移沿用移动端播放页顶栏，使箭头与封面左缘对齐
+        HoverReveal(revealed = hovered, modifier = Modifier.offset(x = (-HeaderButtonOffset)), reserveSpace = false) {
+            IconButton(onClick = onClose, modifier = Modifier.size(HeaderButtonSize)) {
+                Icon(
+                    Icons.Rounded.KeyboardArrowRight,
+                    "关闭正在播放",
+                    tint = DesktopColors.TextGray,
+                    modifier = Modifier.size(32.dp)
+                )
+            }
+        }
+        PanelTitle(track, controller, playerViewModel, Modifier.weight(1f))
         if (sleepActive) {
             Icon(Icons.Rounded.Bedtime, "睡眠定时", tint = DesktopColors.Accent, modifier = Modifier.size(16.dp))
             Text(
@@ -149,62 +165,93 @@ private fun PanelHeader(track: NowPlaying, controller: PlaybackController, playe
                 modifier = Modifier.padding(start = 4.dp)
             )
         }
-        Box {
-            IconButton(onClick = { menuOpen = true }) {
-                Icon(Icons.Rounded.MoreHoriz, "更多有关《${track.title}》的选项", tint = DesktopColors.TextGray)
-            }
-            DropdownMenu(
-                expanded = menuOpen,
-                onDismissRequest = { menuOpen = false },
-                containerColor = DesktopColors.Surface
-            ) {
-                val songId = track.songId
-                MenuItem(
-                    Icons.Rounded.Favorite,
-                    if (isIntelligence) "退出心动模式" else "心动模式",
-                    enabled = isIntelligence || songId != null
+        HoverReveal(revealed = hovered || menuOpen, modifier = Modifier.offset(x = HeaderButtonOffset)) {
+            Box {
+                IconButton(onClick = { menuOpen = true }, modifier = Modifier.size(HeaderButtonSize)) {
+                    Icon(Icons.Rounded.MoreHoriz, "更多有关《${track.title}》的选项", tint = DesktopColors.TextGray)
+                }
+                DropdownMenu(
+                    expanded = menuOpen,
+                    onDismissRequest = { menuOpen = false },
+                    containerColor = DesktopColors.Surface
                 ) {
-                    menuOpen = false
-                    if (isIntelligence) {
-                        controller.disableIntelligence()
-                    } else if (songId != null) {
-                        playerViewModel.startIntelligenceMode(songId, track.title, track.artist, track.artworkUri.orEmpty())
-                    }
-                }
-                MenuItem(
-                    Icons.Rounded.Radio,
-                    if (isRoaming) "退出相似歌曲漫游" else "相似歌曲漫游",
-                    enabled = isRoaming || songId != null
-                ) {
-                    menuOpen = false
-                    if (isRoaming) {
-                        controller.disableRoaming()
-                    } else if (songId != null) {
-                        playerViewModel.startSimilarSongsRoaming(songId, track.title, track.artist, track.artworkUri.orEmpty())
-                    }
-                }
-                HorizontalDivider(color = DesktopColors.SurfaceLight)
-                Text(
-                    if (sleepActive) "睡眠定时（剩余 ${formatCountdown(sleepRemaining)}）" else "睡眠定时",
-                    color = DesktopColors.TextGray,
-                    fontSize = 12.sp,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                )
-                SleepTimerOptions.forEach { minutes ->
-                    MenuItem(Icons.Rounded.Timer, "$minutes 分钟") {
+                    val songId = track.songId
+                    MenuItem(
+                        Icons.Rounded.Favorite,
+                        if (isIntelligence) "退出心动模式" else "心动模式",
+                        enabled = isIntelligence || songId != null
+                    ) {
                         menuOpen = false
-                        playerViewModel.setSleepTimer(minutes)
+                        if (isIntelligence) {
+                            controller.disableIntelligence()
+                        } else if (songId != null) {
+                            playerViewModel.startIntelligenceMode(songId, track.title, track.artist, track.artworkUri.orEmpty())
+                        }
                     }
-                }
-                if (sleepActive) {
-                    MenuItem(Icons.Rounded.TimerOff, "取消定时") {
+                    MenuItem(
+                        Icons.Rounded.Radio,
+                        if (isRoaming) "退出相似歌曲漫游" else "相似歌曲漫游",
+                        enabled = isRoaming || songId != null
+                    ) {
                         menuOpen = false
-                        playerViewModel.setSleepTimer(0)
+                        if (isRoaming) {
+                            controller.disableRoaming()
+                        } else if (songId != null) {
+                            playerViewModel.startSimilarSongsRoaming(songId, track.title, track.artist, track.artworkUri.orEmpty())
+                        }
+                    }
+                    HorizontalDivider(color = DesktopColors.SurfaceLight)
+                    Text(
+                        if (sleepActive) "睡眠定时（剩余 ${formatCountdown(sleepRemaining)}）" else "睡眠定时",
+                        color = DesktopColors.TextGray,
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                    )
+                    SleepTimerOptions.forEach { minutes ->
+                        MenuItem(Icons.Rounded.Timer, "$minutes 分钟") {
+                            menuOpen = false
+                            playerViewModel.setSleepTimer(minutes)
+                        }
+                    }
+                    if (sleepActive) {
+                        MenuItem(Icons.Rounded.TimerOff, "取消定时") {
+                            menuOpen = false
+                            playerViewModel.setSleepTimer(0)
+                        }
                     }
                 }
             }
         }
     }
+}
+
+private class TitleTarget(val isAlbum: Boolean, val id: Long, val name: String)
+
+// 优先显示播放来源的歌单/专辑；来源缺失时退回当前歌曲所属专辑，都没有则只显示“正在播放”
+@Composable
+private fun PanelTitle(track: NowPlaying, controller: PlaybackController, playerViewModel: PlayerViewModel, modifier: Modifier) {
+    val navigator = LocalDesktopNavigator.current
+    val source by controller.playSource.collectAsState()
+    val detailState by playerViewModel.songDetailState.collectAsState()
+    val album = detailState.songDetail?.takeIf { it.id == track.songId }?.al
+    val target = source?.let { TitleTarget(it.kind == PlaySource.Kind.ALBUM, it.id, it.name) }
+        ?: album?.takeIf { it.id > 0 && it.name.isNotBlank() }?.let { TitleTarget(true, it.id, it.name) }
+
+    if (target == null) {
+        Text("正在播放", color = DesktopColors.TextPrimary, fontWeight = FontWeight.Bold, fontSize = 15.sp, modifier = modifier)
+        return
+    }
+    Text(
+        target.name,
+        color = DesktopColors.TextPrimary,
+        fontWeight = FontWeight.Bold,
+        fontSize = 15.sp,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = modifier.clip(RoundedCornerShape(4.dp)).pointerHoverIcon(PointerIcon.Hand).clickable {
+            if (target.isAlbum) navigator.openAlbum(target.id, target.name) else navigator.openPlaylist(target.id, target.name)
+        }
+    )
 }
 
 @Composable

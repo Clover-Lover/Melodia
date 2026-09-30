@@ -10,6 +10,7 @@ import com.lin0721.linmusic.core.download.yearFromEpochMillis
 import com.lin0721.linmusic.core.model.PlaylistDetail
 import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.auth.SyncProfileAfterLoginUseCase
+import com.lin0721.linmusic.core.player.PlaySource
 import com.lin0721.linmusic.core.songlike.LoadLikedSongIdsUseCase
 import com.lin0721.linmusic.core.comment.data.CommentRepository
 import com.lin0721.linmusic.feature.playlist.domain.CreatePlaylistAndAddSongUseCase
@@ -42,7 +43,6 @@ import com.lin0721.linmusic.core.ui.components.PlaylistCollectItem
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectState
 import com.lin0721.linmusic.core.network.ResourceProvider
 import com.lin0721.linmusic.core.network.toUserMessage
-
 import com.lin0721.linmusic.feature.search.data.SearchRepository
 import com.lin0721.linmusic.feature.search.domain.SearchResultItem
 import com.lin0721.linmusic.feature.search.domain.SearchType
@@ -326,12 +326,15 @@ class PlaylistViewModel(
     }
 
     fun playSongInList(track: Track, allTracks: List<Track>) {
-        val playlistName = (_uiState.value as? PlaylistUiState.Success)?.playlist?.name
+        val playlist = (_uiState.value as? PlaylistUiState.Success)?.playlist
         val queueItems = allTracks.map { t ->
             QueueItem(t.id, t.name, t.ar.joinToString { it.name }, t.al.picUrl)
         }
         val startIndex = allTracks.indexOfFirst { it.id == track.id }.coerceAtLeast(0)
-        playerManager.playQueue(queueItems, startIndex, playlistName)
+        val source = playlist?.let {
+            PlaySource(if (isAlbumMode) PlaySource.Kind.ALBUM else PlaySource.Kind.PLAYLIST, it.id, it.name)
+        }
+        playerManager.playQueue(queueItems, startIndex, playlist?.name, source)
     }
 
     fun addTrackToPlayNext(track: Track) {

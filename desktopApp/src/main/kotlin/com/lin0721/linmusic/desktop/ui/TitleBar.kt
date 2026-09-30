@@ -250,15 +250,7 @@ private fun SearchBox(
         }
         Box(Modifier.padding(horizontal = 10.dp).width(1.dp).height(24.dp).background(DesktopColors.SurfaceLight))
         TooltipArea(
-            tooltip = {
-                Text(
-                    "浏览",
-                    color = DesktopColors.TextPrimary,
-                    fontSize = 12.sp,
-                    modifier = Modifier.clip(RoundedCornerShape(4.dp)).background(DesktopColors.SurfaceLight)
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                )
-            },
+            tooltip = { TooltipLabel("浏览") },
             delayMillis = 400
         ) {
             Icon(
