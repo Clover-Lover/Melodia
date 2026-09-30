@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -44,8 +43,11 @@ import com.lin0721.linmusic.feature.home.ui.HomeViewModel
 import com.lin0721.linmusic.feature.library.ui.LibraryItem
 import com.lin0721.linmusic.feature.library.ui.LibraryItemType
 import com.lin0721.linmusic.feature.library.ui.LibraryViewModel
+import com.lin0721.linmusic.feature.music.ui.MusicViewModel
+import com.lin0721.linmusic.feature.newworks.ui.NewWorksViewModel
 import com.lin0721.linmusic.feature.player.ui.PlayerViewModel
 import com.lin0721.linmusic.feature.playlist.ui.PlaylistViewModel
+import com.lin0721.linmusic.feature.podcast.ui.PodcastViewModel
 import com.lin0721.linmusic.feature.search.ui.DiscoveryUiState
 import com.lin0721.linmusic.feature.search.ui.PlaylistCategoryViewModel
 import com.lin0721.linmusic.feature.search.ui.SearchViewModel
@@ -62,6 +64,9 @@ import org.koin.core.context.GlobalContext
 fun WindowScope.MelodiaDesktopApp(windowState: WindowState, onClose: () -> Unit) {
     val koin = remember { GlobalContext.get() }
     val homeViewModel = remember { koin.get<HomeViewModel>() }
+    val musicViewModel = remember { koin.get<MusicViewModel>() }
+    val podcastViewModel = remember { koin.get<PodcastViewModel>() }
+    val newWorksViewModel = remember { koin.get<NewWorksViewModel>() }
     val libraryViewModel = remember { koin.get<LibraryViewModel>() }
     val loginViewModel = remember { koin.get<LoginViewModel>() }
     val playbackController = remember { koin.get<PlaybackController>() }
@@ -76,6 +81,8 @@ fun WindowScope.MelodiaDesktopApp(windowState: WindowState, onClose: () -> Unit)
     val backStack = remember { BackStack(DesktopRoute.Home) }
     val userProfile by homeViewModel.userProfile.collectAsState()
     var showLogin by rememberSaveable { mutableStateOf(false) }
+    var homeTab by rememberSaveable { mutableStateOf(HOME_TAB_ALL) }
+    var showNewWorks by rememberSaveable { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val isMaximized = windowState.placement == WindowPlacement.Maximized
     val nowPlaying by playbackController.nowPlaying.collectAsState()
@@ -91,6 +98,14 @@ fun WindowScope.MelodiaDesktopApp(windowState: WindowState, onClose: () -> Unit)
     val setLibraryMode: (LibraryMode) -> Unit = { mode ->
         scope.launch { desktopPreferences.saveLibraryMode(mode) }
     }
+    // 两侧栏拖动调整过的宽度；拖动期间只改内存值，松手才落盘
+    val initialLibraryWidth = remember { runBlocking { desktopPreferences.libraryWidth.first() } }
+    val initialDockWidth = remember { runBlocking { desktopPreferences.nowPlayingWidth.first() } }
+    var libraryWidthPref by remember { mutableStateOf((initialLibraryWidth ?: DesktopDimens.SidebarWidth.value).dp) }
+    var dockWidthPref by remember { mutableStateOf((initialDockWidth ?: DesktopDimens.NowPlayingWidth.value).dp) }
+    var resizing by remember { mutableStateOf(false) }
+    var libraryDragStart by remember { mutableStateOf(0.dp) }
+    var dockDragStart by remember { mutableStateOf(0.dp) }
     val initialViewMode = remember { runBlocking { desktopPreferences.libraryViewMode.first() } }
     val libraryViewMode by desktopPreferences.libraryViewMode.collectAsState(initial = initialViewMode)
     val setLibraryViewMode: (LibraryViewMode) -> Unit = { mode ->
@@ -122,6 +137,7 @@ fun WindowScope.MelodiaDesktopApp(windowState: WindowState, onClose: () -> Unit)
         val playbackMessages = mpvController?.messages ?: emptyFlow()
         merge(
             homeViewModel.toastEvent,
+            musicViewModel.toastEvent,
             libraryViewModel.toastEvent,
             searchViewModel.toastEvent,
             playlistViewModel.toastEvent,
@@ -146,7 +162,6 @@ fun WindowScope.MelodiaDesktopApp(windowState: WindowState, onClose: () -> Unit)
         }
     }
 
-    val dockState = rememberNowPlayingDockState(hasTrack = nowPlaying != null, open = dockOpen)
     CompositionLocalProvider(LocalDesktopNavigator provides navigator) {
         Box(Modifier.fillMaxSize().background(DesktopColors.WindowBackground)) {
             Column(Modifier.fillMaxSize()) {
@@ -179,12 +194,41 @@ fun WindowScope.MelodiaDesktopApp(windowState: WindowState, onClose: () -> Unit)
                     onClose = onClose
                 )
                 BoxWithConstraints(Modifier.weight(1f)) {
-                    val workspace = rememberWorkspaceLayout(libraryMode, maxWidth - DesktopDimens.PaneGap * 2, dockState)
-                    CompositionLocalProvider(LocalPaneWidthExtra provides { workspace.centerWidthExtra }) {
+                    val available = maxWidth - DesktopDimens.PaneGap * 2
+                    val hasTrack = nowPlaying != null
+                    // 侧栏最宽不超过固定上限，且尽量给中间内容区留出 CenterMinWidth；
+                    // 两侧互相让位时，音乐库按正在播放栏的记忆宽度算，正在播放栏按音乐库的实际占用算
+                    val dockStaticOccupied = when {
+                        !hasTrack -> 0.dp
+                        dockOpen -> dockWidthPref.coerceIn(DesktopDimens.NowPlayingMinWidth, DesktopDimens.NowPlayingMaxWidth) +
+                            DesktopDimens.PaneGap
+                        else -> DesktopDimens.NowPlayingHandleWidth + DesktopDimens.PaneGap
+                    }
+                    val libraryMax = maxOf(
+                        DesktopDimens.LibraryMinWidth,
+                        minOf(DesktopDimens.LibraryMaxWidth, available - dockStaticOccupied - DesktopDimens.PaneGap - DesktopDimens.CenterMinWidth)
+                    )
+                    val libraryDefaultWidth = libraryWidthPref.coerceIn(DesktopDimens.LibraryMinWidth, libraryMax)
+                    val libraryOccupied = if (libraryMode == LibraryMode.RAIL) DesktopDimens.LibraryRailWidth else libraryDefaultWidth
+                    val dockMax = maxOf(
+                        DesktopDimens.NowPlayingMinWidth,
+                        minOf(
+                            DesktopDimens.NowPlayingMaxWidth,
+                            available - libraryOccupied - DesktopDimens.PaneGap * 2 - DesktopDimens.CenterMinWidth
+                        )
+                    )
+                    val dockOpenWidth = dockWidthPref.coerceIn(DesktopDimens.NowPlayingMinWidth, dockMax)
+                    val dockState = rememberNowPlayingDockState(hasTrack, dockOpen, dockOpenWidth, resizing)
+                    val workspace = rememberWorkspaceLayout(libraryMode, available, dockState, libraryDefaultWidth, resizing)
+                    CompositionLocalProvider(
+                        LocalPaneWidthExtra provides { workspace.centerWidthExtra },
+                        LocalPaneResizing provides resizing
+                    ) {
                         Row(Modifier.fillMaxSize().padding(horizontal = DesktopDimens.PaneGap)) {
                             LibraryPane(
                                 mode = libraryMode,
                                 width = workspace.libraryWidth,
+                                defaultWidth = libraryDefaultWidth,
                                 expandedWidth = workspace.expandedWidth,
                                 viewModel = libraryViewModel,
                                 isLoggedIn = userProfile != null,
@@ -194,12 +238,52 @@ fun WindowScope.MelodiaDesktopApp(windowState: WindowState, onClose: () -> Unit)
                                 viewMode = libraryViewMode,
                                 onViewModeChange = setLibraryViewMode
                             )
-                            Spacer(Modifier.width(workspace.centerGap))
+                            // 缝隙即拖动条：拖窄过阈值吸附成窄条，拖宽只停在上限，不会变成展开态
+                            PaneResizeHandle(
+                                width = workspace.centerGap,
+                                enabled = libraryMode != LibraryMode.EXPANDED,
+                                onDragStart = {
+                                    resizing = true
+                                    libraryDragStart = workspace.libraryWidth
+                                },
+                                onDrag = { delta ->
+                                    val proposed = libraryDragStart + delta
+                                    if (proposed < DesktopDimens.PaneSnapWidth) {
+                                        resizing = false
+                                        if (libraryMode != LibraryMode.RAIL) setLibraryMode(LibraryMode.RAIL)
+                                    } else {
+                                        resizing = true
+                                        if (libraryMode != LibraryMode.DEFAULT) setLibraryMode(LibraryMode.DEFAULT)
+                                        libraryWidthPref = proposed.coerceIn(DesktopDimens.LibraryMinWidth, libraryMax)
+                                    }
+                                },
+                                onDragEnd = {
+                                    resizing = false
+                                    scope.launch { desktopPreferences.saveLibraryWidth(libraryWidthPref.value) }
+                                }
+                            )
                             Pane(Modifier.weight(1f)) {
                                 Box(Modifier.settledLayoutWidth(LocalPaneWidthExtra.current).fillMaxSize()) {
                                     when (val route = backStack.current) {
                                         DesktopRoute.Home -> HomePage(
                                             viewModel = homeViewModel,
+                                            musicViewModel = musicViewModel,
+                                            podcastViewModel = podcastViewModel,
+                                            newWorksViewModel = newWorksViewModel,
+                                            controller = playbackController,
+                                            selectedTab = homeTab,
+                                            // 点任意主胶囊都回到该 tab 的默认内容，「最新」只能由二级胶囊单独选中；
+                                            // 已在「音乐」默认内容时再点「音乐」则回到「全部」，收起二级胶囊
+                                            onTabSelected = {
+                                                homeTab = if (it == HOME_TAB_MUSIC && homeTab == HOME_TAB_MUSIC && !showNewWorks) {
+                                                    HOME_TAB_ALL
+                                                } else {
+                                                    it
+                                                }
+                                                showNewWorks = false
+                                            },
+                                            newWorksSelected = showNewWorks,
+                                            onNewWorksSelectedChange = { showNewWorks = it },
                                             onPlaylistClick = { id, title -> backStack.navigate(DesktopRoute.Playlist(id, title)) }
                                         )
                                         is DesktopRoute.Playlist -> PlaylistPage(
@@ -243,7 +327,25 @@ fun WindowScope.MelodiaDesktopApp(windowState: WindowState, onClose: () -> Unit)
                                 open = dockOpen,
                                 onOpenChange = setDockOpen,
                                 controller = playbackController,
-                                playerViewModel = playerViewModel
+                                playerViewModel = playerViewModel,
+                                onResizeStart = {
+                                    resizing = true
+                                    dockDragStart = dockState.width
+                                },
+                                onResize = { delta ->
+                                    val proposed = dockDragStart - delta
+                                    if (proposed < DesktopDimens.PaneSnapWidth) {
+                                        resizing = false
+                                        if (dockOpen) setDockOpen(false)
+                                    } else {
+                                        resizing = true
+                                        dockWidthPref = proposed.coerceIn(DesktopDimens.NowPlayingMinWidth, dockMax)
+                                    }
+                                },
+                                onResizeEnd = {
+                                    resizing = false
+                                    scope.launch { desktopPreferences.saveNowPlayingWidth(dockWidthPref.value) }
+                                }
                             )
                         }
                     }

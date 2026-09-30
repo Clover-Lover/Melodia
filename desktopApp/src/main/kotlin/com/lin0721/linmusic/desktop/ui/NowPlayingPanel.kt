@@ -60,6 +60,7 @@ import com.lin0721.linmusic.core.player.PlaybackController.Companion.CONTEXT_INT
 import com.lin0721.linmusic.core.player.SimilarRoamingController
 import com.lin0721.linmusic.core.player.domain.LyricLine
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
+import com.lin0721.linmusic.desktop.ui.theme.DesktopDimens
 import com.lin0721.linmusic.feature.player.ui.PlayerViewModel
 
 private val LyricCardHeight = 280.dp
@@ -85,7 +86,7 @@ fun NowPlayingPanel(
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
         PanelHeader(track, controller, playerViewModel, hovered, onClose)
         BoxWithConstraints(Modifier.fillMaxWidth().padding(top = 8.dp)) {
-            Cover(track.artworkUri, maxWidth, shape = RoundedCornerShape(8.dp))
+            Cover(track.artworkUri, maxWidth, shape = RoundedCornerShape(8.dp), requestSize = DesktopDimens.NowPlayingMaxWidth)
         }
         Text(
             track.title,

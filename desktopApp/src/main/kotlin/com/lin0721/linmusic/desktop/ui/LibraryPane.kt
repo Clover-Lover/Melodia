@@ -32,6 +32,7 @@ private const val MODE_SWITCH_MS = 150
 fun LibraryPane(
     mode: LibraryMode,
     width: Dp,
+    defaultWidth: Dp,
     expandedWidth: Dp,
     viewModel: LibraryViewModel,
     isLoggedIn: Boolean,
@@ -58,7 +59,7 @@ fun LibraryPane(
         ) { current ->
             val contentWidth = when (current) {
                 LibraryMode.RAIL -> DesktopDimens.LibraryRailWidth
-                LibraryMode.DEFAULT -> DesktopDimens.SidebarWidth
+                LibraryMode.DEFAULT -> defaultWidth
                 LibraryMode.EXPANDED -> expandedWidth
             }
             Box(Modifier.fixedWidthAtStart(contentWidth)) {

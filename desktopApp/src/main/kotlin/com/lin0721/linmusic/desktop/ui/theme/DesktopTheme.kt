@@ -20,15 +20,21 @@ object DesktopColors {
 }
 
 object DesktopDimens {
-    val TitleBarHeight = 56.dp
+    val TitleBarHeight = 64.dp
     val PlayerBarHeight = 80.dp
     val PaneGap = 8.dp
     val PaneRadius = 8.dp
     val SidebarWidth = 300.dp
+    val LibraryMinWidth = 280.dp
+    val LibraryMaxWidth = 420.dp
     val LibraryRailWidth = 72.dp
     val NowPlayingWidth = 340.dp
+    val NowPlayingMinWidth = 280.dp
+    val NowPlayingMaxWidth = 420.dp
     val NowPlayingHandleWidth = 28.dp
     val NowPlayingPeekWidth = 72.dp
+    val CenterMinWidth = 400.dp
+    val PaneSnapWidth = 220.dp
 }
 
 @Composable

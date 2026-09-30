@@ -5,7 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.network.ResourceProvider
 import com.lin0721.linmusic.core.network.toUserMessage
-import com.lin0721.linmusic.core.player.PlayerManager
+import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.QueueItem
 import com.lin0721.linmusic.feature.newworks.data.NewWorksRepository
 import com.lin0721.linmusic.feature.newworks.domain.NewWorksRelease
@@ -21,7 +21,7 @@ private const val TAG = "NewWorksViewModel"
 
 class NewWorksViewModel(
     private val repository: NewWorksRepository,
-    val playerManager: PlayerManager,
+    private val playbackController: PlaybackController,
     private val resourceProvider: ResourceProvider
 ) : ViewModel() {
 
@@ -97,7 +97,7 @@ class NewWorksViewModel(
 
         val queueItems = singles.map { QueueItem(it.id, it.title, it.artistName, it.coverUrl) }
         val startIndex = singles.indexOfFirst { it.id == release.id }.coerceAtLeast(0)
-        playerManager.playQueue(queueItems, startIndex, "音乐新作")
+        playbackController.playQueue(queueItems, startIndex, "音乐新作")
     }
 
     // 单类请求的异常兜底，避免一类失败连累另一类结果丢失

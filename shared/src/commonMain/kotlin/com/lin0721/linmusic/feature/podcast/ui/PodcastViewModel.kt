@@ -7,7 +7,7 @@ import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.network.AppString
 import com.lin0721.linmusic.core.network.ResourceProvider
 import com.lin0721.linmusic.core.network.toUserMessage
-import com.lin0721.linmusic.core.player.PlayerManager
+import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.QueueItem
 import com.lin0721.linmusic.feature.podcast.data.PodcastRepository
 import com.lin0721.linmusic.feature.podcast.domain.PodcastProgram
@@ -23,7 +23,7 @@ private const val TAG = "PodcastViewModel"
 // 「播客」tab ViewModel。与音乐 tab 同样是懒加载：首次切到播客才请求
 class PodcastViewModel(
     private val podcastRepository: PodcastRepository,
-    private val playerManager: PlayerManager,
+    private val playbackController: PlaybackController,
     private val userPreferences: UserPreferences,
     private val resourceProvider: ResourceProvider
 ) : ViewModel() {
@@ -134,6 +134,6 @@ class PodcastViewModel(
                 coverUrl = program.coverUrl
             )
         }
-        playerManager.playQueue(queue, index.coerceIn(queue.indices), playContext = "podcast")
+        playbackController.playQueue(queue, index.coerceIn(queue.indices), playContext = "podcast")
     }
 }

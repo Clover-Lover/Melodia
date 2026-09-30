@@ -31,8 +31,11 @@ import com.lin0721.linmusic.feature.artist.ui.ArtistViewModel
 import com.lin0721.linmusic.feature.home.ui.HomeViewModel
 import com.lin0721.linmusic.feature.library.data.LibraryPreferences
 import com.lin0721.linmusic.feature.library.ui.LibraryViewModel
+import com.lin0721.linmusic.feature.music.ui.MusicViewModel
+import com.lin0721.linmusic.feature.newworks.ui.NewWorksViewModel
 import com.lin0721.linmusic.feature.player.ui.PlayerViewModel
 import com.lin0721.linmusic.feature.playlist.ui.PlaylistViewModel
+import com.lin0721.linmusic.feature.podcast.ui.PodcastViewModel
 import com.lin0721.linmusic.feature.profile.ui.ProfileViewModel
 import com.lin0721.linmusic.feature.search.data.SearchHistoryPreferences
 import com.lin0721.linmusic.feature.search.ui.PlaylistCategoryViewModel
@@ -83,6 +86,9 @@ val desktopPlatformModule = module {
 val desktopViewModelModule = module {
     singleOf(::LoginViewModel)
     singleOf(::HomeViewModel)
+    singleOf(::MusicViewModel)
+    singleOf(::PodcastViewModel)
+    singleOf(::NewWorksViewModel)
     singleOf(::LibraryViewModel)
     singleOf(::ProfileViewModel)
     singleOf(::SearchViewModel)

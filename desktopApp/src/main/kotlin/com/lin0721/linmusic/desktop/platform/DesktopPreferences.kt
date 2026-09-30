@@ -4,6 +4,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -29,6 +30,8 @@ class DesktopPreferences(private val dataStore: DataStore<Preferences>) {
         private val KEY_NOW_PLAYING_OPEN = booleanPreferencesKey("now_playing_panel_open")
         private val KEY_LIBRARY_MODE = stringPreferencesKey("library_mode")
         private val KEY_LIBRARY_VIEW_MODE = stringPreferencesKey("library_view_mode")
+        private val KEY_LIBRARY_WIDTH = floatPreferencesKey("library_width")
+        private val KEY_NOW_PLAYING_WIDTH = floatPreferencesKey("now_playing_width")
     }
 
     val hotkeys: Flow<Map<HotkeyAction, HotkeyCombo?>> = dataStore.data.map { prefs ->
@@ -54,6 +57,11 @@ class DesktopPreferences(private val dataStore: DataStore<Preferences>) {
         prefs[KEY_LIBRARY_VIEW_MODE]?.let { name -> LibraryViewMode.entries.firstOrNull { it.name == name } } ?: LibraryViewMode.LIST
     }.distinctUntilChanged()
 
+    // 拖动调整过的栏宽（dp），未调整过为 null
+    val libraryWidth: Flow<Float?> = dataStore.data.map { it[KEY_LIBRARY_WIDTH] }.distinctUntilChanged()
+
+    val nowPlayingWidth: Flow<Float?> = dataStore.data.map { it[KEY_NOW_PLAYING_WIDTH] }.distinctUntilChanged()
+
     suspend fun saveHotkeys(hotkeys: Map<HotkeyAction, HotkeyCombo?>) {
         dataStore.edit { prefs ->
             prefs[KEY_HOTKEYS] = hotkeys.entries.joinToString(";") { (action, combo) -> "${action.name}=${combo?.encode().orEmpty()}" }
@@ -78,6 +86,14 @@ class DesktopPreferences(private val dataStore: DataStore<Preferences>) {
 
     suspend fun saveLibraryViewMode(mode: LibraryViewMode) {
         dataStore.edit { it[KEY_LIBRARY_VIEW_MODE] = mode.name }
+    }
+
+    suspend fun saveLibraryWidth(widthDp: Float) {
+        dataStore.edit { it[KEY_LIBRARY_WIDTH] = widthDp }
+    }
+
+    suspend fun saveNowPlayingWidth(widthDp: Float) {
+        dataStore.edit { it[KEY_NOW_PLAYING_WIDTH] = widthDp }
     }
 
     // 解析失败的条目忽略，回落到默认值

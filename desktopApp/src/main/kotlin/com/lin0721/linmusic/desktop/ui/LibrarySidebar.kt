@@ -103,6 +103,8 @@ private val ShadowHeight = 8.dp
 // 网格单元内边距：越小封面越大
 private val LargeCardInset = 6.dp
 private val SmallTileInset = 2.dp
+// 网格封面随栏宽连续变化，固定请求尺寸，避免拖动时每帧换缩略图地址而反复加载
+private val GridCoverRequestSize = 320.dp
 
 private val LibraryFilters = listOf(
     LibraryFilter.PLAYLIST to "歌单",
@@ -529,7 +531,7 @@ private fun LibraryCoverTile(item: LibraryItem, onClick: () -> Unit) {
         val shape = coverShape(item)
         Box(Modifier.padding(SmallTileInset).clip(shape).pointerHoverIcon(PointerIcon.Hand).clickable(onClick = onClick)) {
             BoxWithConstraints(Modifier.fillMaxWidth()) {
-                Cover(item.coverUrl, maxWidth, shape = shape)
+                Cover(item.coverUrl, maxWidth, shape = shape, requestSize = GridCoverRequestSize)
             }
         }
     }
@@ -539,7 +541,7 @@ private fun LibraryCoverTile(item: LibraryItem, onClick: () -> Unit) {
 private fun LibraryCard(item: LibraryItem, onClick: () -> Unit) {
     Column(Modifier.clip(RoundedCornerShape(6.dp)).clickable(onClick = onClick).padding(LargeCardInset)) {
         BoxWithConstraints(Modifier.fillMaxWidth()) {
-            Cover(item.coverUrl, maxWidth, shape = coverShape(item))
+            Cover(item.coverUrl, maxWidth, shape = coverShape(item), requestSize = GridCoverRequestSize)
         }
         Text(
             item.title,

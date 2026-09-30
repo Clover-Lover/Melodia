@@ -22,7 +22,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyItemScope
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -45,12 +47,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.feature.home.domain.HomeCard
 import com.lin0721.linmusic.feature.home.domain.HomeShelf
 import com.lin0721.linmusic.feature.home.ui.HomeFeedData
 import com.lin0721.linmusic.feature.home.ui.HomeUiState
 import com.lin0721.linmusic.feature.home.ui.HomeViewModel
+import com.lin0721.linmusic.feature.music.ui.MusicUiState
+import com.lin0721.linmusic.feature.music.ui.MusicViewModel
+import com.lin0721.linmusic.feature.newworks.ui.NewWorksViewModel
+import com.lin0721.linmusic.feature.podcast.ui.PodcastViewModel
 
 internal val CardWidth = 168.dp
 
@@ -65,26 +72,113 @@ private val RecentTileMinWidth = 200.dp
 private val RecentGridGap = 8.dp
 private val RecentGridPadding = 24.dp
 
+// 顶部固定「全部 / 音乐 / 播客」胶囊，下方按选中项切换内容；各 tab 的数据切过去才拉，
+// 滚动位置在首页内按 tab 各自保留
 @Composable
 fun HomePage(
     viewModel: HomeViewModel,
+    musicViewModel: MusicViewModel,
+    podcastViewModel: PodcastViewModel,
+    newWorksViewModel: NewWorksViewModel,
+    controller: PlaybackController,
+    selectedTab: Int,
+    onTabSelected: (Int) -> Unit,
+    newWorksSelected: Boolean,
+    onNewWorksSelectedChange: (Boolean) -> Unit,
     onPlaylistClick: (id: Long, title: String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val uiState by viewModel.uiState.collectAsState()
-    when (val state = uiState) {
-        HomeUiState.Loading -> Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator(color = DesktopColors.Accent)
+    val navigator = LocalDesktopNavigator.current
+    val nowPlaying by controller.nowPlaying.collectAsState()
+    val musicState by musicViewModel.uiState.collectAsState()
+    val podcastState by podcastViewModel.uiState.collectAsState()
+    val newWorksState by newWorksViewModel.uiState.collectAsState()
+    val allListState = rememberLazyListState()
+    val musicListState = rememberLazyListState()
+    val podcastListState = rememberLazyListState()
+    val newWorksGridState = rememberLazyGridState()
+
+    LaunchedEffect(selectedTab) {
+        when (selectedTab) {
+            HOME_TAB_MUSIC -> musicViewModel.loadIfNeeded()
+            HOME_TAB_PODCAST -> podcastViewModel.loadIfNeeded()
         }
-        is HomeUiState.Error -> Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(state.message, color = DesktopColors.TextGray)
-                TextButton(onClick = { viewModel.refreshHomeData() }) {
-                    Text("重试", color = DesktopColors.TextPrimary)
-                }
+    }
+    LaunchedEffect(selectedTab, newWorksSelected) {
+        if (selectedTab == HOME_TAB_MUSIC && newWorksSelected) newWorksViewModel.loadIfNeeded()
+    }
+
+    Column(modifier.fillMaxSize()) {
+        HomeTabPills(
+            selectedTab = selectedTab,
+            onSelect = onTabSelected,
+            newWorksSelected = newWorksSelected,
+            onNewWorksSelect = { onNewWorksSelectedChange(true) }
+        )
+        Box(Modifier.weight(1f)) {
+            when {
+                selectedTab == HOME_TAB_MUSIC && newWorksSelected -> NewWorksTab(
+                    uiState = newWorksState,
+                    gridState = newWorksGridState,
+                    onAlbumClick = navigator.openAlbum,
+                    onSongPlay = newWorksViewModel::playRelease,
+                    onRetry = newWorksViewModel::load,
+                    onLoadMore = newWorksViewModel::loadMore
+                )
+                selectedTab == HOME_TAB_MUSIC -> MusicTab(
+                    uiState = musicState,
+                    listState = musicListState,
+                    nowPlayingSongId = nowPlaying?.songId,
+                    onStyleSelect = musicViewModel::selectStyle,
+                    onChildStyleSelect = musicViewModel::selectChildStyle,
+                    onPlaylistClick = onPlaylistClick,
+                    onArtistClick = navigator.openArtist,
+                    onPlaySongAt = musicViewModel::playSongAt,
+                    onPlayFavourite = {
+                        (musicState as? MusicUiState.Success)?.data?.content?.head?.favouriteSong
+                            ?.let(musicViewModel::playFavouriteSong)
+                    },
+                    onRetry = musicViewModel::loadStyles
+                )
+                selectedTab == HOME_TAB_PODCAST -> PodcastTab(
+                    uiState = podcastState,
+                    listState = podcastListState,
+                    onCategorySelect = podcastViewModel::selectCategory,
+                    onProgramPlay = podcastViewModel::playProgramAt,
+                    onRetry = podcastViewModel::loadFeed
+                )
+                else -> HomeAllContent(viewModel, allListState, onPlaylistClick)
             }
         }
-        is HomeUiState.Success -> HomeFeed(state.data, viewModel, onPlaylistClick, modifier)
+    }
+}
+
+@Composable
+internal fun HomeTabLoading(modifier: Modifier = Modifier.fillMaxSize()) {
+    Box(modifier, contentAlignment = Alignment.Center) {
+        CircularProgressIndicator(color = DesktopColors.Accent)
+    }
+}
+
+@Composable
+internal fun HomeTabError(message: String, onRetry: () -> Unit, modifier: Modifier = Modifier.fillMaxSize()) {
+    Box(modifier, contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(message, color = DesktopColors.TextGray)
+            TextButton(onClick = onRetry) {
+                Text("重试", color = DesktopColors.TextPrimary)
+            }
+        }
+    }
+}
+
+@Composable
+private fun HomeAllContent(viewModel: HomeViewModel, listState: LazyListState, onPlaylistClick: (id: Long, title: String) -> Unit) {
+    val uiState by viewModel.uiState.collectAsState()
+    when (val state = uiState) {
+        HomeUiState.Loading -> HomeTabLoading()
+        is HomeUiState.Error -> HomeTabError(state.message, viewModel::refreshHomeData)
+        is HomeUiState.Success -> HomeFeed(state.data, viewModel, listState, onPlaylistClick, Modifier)
     }
 }
 
@@ -92,10 +186,10 @@ fun HomePage(
 private fun HomeFeed(
     data: HomeFeedData,
     viewModel: HomeViewModel,
+    listState: LazyListState,
     onPlaylistClick: (id: Long, title: String) -> Unit,
     modifier: Modifier
 ) {
-    val listState = rememberLazyListState()
     val shouldLoadMore by remember(data) {
         derivedStateOf {
             val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
@@ -122,7 +216,9 @@ private fun HomeFeed(
 }
 
 // 区块高度随列数变化时，下方区块平滑让位；只做位移，不加淡入淡出
-private fun LazyItemScope.reflow(): Modifier = Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null)
+@Composable
+private fun LazyItemScope.reflow(): Modifier =
+    if (LocalPaneResizing.current) Modifier else Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null)
 
 private fun LazyListScope.homeItems(
     data: HomeFeedData,
@@ -172,7 +268,10 @@ private fun RecentGrid(data: HomeFeedData, modifier: Modifier, onClick: (Long, S
             SectionTitle("最近播放", horizontalPadding = 0)
             // 列数变化时格子从旧位置平滑移到新位置，整体高度同步过渡
             FlowRow(
-                modifier = Modifier.fillMaxWidth().animateContentSize(tween(LAYOUT_REFLOW_MS, easing = FastOutSlowInEasing)),
+                modifier = Modifier.fillMaxWidth().then(
+                    if (LocalPaneResizing.current) Modifier
+                    else Modifier.animateContentSize(tween(LAYOUT_REFLOW_MS, easing = FastOutSlowInEasing))
+                ),
                 horizontalArrangement = Arrangement.spacedBy(RecentGridGap),
                 verticalArrangement = Arrangement.spacedBy(RecentGridGap),
                 maxItemsInEachRow = columns
@@ -243,7 +342,7 @@ private fun ServerShelf(
 }
 
 @Composable
-private fun <T> ShelfRow(title: String, items: List<T>, itemContent: @Composable (T) -> Unit) {
+internal fun <T> ShelfRow(title: String, items: List<T>, itemContent: @Composable (T) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         SectionTitle(title)
         LazyRow(
@@ -276,7 +375,7 @@ internal fun CardTile(coverUrl: String, title: String, caption: String, onClick:
 }
 
 @Composable
-private fun SectionTitle(text: String, horizontalPadding: Int = 24) {
+internal fun SectionTitle(text: String, horizontalPadding: Int = 24) {
     Text(
         text,
         color = DesktopColors.TextPrimary,

@@ -2,6 +2,7 @@ package com.lin0721.linmusic.desktop.ui
 
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.TooltipArea
@@ -12,7 +13,6 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.width
@@ -50,6 +50,8 @@ private const val TOOLTIP_DELAY_MS = 400
 class NowPlayingDockState internal constructor(
     private val animatedWidth: State<Dp>,
     private val settledWidth: Dp,
+    // 展开时的面板宽度，随拖动调整
+    val openWidth: Dp,
     internal val peeking: MutableState<Boolean>
 ) {
     val width: Dp get() = animatedWidth.value
@@ -68,16 +70,18 @@ class NowPlayingDockState internal constructor(
 }
 
 @Composable
-fun rememberNowPlayingDockState(hasTrack: Boolean, open: Boolean): NowPlayingDockState {
+fun rememberNowPlayingDockState(hasTrack: Boolean, open: Boolean, openWidth: Dp, resizing: Boolean): NowPlayingDockState {
     val peeking = remember { mutableStateOf(false) }
     val settled = when {
         !hasTrack -> 0.dp
-        open -> DesktopDimens.NowPlayingWidth
+        open -> openWidth
         else -> DesktopDimens.NowPlayingHandleWidth
     }
     val target = if (peeking.value && hasTrack && !open) DesktopDimens.NowPlayingPeekWidth else settled
-    val width = animateDpAsState(target, tween(PANE_ANIMATION_MS, easing = FastOutSlowInEasing), label = "nowPlayingDock")
-    return NowPlayingDockState(width, settled, peeking)
+    // 拖动调宽时跟手，不走过渡动画
+    val spec = if (resizing) snap<Dp>() else tween<Dp>(PANE_ANIMATION_MS, easing = FastOutSlowInEasing)
+    val width = animateDpAsState(target, spec, label = "nowPlayingDock")
+    return NowPlayingDockState(width, settled, openWidth, peeking)
 }
 
 // 右侧“正在播放”栏：无曲目时不存在，关闭后收成右边缘的窄条，悬停预览、点击展开。
@@ -90,7 +94,10 @@ fun NowPlayingDock(
     open: Boolean,
     onOpenChange: (Boolean) -> Unit,
     controller: PlaybackController,
-    playerViewModel: PlayerViewModel
+    playerViewModel: PlayerViewModel,
+    onResizeStart: () -> Unit,
+    onResize: (delta: Dp) -> Unit,
+    onResizeEnd: () -> Unit
 ) {
     val hoverSource = remember { MutableInteractionSource() }
     val hovered by hoverSource.collectIsHoveredAsState()
@@ -112,7 +119,14 @@ fun NowPlayingDock(
     val contentAlpha = ((width - handleWidth) / (peekWidth - handleWidth)).coerceIn(0f, 1f)
 
     Row(Modifier.fillMaxHeight()) {
-        Spacer(Modifier.width(state.gap(width)))
+        // 展开态下缝隙即拖动条，向左拖变宽
+        PaneResizeHandle(
+            width = state.gap(width),
+            enabled = hasTrack && open,
+            onDragStart = onResizeStart,
+            onDrag = onResize,
+            onDragEnd = onResizeEnd
+        )
         if (width > 0.dp) {
             Box(
                 Modifier.width(width).fillMaxHeight()
@@ -133,7 +147,7 @@ fun NowPlayingDock(
                 // 面板始终保持组合，收起时移出可视区；展开时无需现场创建内容，避免动画起头卡顿
                 Box(
                     Modifier.fillMaxSize().graphicsLayer { alpha = contentAlpha }
-                        .fixedWidthAtStart(DesktopDimens.NowPlayingWidth, offscreen = contentAlpha == 0f)
+                        .fixedWidthAtStart(state.openWidth, offscreen = contentAlpha == 0f)
                 ) {
                     NowPlayingPanel(
                         controller = controller,

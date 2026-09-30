@@ -7,7 +7,7 @@ import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.network.AppString
 import com.lin0721.linmusic.core.network.ResourceProvider
 import com.lin0721.linmusic.core.network.toUserMessage
-import com.lin0721.linmusic.core.player.PlayerManager
+import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.QueueItem
 import com.lin0721.linmusic.core.player.data.PlaybackRepository
 import com.lin0721.linmusic.feature.music.data.MusicRepository
@@ -28,7 +28,7 @@ private const val TAG = "MusicViewModel"
 class MusicViewModel(
     private val musicRepository: MusicRepository,
     private val playbackRepository: PlaybackRepository,
-    private val playerManager: PlayerManager,
+    private val playbackController: PlaybackController,
     private val resourceProvider: ResourceProvider
 ) : ViewModel() {
 
@@ -145,7 +145,7 @@ class MusicViewModel(
             QueueItem(track.id, track.name, track.ar.joinToString("/") { it.name }, track.al.picUrl)
         }
         val styleName = current.data.content?.head?.name ?: "曲风"
-        playerManager.playQueue(queue, index.coerceIn(queue.indices), playContext = "style_$styleName")
+        playbackController.playQueue(queue, index.coerceIn(queue.indices), playContext = "style_$styleName")
     }
 
     // 播放曲风头部的「你在此曲风最爱」
@@ -153,7 +153,7 @@ class MusicViewModel(
         viewModelScope.launch {
             playbackRepository.getSongUrl(track.id).collect { result ->
                 result.onSuccess { url ->
-                    playerManager.playAudio(
+                    playbackController.playAudio(
                         track.id,
                         url,
                         track.name,

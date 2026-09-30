@@ -31,10 +31,12 @@ fun Cover(
     url: String?,
     size: Dp,
     modifier: Modifier = Modifier,
-    shape: Shape = RoundedCornerShape(4.dp)
+    shape: Shape = RoundedCornerShape(4.dp),
+    // 显示尺寸随拖动连续变化时传固定的请求尺寸，否则每帧换一个缩略图地址会不停重新加载
+    requestSize: Dp = size
 ) {
     Box(modifier.size(size).clip(shape).background(DesktopColors.CoverPlaceholder)) {
-        val model = sizedCoverUrl(url, (size.value * 2).toInt())
+        val model = sizedCoverUrl(url, (requestSize.value * 2).toInt())
         if (model != null) {
             SubcomposeAsyncImage(
                 model = model,

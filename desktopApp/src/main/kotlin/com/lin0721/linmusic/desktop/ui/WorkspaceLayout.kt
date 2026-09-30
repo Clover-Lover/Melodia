@@ -2,6 +2,7 @@ package com.lin0721.linmusic.desktop.ui
 
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
@@ -15,6 +16,7 @@ import com.lin0721.linmusic.desktop.ui.theme.DesktopDimens
 @Stable
 class WorkspaceLayout internal constructor(
     private val mode: LibraryMode,
+    private val defaultWidth: Dp,
     val expandedWidth: Dp,
     private val libraryWidthState: State<Dp>,
     private val centerGapState: State<Dp>,
@@ -29,25 +31,32 @@ class WorkspaceLayout internal constructor(
     // 展开态下可见宽度为 0，内容保持原样被裁剪，返回后不必重建
     val centerWidthExtra: Dp
         get() {
-            val frozenLibrary = if (mode == LibraryMode.RAIL) DesktopDimens.LibraryRailWidth else DesktopDimens.SidebarWidth
+            val frozenLibrary = if (mode == LibraryMode.RAIL) DesktopDimens.LibraryRailWidth else defaultWidth
             return (libraryWidth - frozenLibrary) + (centerGap - DesktopDimens.PaneGap) + dock.widthExtra
         }
 }
 
 @Composable
-fun rememberWorkspaceLayout(mode: LibraryMode, availableWidth: Dp, dock: NowPlayingDockState): WorkspaceLayout {
+fun rememberWorkspaceLayout(
+    mode: LibraryMode,
+    availableWidth: Dp,
+    dock: NowPlayingDockState,
+    defaultWidth: Dp,
+    resizing: Boolean
+): WorkspaceLayout {
     val expandedWidth = (availableWidth - dock.settledOccupied).coerceAtLeast(0.dp)
     val target = when (mode) {
         LibraryMode.RAIL -> DesktopDimens.LibraryRailWidth
-        LibraryMode.DEFAULT -> DesktopDimens.SidebarWidth
+        LibraryMode.DEFAULT -> defaultWidth
         LibraryMode.EXPANDED -> expandedWidth
     }
-    val spec = tween<Dp>(PANE_ANIMATION_MS, easing = FastOutSlowInEasing)
+    // 拖动调宽时跟手，不走过渡动画
+    val spec = if (resizing) snap<Dp>() else tween<Dp>(PANE_ANIMATION_MS, easing = FastOutSlowInEasing)
     val libraryWidth = animateDpAsState(target, spec, label = "libraryWidth")
     val centerGap = animateDpAsState(
         if (mode == LibraryMode.EXPANDED) 0.dp else DesktopDimens.PaneGap,
         spec,
         label = "centerGap"
     )
-    return WorkspaceLayout(mode, expandedWidth, libraryWidth, centerGap, dock)
+    return WorkspaceLayout(mode, defaultWidth, expandedWidth, libraryWidth, centerGap, dock)
 }

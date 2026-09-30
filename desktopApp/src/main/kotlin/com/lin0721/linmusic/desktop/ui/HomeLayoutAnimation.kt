@@ -6,6 +6,7 @@ import androidx.compose.animation.animateBounds
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.LookaheadScope
@@ -16,6 +17,9 @@ const val LAYOUT_REFLOW_MS = 300
 // 首页内容区的 LookaheadScope；右侧栏开合导致列数整体切换时，格子由此做位置与尺寸过渡
 val LocalHomeLookaheadScope = staticCompositionLocalOf<LookaheadScope?> { null }
 
+// 拖动调整侧栏宽度期间为 true：内容随宽度逐帧重排，不做过渡动画，否则格子会拖着旧位置滞后
+val LocalPaneResizing = compositionLocalOf { false }
+
 @OptIn(ExperimentalSharedTransitionApi::class)
 private val HomeReflowBoundsTransform = BoundsTransform { _, _ ->
     tween(LAYOUT_REFLOW_MS, easing = FastOutSlowInEasing)
@@ -25,6 +29,7 @@ private val HomeReflowBoundsTransform = BoundsTransform { _, _ ->
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun Modifier.homeReflowBounds(): Modifier {
+    if (LocalPaneResizing.current) return this
     val scope = LocalHomeLookaheadScope.current ?: return this
     return this.animateBounds(lookaheadScope = scope, boundsTransform = HomeReflowBoundsTransform)
 }
