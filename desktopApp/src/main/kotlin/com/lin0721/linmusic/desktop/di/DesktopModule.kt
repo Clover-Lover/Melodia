@@ -22,6 +22,7 @@ import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.desktop.platform.DesktopLibraryPreferences
 import com.lin0721.linmusic.desktop.platform.DesktopPreferences
 import com.lin0721.linmusic.desktop.platform.GlobalHotkeys
+import com.lin0721.linmusic.desktop.platform.smtc.SmtcSession
 import com.lin0721.linmusic.desktop.platform.DesktopPaths
 import com.lin0721.linmusic.desktop.platform.DesktopResourceProvider
 import com.lin0721.linmusic.desktop.platform.SilentPlaybackController
@@ -65,6 +66,7 @@ val desktopPlatformModule = module {
     single { PlaybackPreferences(store(PreferencesStores.PLAYBACK)) }
     single { DesktopPreferences(store(DesktopPreferences.STORE_NAME)) }
     single { GlobalHotkeys() }
+    single { SmtcSession() }
     single<XeapiKeyStore> { XeapiKeyStoreImpl(store(PreferencesStores.XEAPI_KEY)) }
     single { ContentFilter(get()) }
     single<ResourceProvider> { DesktopResourceProvider() }

@@ -54,7 +54,7 @@
 |---|---|---|
 | `shared` | Kotlin Multiplatform（Android + 桌面 JVM） | 数据模型、网络与原生加密、各业务域 `data` / `domain`、跨平台 ViewModel、播放器抽象 `PlaybackController` |
 | `app` | Android 应用 | Jetpack Compose 界面、Media3 播放、下载、本地音乐、识曲、悬浮与系统歌词等 Android 专属能力 |
-| `desktopApp` | Compose Desktop 应用（Windows） | 桌面窗口与界面、libmpv 播放、托盘、媒体键与全局快捷键、桌面歌词 |
+| `desktopApp` | Compose Desktop 应用（Windows） | 桌面窗口与界面、libmpv 播放、托盘、系统媒体控制（SMTC）与全局快捷键、桌面歌词 |
 
 代码按**业务域 (Feature-Driven)** 组织：`core` 承载全局共享基础设施与通用能力，`feature` 下每个业务域自持 `data` / `domain` / `ui` 结构。依赖方向单向收敛——`feature` 依赖 `core`，`core` 不反向依赖 `feature`，各业务域之间解耦无循环依赖；`app` 与 `desktopApp` 都依赖 `shared`，两者互不依赖。
 
@@ -83,9 +83,11 @@ app/src/main/java/com/lin0721/linmusic/
 desktopApp/src/main/kotlin/com/lin0721/linmusic/desktop/
 ├── Main.kt                      # 应用入口：Koin 初始化、主窗口、托盘、全局快捷键与桌面歌词窗口
 ├── di/                          # 桌面平台实现与 ViewModel 注册
-├── platform/                    # 数据目录、偏好存储、Win32 热键与窗口样式等平台适配
+├── platform/                    # 数据目录、偏好存储、Win32 热键、SMTC 桥接与窗口样式等平台适配
 ├── player/                      # libmpv 的 JNA 绑定与 PlaybackController 实现
-└── ui/                          # 三栏布局、标题栏、首页、歌单、搜索、浏览、播放条与歌词
+└── ui/                          # 三栏布局、标题栏、首页、歌单、歌手、搜索、浏览、设置、播放条与歌词
+
+desktopApp/native-src/smtc/      # SMTC 桥接 DLL 源码（C++/WinRT，CMake 构建）
 ```
 
 ---
@@ -109,6 +111,7 @@ Repository 边界统一产出 Kotlin `Result<T>`，异常类型抽象为领域�
 - **桌面端（仅在需要运行或打包时）**：
   - 64 位 Windows 10 及以上
   - `libmpv-2.dll`：使用 [media-kit](https://github.com/media-kit/media-kit) 提供的 Windows 纯音频 libmpv 构建，放到 `desktopApp/native/`（已在 `.gitignore` 中排除，不入库）
+  - SMTC 桥接 DLL 由 Gradle 在运行与打包前自动调用 CMake 编译，需安装 CMake 与 Visual Studio（含“使用 C++ 的桌面开发”工作负载及 Windows 10/11 SDK）；缺少时跳过编译，运行时退回全局媒体键
   - 打包 MSI 需安装 [WiX Toolset 3.14](https://github.com/wixtoolset/wix3/releases) 并将其 `bin` 目录加入 `PATH`；打包所用 JDK 21 由 Gradle 工具链自动下载
 
 ### 常用命令

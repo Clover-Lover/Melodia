@@ -1,4 +1,6 @@
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
+import java.io.ByteArrayOutputStream
+import javax.inject.Inject
 
 plugins {
     alias(libs.plugins.kotlin.jvm)
@@ -31,8 +33,62 @@ dependencies {
 // 与 Android 端共用发版参数，保证两端版本号一致
 val desktopVersion = (findProperty("releaseVersionName") as String?) ?: "1.0.0"
 
+// 调用本机 cmake 编译原生桥接 DLL；缺少 cmake 或 MSVC 时只告警跳过，运行时由代码回退
+abstract class CmakeDllTask @Inject constructor(private val execOps: ExecOperations) : DefaultTask() {
+    @get:InputDirectory
+    abstract val sourceDir: DirectoryProperty
+
+    @get:Internal
+    abstract val cmakeBuildDir: DirectoryProperty
+
+    @get:Input
+    abstract val dllName: Property<String>
+
+    @get:OutputFile
+    abstract val outputDll: RegularFileProperty
+
+    @TaskAction
+    fun build() {
+        val cmake = System.getenv("PATH").orEmpty().split(File.pathSeparator)
+            .map { File(it, "cmake.exe") }
+            .firstOrNull { it.isFile }
+        if (cmake == null) {
+            logger.warn("未找到 cmake，跳过 ${dllName.get()} 编译")
+            return
+        }
+        val buildDir = cmakeBuildDir.get().asFile
+        val steps = listOf(
+            listOf(cmake.absolutePath, "-S", sourceDir.get().asFile.absolutePath, "-B", buildDir.absolutePath),
+            listOf(cmake.absolutePath, "--build", buildDir.absolutePath, "--config", "Release")
+        )
+        for (command in steps) {
+            val log = ByteArrayOutputStream()
+            val result = execOps.exec {
+                commandLine(command)
+                standardOutput = log
+                errorOutput = log
+                isIgnoreExitValue = true
+            }
+            if (result.exitValue != 0) {
+                logger.warn("${dllName.get()} 编译失败，已跳过：\n$log")
+                return
+            }
+        }
+        File(buildDir, "Release/${dllName.get()}").copyTo(outputDll.get().asFile, overwrite = true)
+    }
+}
+
+val buildSmtc by tasks.registering(CmakeDllTask::class) {
+    onlyIf { System.getProperty("os.name").startsWith("Windows") }
+    sourceDir.set(layout.projectDirectory.dir("native-src/smtc"))
+    cmakeBuildDir.set(layout.buildDirectory.dir("smtc"))
+    dllName.set("melodia_smtc.dll")
+    outputDll.set(layout.projectDirectory.file("native/melodia_smtc.dll"))
+}
+
 // libmpv 由开发者放在仓库外的 native 目录，打包与运行前同步进 Compose 约定的平台资源目录
 val prepareNativeResources by tasks.registering(Sync::class) {
+    dependsOn(buildSmtc)
     from(layout.projectDirectory.dir("native")) {
         include("*.dll")
     }

@@ -15,7 +15,6 @@ import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Tray
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.application
@@ -28,9 +27,13 @@ import com.lin0721.linmusic.desktop.platform.CloseAction
 import com.lin0721.linmusic.desktop.platform.DesktopPreferences
 import com.lin0721.linmusic.desktop.platform.GlobalHotkeys
 import com.lin0721.linmusic.desktop.platform.HotkeyAction
+import com.lin0721.linmusic.desktop.platform.smtc.SmtcSession
 import com.lin0721.linmusic.desktop.player.MpvPlaybackController
 import com.lin0721.linmusic.desktop.ui.MelodiaDesktopApp
 import com.lin0721.linmusic.desktop.ui.lyrics.DesktopLyricWindow
+import com.lin0721.linmusic.desktop.ui.tray.TrayHost
+import com.lin0721.linmusic.desktop.ui.tray.TrayMenuEntry
+import com.lin0721.linmusic.desktop.ui.tray.isTraySupported
 import com.lin0721.linmusic.desktop.ui.theme.MelodiaDesktopTheme
 import com.lin0721.linmusic.di.networkModule
 import com.lin0721.linmusic.di.repositoryModule
@@ -53,27 +56,38 @@ fun main() {
     val playerViewModel = koin.get<PlayerViewModel>()
     val desktopPreferences = koin.get<DesktopPreferences>()
     val hotkeys = koin.get<GlobalHotkeys>()
+    val smtc = koin.get<SmtcSession>()
+    // 系统媒体卡片可用时由它接管媒体键，否则回退全局热键
+    val smtcActive = smtc.start()
 
     application {
         val scope = rememberCoroutineScope()
         var isMainVisible by remember { mutableStateOf(true) }
+        // 已可见但被遮挡或最小化时，靠计数触发再次置前
+        var bringToFrontRequest by remember { mutableStateOf(0) }
+        val showMainWindow: () -> Unit = {
+            isMainVisible = true
+            bringToFrontRequest++
+        }
         var isLyricLocked by remember { mutableStateOf(false) }
         val showDesktopLyric by settingsPreferences.showDesktopLrc.collectAsState(initial = false)
         val closeAction by desktopPreferences.closeAction.collectAsState(initial = CloseAction.TRAY)
         val isPlaying by controller.playWhenReady.collectAsState()
+        val nowPlaying by controller.nowPlaying.collectAsState()
 
         val setDesktopLyric: (Boolean) -> Unit = { enabled ->
             scope.launch { settingsPreferences.saveShowDesktopLrc(enabled) }
         }
         // 退出前补报当前曲目播放时长并销毁 mpv 句柄
         val exit = {
+            smtc.shutdown()
             mpvController?.release()
             exitApplication()
         }
 
-        // 主窗口关闭按钮与 Alt+F4 统一按设置处理
+        // 主窗口关闭按钮与 Alt+F4 统一按设置处理；系统不支持托盘时隐藏后无法找回，只能退出
         val closeMainWindow = {
-            if (closeAction == CloseAction.EXIT) exit() else isMainVisible = false
+            if (closeAction == CloseAction.EXIT || !isTraySupported) exit() else isMainVisible = false
         }
 
         hotkeys.onAction = { action ->
@@ -92,26 +106,33 @@ fun main() {
         }
         LaunchedEffect(Unit) {
             combine(desktopPreferences.hotkeys, desktopPreferences.mediaKeysEnabled, ::Pair)
-                .collect { (custom, mediaKeys) -> hotkeys.apply(custom, mediaKeys) }
+                .collect { (custom, mediaKeys) ->
+                    smtc.setEnabled(mediaKeys)
+                    hotkeys.apply(custom, mediaKeys && !smtcActive)
+                }
+        }
+        LaunchedEffect(Unit) {
+            smtc.bind(controller, playerViewModel)
         }
 
         val appIcon = remember { loadAppIcon() }
-        Tray(
-            icon = appIcon,
-            tooltip = "Melodia",
-            onAction = { isMainVisible = true },
-            menu = {
-                Item("显示主窗口", onClick = { isMainVisible = true })
-                Separator()
-                Item(if (isPlaying) "暂停" else "播放", onClick = controller::togglePlayPause)
-                Item("上一首", onClick = controller::skipToPrevious)
-                Item("下一首", onClick = controller::playNext)
-                Separator()
-                CheckboxItem("桌面歌词", checked = showDesktopLyric, onCheckedChange = setDesktopLyric)
-                CheckboxItem("锁定桌面歌词", checked = isLyricLocked, onCheckedChange = { isLyricLocked = it })
-                Separator()
-                Item("退出", onClick = exit)
-            }
+        val trackText = nowPlaying?.let { "${it.title} - ${it.artist}" }
+        TrayHost(
+            tooltip = trackText?.let { "Melodia - $it" } ?: "Melodia",
+            header = trackText?.let { "正在播放：$it" },
+            entries = listOf(
+                TrayMenuEntry.Action("显示主窗口", showMainWindow),
+                TrayMenuEntry.Divider,
+                TrayMenuEntry.Action(if (isPlaying) "暂停" else "播放", controller::togglePlayPause),
+                TrayMenuEntry.Action("上一首", controller::skipToPrevious),
+                TrayMenuEntry.Action("下一首", controller::playNext),
+                TrayMenuEntry.Divider,
+                TrayMenuEntry.Toggle("桌面歌词", showDesktopLyric, setDesktopLyric),
+                TrayMenuEntry.Toggle("锁定桌面歌词", isLyricLocked) { isLyricLocked = it },
+                TrayMenuEntry.Divider,
+                TrayMenuEntry.Action("退出", exit)
+            ),
+            onOpenMain = showMainWindow
         )
 
         val windowState = rememberWindowState(
@@ -129,7 +150,7 @@ fun main() {
             LaunchedEffect(Unit) {
                 window.minimumSize = Dimension(960, 600)
             }
-            LaunchedEffect(isMainVisible) {
+            LaunchedEffect(isMainVisible, bringToFrontRequest) {
                 if (isMainVisible) {
                     windowState.isMinimized = false
                     window.toFront()

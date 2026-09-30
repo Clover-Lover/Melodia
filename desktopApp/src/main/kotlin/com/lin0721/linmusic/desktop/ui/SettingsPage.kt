@@ -61,6 +61,7 @@ import com.lin0721.linmusic.desktop.platform.DesktopPreferences
 import com.lin0721.linmusic.desktop.platform.GlobalHotkeys
 import com.lin0721.linmusic.desktop.platform.HotkeyAction
 import com.lin0721.linmusic.desktop.platform.HotkeyCombo
+import com.lin0721.linmusic.desktop.platform.smtc.SmtcSession
 import com.lin0721.linmusic.desktop.platform.win.User32
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import kotlinx.coroutines.Dispatchers
@@ -88,6 +89,7 @@ fun SettingsPage(modifier: Modifier = Modifier) {
     val settingsPreferences = remember { koin.get<SettingsPreferences>() }
     val desktopPreferences = remember { koin.get<DesktopPreferences>() }
     val hotkeys = remember { koin.get<GlobalHotkeys>() }
+    val smtc = remember { koin.get<SmtcSession>() }
     val scope = rememberCoroutineScope()
 
     val quality by settingsPreferences.wifiQuality.collectAsState(initial = "lossless")
@@ -96,6 +98,7 @@ fun SettingsPage(modifier: Modifier = Modifier) {
     val mediaKeysEnabled by desktopPreferences.mediaKeysEnabled.collectAsState(initial = true)
     val hotkeyMap by desktopPreferences.hotkeys.collectAsState(initial = HotkeyCombo.defaults)
     val failedHotkeys by hotkeys.failed.collectAsState()
+    val smtcAvailable by smtc.available.collectAsState()
 
     Column(
         modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 32.dp, vertical = 24.dp),
@@ -130,7 +133,10 @@ fun SettingsPage(modifier: Modifier = Modifier) {
         }
 
         SettingsCard("快捷键") {
-            SettingRow("媒体键（播放/暂停、上一首、下一首）") {
+            SettingRow(
+                title = "系统媒体控制（媒体键与系统播放卡片）",
+                subtitle = if (smtcAvailable) null else "系统卡片不可用，已改用全局媒体键"
+            ) {
                 SettingSwitch(mediaKeysEnabled) { scope.launch { desktopPreferences.saveMediaKeysEnabled(it) } }
             }
             HotkeyEditor(
