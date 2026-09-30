@@ -400,12 +400,14 @@ class LibraryViewModel(
         }
     }
 
-    fun createPlaylist(name: String) {
+    // onCreated 在创建成功后回调新歌单的 id 与名称，供调用方跳转
+    fun createPlaylist(name: String, onCreated: ((id: Long, name: String) -> Unit)? = null) {
         viewModelScope.launch {
             createRepository.createPlaylist(name).collect { result ->
-                result.onSuccess {
+                result.onSuccess { playlist ->
                     loadLibraryData()
                     _toastEvent.emit("歌单创建成功！")
+                    onCreated?.invoke(playlist.id, playlist.name)
                 }.onFailure { e ->
                     _toastEvent.emit(e.toUserMessage(resourceProvider))
                 }

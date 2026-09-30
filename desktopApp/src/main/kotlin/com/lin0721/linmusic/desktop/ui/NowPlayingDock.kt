@@ -34,8 +34,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
-import androidx.compose.ui.layout.layout
-import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.lin0721.linmusic.core.player.PlaybackController
@@ -45,7 +43,6 @@ import com.lin0721.linmusic.feature.player.ui.PlayerViewModel
 import kotlinx.coroutines.delay
 
 private const val PEEK_DELAY_MS = 120L
-private const val DOCK_ANIMATION_MS = 260
 private const val TOOLTIP_DELAY_MS = 400
 
 // 侧栏宽度状态：width 随动画变化；稳定宽度不含悬停预览，内容区据此排版
@@ -64,6 +61,9 @@ class NowPlayingDockState internal constructor(
     internal fun gap(width: Dp): Dp =
         DesktopDimens.PaneGap * (width / DesktopDimens.NowPlayingHandleWidth).coerceIn(0f, 1f)
 
+    // 稳定宽度下侧栏占用的总宽度（含间距）
+    val settledOccupied: Dp get() = occupied(settledWidth)
+
     private fun occupied(width: Dp): Dp = width + gap(width)
 }
 
@@ -76,7 +76,7 @@ fun rememberNowPlayingDockState(hasTrack: Boolean, open: Boolean): NowPlayingDoc
         else -> DesktopDimens.NowPlayingHandleWidth
     }
     val target = if (peeking.value && hasTrack && !open) DesktopDimens.NowPlayingPeekWidth else settled
-    val width = animateDpAsState(target, tween(DOCK_ANIMATION_MS, easing = FastOutSlowInEasing), label = "nowPlayingDock")
+    val width = animateDpAsState(target, tween(PANE_ANIMATION_MS, easing = FastOutSlowInEasing), label = "nowPlayingDock")
     return NowPlayingDockState(width, settled, peeking)
 }
 
@@ -171,13 +171,5 @@ fun NowPlayingDock(
                 }
             }
         }
-    }
-}
-
-// 内容按固定宽度排版并贴左，父级变窄时右侧被裁掉而不是重新排版；offscreen 时移出父级范围，既不可见也不可点
-private fun Modifier.fixedWidthAtStart(width: Dp, offscreen: Boolean): Modifier = layout { measurable, constraints ->
-    val placeable = measurable.measure(Constraints.fixed(width.roundToPx(), constraints.maxHeight))
-    layout(constraints.maxWidth, constraints.maxHeight) {
-        placeable.placeRelative(if (offscreen) -placeable.width else 0, 0)
     }
 }

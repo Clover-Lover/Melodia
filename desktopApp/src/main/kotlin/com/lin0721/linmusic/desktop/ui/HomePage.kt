@@ -111,7 +111,7 @@ private fun HomeFeed(
         CompositionLocalProvider(LocalHomeLookaheadScope provides this) {
             LazyColumn(
                 state = listState,
-                modifier = modifier.settledLayoutWidth(LocalPaneWidthExtra.current).fillMaxSize(),
+                modifier = modifier.fillMaxSize(),
                 contentPadding = PaddingValues(vertical = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(32.dp)
             ) {

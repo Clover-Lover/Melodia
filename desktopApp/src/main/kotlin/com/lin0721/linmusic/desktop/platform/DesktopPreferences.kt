@@ -11,6 +11,12 @@ import kotlinx.coroutines.flow.map
 
 enum class CloseAction { TRAY, EXIT }
 
+// 音乐库形态：收起为窄条 / 默认侧栏 / 展开铺满中间区域
+enum class LibraryMode { RAIL, DEFAULT, EXPANDED }
+
+// 音乐库条目的显示方式
+enum class LibraryViewMode { COMPACT_LIST, LIST, SMALL_GRID, LARGE_GRID }
+
 // 桌面端独有设置；快捷键以 “动作=修饰键:键码” 分号拼接存储，空值表示用户已清除该键
 class DesktopPreferences(private val dataStore: DataStore<Preferences>) {
 
@@ -21,6 +27,8 @@ class DesktopPreferences(private val dataStore: DataStore<Preferences>) {
         private val KEY_MEDIA_KEYS_ENABLED = booleanPreferencesKey("media_keys_enabled")
         private val KEY_CLOSE_ACTION = stringPreferencesKey("close_action")
         private val KEY_NOW_PLAYING_OPEN = booleanPreferencesKey("now_playing_panel_open")
+        private val KEY_LIBRARY_MODE = stringPreferencesKey("library_mode")
+        private val KEY_LIBRARY_VIEW_MODE = stringPreferencesKey("library_view_mode")
     }
 
     val hotkeys: Flow<Map<HotkeyAction, HotkeyCombo?>> = dataStore.data.map { prefs ->
@@ -38,6 +46,14 @@ class DesktopPreferences(private val dataStore: DataStore<Preferences>) {
 
     val nowPlayingPanelOpen: Flow<Boolean> = dataStore.data.map { it[KEY_NOW_PLAYING_OPEN] ?: true }.distinctUntilChanged()
 
+    val libraryMode: Flow<LibraryMode> = dataStore.data.map { prefs ->
+        prefs[KEY_LIBRARY_MODE]?.let { name -> LibraryMode.entries.firstOrNull { it.name == name } } ?: LibraryMode.DEFAULT
+    }.distinctUntilChanged()
+
+    val libraryViewMode: Flow<LibraryViewMode> = dataStore.data.map { prefs ->
+        prefs[KEY_LIBRARY_VIEW_MODE]?.let { name -> LibraryViewMode.entries.firstOrNull { it.name == name } } ?: LibraryViewMode.LIST
+    }.distinctUntilChanged()
+
     suspend fun saveHotkeys(hotkeys: Map<HotkeyAction, HotkeyCombo?>) {
         dataStore.edit { prefs ->
             prefs[KEY_HOTKEYS] = hotkeys.entries.joinToString(";") { (action, combo) -> "${action.name}=${combo?.encode().orEmpty()}" }
@@ -54,6 +70,14 @@ class DesktopPreferences(private val dataStore: DataStore<Preferences>) {
 
     suspend fun saveNowPlayingPanelOpen(open: Boolean) {
         dataStore.edit { it[KEY_NOW_PLAYING_OPEN] = open }
+    }
+
+    suspend fun saveLibraryMode(mode: LibraryMode) {
+        dataStore.edit { it[KEY_LIBRARY_MODE] = mode.name }
+    }
+
+    suspend fun saveLibraryViewMode(mode: LibraryViewMode) {
+        dataStore.edit { it[KEY_LIBRARY_VIEW_MODE] = mode.name }
     }
 
     // 解析失败的条目忽略，回落到默认值

@@ -25,6 +25,7 @@ object DesktopDimens {
     val PaneGap = 8.dp
     val PaneRadius = 8.dp
     val SidebarWidth = 300.dp
+    val LibraryRailWidth = 72.dp
     val NowPlayingWidth = 340.dp
     val NowPlayingHandleWidth = 28.dp
     val NowPlayingPeekWidth = 72.dp
