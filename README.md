@@ -1,7 +1,7 @@
 <div align="center">
   <img src="docs/images/cover.png" alt="Melodia" />
 
-基于 Kotlin + Jetpack Compose 构建的轻量、现代的第三方网易云音乐 Android 客户端
+参考Spotify UI构建的现代化、轻量级第三方网易云音乐客户端。
 
 
 [![GitHub Release](https://img.shields.io/github/v/release/rinchao0721/Melodia?style=flat-square&color=blue)](https://github.com/rinchao0721/Melodia/releases)
