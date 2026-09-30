@@ -16,6 +16,7 @@ import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
+import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
@@ -30,6 +31,7 @@ import com.lin0721.linmusic.desktop.platform.HotkeyAction
 import com.lin0721.linmusic.desktop.platform.smtc.SmtcSession
 import com.lin0721.linmusic.desktop.player.MpvPlaybackController
 import com.lin0721.linmusic.desktop.ui.MelodiaDesktopApp
+import com.lin0721.linmusic.desktop.ui.WindowChromeEffect
 import com.lin0721.linmusic.desktop.ui.lyrics.DesktopLyricWindow
 import com.lin0721.linmusic.desktop.ui.tray.TrayHost
 import com.lin0721.linmusic.desktop.ui.tray.TrayMenuEntry
@@ -38,6 +40,7 @@ import com.lin0721.linmusic.desktop.ui.theme.MelodiaDesktopTheme
 import com.lin0721.linmusic.di.networkModule
 import com.lin0721.linmusic.di.repositoryModule
 import com.lin0721.linmusic.feature.player.ui.PlayerViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import org.jetbrains.skia.Image
@@ -45,6 +48,7 @@ import org.koin.core.context.startKoin
 import java.awt.Dimension
 
 private const val VOLUME_STEP = 5
+private const val EXIT_ANIMATION_MS = 250L
 
 fun main() {
     val koin = startKoin {
@@ -78,11 +82,19 @@ fun main() {
         val setDesktopLyric: (Boolean) -> Unit = { enabled ->
             scope.launch { settingsPreferences.saveShowDesktopLrc(enabled) }
         }
-        // 退出前补报当前曲目播放时长并销毁 mpv 句柄
-        val exit = {
-            smtc.shutdown()
-            mpvController?.release()
-            exitApplication()
+        // 先隐藏窗口等消失动画播完，再补报当前曲目播放时长、销毁 mpv 句柄并退出
+        var isExiting by remember { mutableStateOf(false) }
+        val exit: () -> Unit = {
+            if (!isExiting) {
+                isExiting = true
+                isMainVisible = false
+                scope.launch {
+                    delay(EXIT_ANIMATION_MS)
+                    smtc.shutdown()
+                    mpvController?.release()
+                    exitApplication()
+                }
+            }
         }
 
         // 主窗口关闭按钮与 Alt+F4 统一按设置处理；系统不支持托盘时隐藏后无法找回，只能退出
@@ -156,13 +168,14 @@ fun main() {
                     window.toFront()
                 }
             }
+            WindowChromeEffect(maximized = windowState.placement == WindowPlacement.Maximized)
             MelodiaDesktopTheme {
                 MelodiaDesktopApp(windowState = windowState, onClose = closeMainWindow)
             }
         }
 
         DesktopLyricWindow(
-            visible = showDesktopLyric,
+            visible = showDesktopLyric && !isExiting,
             locked = isLyricLocked,
             playerViewModel = playerViewModel,
             controller = controller,

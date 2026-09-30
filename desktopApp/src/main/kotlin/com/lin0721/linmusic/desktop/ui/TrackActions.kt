@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.desktop.ui
 
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,6 +14,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.AlertDialogDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -37,6 +39,7 @@ import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectItem
 import com.lin0721.linmusic.core.ui.components.PlaylistCollectState
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
+import com.lin0721.linmusic.desktop.ui.theme.WindowBorder
 
 private const val PLAYLIST_NAME_MAX_LENGTH = 40
 
@@ -109,6 +112,8 @@ private fun CollectToPlaylistDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        modifier = Modifier.border(1.dp, WindowBorder.color(), AlertDialogDefaults.shape),
+        shape = AlertDialogDefaults.shape,
         containerColor = DesktopColors.Surface,
         title = { Text("收藏到歌单", color = DesktopColors.TextPrimary) },
         text = {
