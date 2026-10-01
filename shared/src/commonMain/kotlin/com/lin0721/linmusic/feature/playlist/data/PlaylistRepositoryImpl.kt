@@ -71,7 +71,8 @@ class PlaylistRepositoryImpl(
                 coverImgUrl = album.picUrl,
                 description = album.description,
                 playCount = 0L,
-                tracks = filteredTracks
+                tracks = filteredTracks,
+                artists = album.artists
             )
         }
     )

@@ -24,6 +24,8 @@ import com.lin0721.linmusic.core.ui.components.MelodiaTextButton
 import com.lin0721.linmusic.core.ui.components.MelodiaButton
 import com.lin0721.linmusic.core.ui.components.LoginBottomSheet
 import com.lin0721.linmusic.core.ui.components.MelodiaDragHandle
+import com.lin0721.linmusic.core.ui.components.ArtistPickerEntry
+import com.lin0721.linmusic.core.ui.components.ArtistPickerSheet
 import com.lin0721.linmusic.core.ui.components.WebViewLoginScreen
 import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
@@ -164,6 +166,7 @@ fun PlaylistScreen(
     val composerState by viewModel.composerState.collectAsStateWithLifecycle()
     val floorState by viewModel.floorState.collectAsStateWithLifecycle()
     var showMoreMenuSheet by remember { mutableStateOf(false) }
+    var artistPickerEntries by remember { mutableStateOf<List<ArtistPickerEntry>>(emptyList()) }
     var showImportTargetSheet by remember { mutableStateOf(false) }
     var showEditInfoDialog by remember { mutableStateOf(false) }
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
@@ -739,6 +742,14 @@ fun PlaylistScreen(
             )
         }
 
+        if (artistPickerEntries.isNotEmpty()) {
+            ArtistPickerSheet(
+                artists = artistPickerEntries,
+                onArtistClick = onArtistClick,
+                onDismiss = { artistPickerEntries = emptyList() }
+            )
+        }
+
         if (showMoreMenuSheet && successState != null) {
             val playlist = successState.playlist
             ModalBottomSheet(
@@ -753,8 +764,12 @@ fun PlaylistScreen(
                         .navigationBarsPadding()
                         .padding(bottom = MelodiaSpacing.md)
                 ) {
-                    val firstArtist = playlist.tracks.firstOrNull()?.ar?.firstOrNull()
-                    val artistName = firstArtist?.name ?: "未知歌手"
+                    // 优先用专辑署名歌手，旧数据/歌单退回首曲歌手；多位时全部保留供选择
+                    val linkedArtists = playlist.artists
+                        .ifEmpty { playlist.tracks.firstOrNull()?.ar.orEmpty() }
+                        .filter { it.id > 0L }
+                        .distinctBy { it.id }
+                    val artistName = linkedArtists.joinToString(" / ") { it.name }.ifBlank { "未知歌手" }
                     val resourceLabel = if (isAlbum) "专辑" else "歌单"
 
                     val subtitleText = buildString {
@@ -838,10 +853,16 @@ fun PlaylistScreen(
                                 title = "跳转至艺人"
                             ) {
                                 showMoreMenuSheet = false
-                                if (firstArtist != null) {
-                                    onArtistClick(firstArtist.id)
-                                } else {
-                                    com.lin0721.linmusic.core.ui.components.ToastManager.showToast("未找到关联艺人信息")
+                                when (linkedArtists.size) {
+                                    0 -> com.lin0721.linmusic.core.ui.components.ToastManager.showToast("未找到关联艺人信息")
+                                    1 -> onArtistClick(linkedArtists.first().id)
+                                    else -> artistPickerEntries = linkedArtists.map { artist ->
+                                        ArtistPickerEntry(
+                                            id = artist.id,
+                                            name = artist.name,
+                                            avatarUrl = artist.picUrl.ifBlank { artist.img1v1Url }.takeIf { it.isNotBlank() }
+                                        )
+                                    }
                                 }
                             }
                         )
