@@ -29,7 +29,7 @@ class LyricsResolver(
                 return@flow
             }
         }
-        val lines = readLocalLyrics(localUri)?.let(LyricParser::parseLrc).orEmpty()
+        val lines = readLocalLyrics(localUri)?.let(LyricParser::parseLocal).orEmpty()
         emit(Result.success(lines))
     }
 }

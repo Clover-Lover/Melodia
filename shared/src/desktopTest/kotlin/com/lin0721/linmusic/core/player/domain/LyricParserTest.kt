@@ -127,4 +127,73 @@ class LyricParserTest {
     fun `YRC空字符串返回空列表`() {
         assertTrue(LyricParser.parseYrc("").isEmpty())
     }
+
+    // ======================= 本地歌词（增强型 LRC + 同时间戳译文） =======================
+
+    @Test
+    fun `本地歌词解析增强型LRC逐字标签`() {
+        val text = "[00:13.463] <00:13.463>Yeah <00:14.095>I'm <00:14.258>gonna<00:14.500>"
+        val line = LyricParser.parseLocal(text).single()
+        assertEquals(13_463L, line.timeMs)
+        assertEquals("Yeah I'm gonna", line.text)
+        assertEquals(listOf("Yeah ", "I'm ", "gonna"), line.words.map { it.text })
+        assertEquals(listOf(0L, 632L, 795L), line.words.map { it.startOffsetMs })
+        assertEquals(listOf(632L, 163L, 242L), line.words.map { it.durationMs })
+        assertEquals(1_037L, line.durationMs)
+    }
+
+    @Test
+    fun `逐字标签间仅有空白时并入前一个词`() {
+        val line = LyricParser.parseLocal("[00:00.000] <00:00.000>Old<00:00.065> <00:00.087>Town<00:00.174>").single()
+        assertEquals(listOf("Old ", "Town"), line.words.map { it.text })
+        assertEquals(87L, line.words[1].startOffsetMs)
+        assertEquals(87L, line.words[1].durationMs)
+    }
+
+    @Test
+    fun `缺少结束标签时最后一个词时长为0`() {
+        val line = LyricParser.parseLocal("[00:01.000]<00:01.000>Hi <00:01.500>there").single()
+        assertEquals(0L, line.words.last().durationMs)
+        assertEquals("Hi there", line.text)
+    }
+
+    @Test
+    fun `同时间戳的第二行作为译文`() {
+        val text = "[00:13.190]Yeah, take my horse\n[00:13.190]我要带着我的马\n[00:17.420]ride\n[00:17.420]直到筋疲力竭"
+        val lines = LyricParser.parseLocal(text)
+        assertEquals(2, lines.size)
+        assertEquals("Yeah, take my horse", lines[0].text)
+        assertEquals("我要带着我的马", lines[0].translation)
+        assertEquals("直到筋疲力竭", lines[1].translation)
+    }
+
+    @Test
+    fun `逐字原文与同时间戳译文合并`() {
+        val text = "[00:13.463] <00:13.463>Yeah <00:14.095>I'm<00:14.500>\n[00:13.463]我要在老城小路上"
+        val line = LyricParser.parseLocal(text).single()
+        assertEquals("Yeah I'm", line.text)
+        assertEquals(2, line.words.size)
+        assertEquals("我要在老城小路上", line.translation)
+    }
+
+    @Test
+    fun `同时间戳第三行保留为独立行`() {
+        val lines = LyricParser.parseLocal("[00:10.00]a\n[00:10.00]b\n[00:10.00]c")
+        assertEquals(2, lines.size)
+        assertEquals("b", lines[0].translation)
+        assertEquals("c", lines[1].text)
+    }
+
+    @Test
+    fun `本地歌词普通LRC行为与parseLrc一致`() {
+        val text = "[ti:Winter Bells]\n[00:20.00]主歌\n[00:12.00][01:30.50]副歌"
+        val lines = LyricParser.parseLocal(text)
+        assertEquals(listOf(12_000L, 20_000L, 90_500L), lines.map { it.timeMs })
+        assertTrue(lines.all { it.words.isEmpty() && it.translation == null })
+    }
+
+    @Test
+    fun `本地歌词空字符串返回空列表`() {
+        assertTrue(LyricParser.parseLocal("").isEmpty())
+    }
 }
