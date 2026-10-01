@@ -99,10 +99,14 @@ fun ColumnScope.FullScreenLyricsList(
             val linesAboveCentre = (viewportHeightPx / 2 / itemStridePx).toInt()
 
             if (currentIndex < linesAboveCentre) {
+                // 首句还没法滚到视口中心，此时把首句钉在视口顶部保持不动。
+                // 偏移必须传 0：内容顶部内边距等于半个视口，Compose 里 item 的落点是 offset = -scrollOffset，
+                // 传 ±topPaddingPx 会在此基础上再多推半个视口，把首句顶到屏幕外，
+                // 表现为前几行播放时列表整体乱跳（AMLL 行带译文/罗马音更高，触发得更明显）。
                 lazyListState.springScrollToCentre(
                     targetIndex = 0,
-                    desiredOffsetPx = -topPaddingPx,
-                    fallbackScrollOffsetPx = topPaddingPx
+                    desiredOffsetPx = 0,
+                    fallbackScrollOffsetPx = 0
                 )
                 return@LaunchedEffect
             }
