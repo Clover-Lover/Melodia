@@ -46,6 +46,7 @@ class ExternalLyricCoordinator(
 
     private var displayedTitle: String = ""
     private var currentLyricInfoJson: String = ""
+    private var sessionGeneration: Int = 0
 
     private var isSuperLyricEnabled = false
     private var isLyricInfoEnabled = false
@@ -149,6 +150,18 @@ class ExternalLyricCoordinator(
                 handlePositionChanged(positionMs)
             }
         }
+
+        scope.launch {
+            playerManager.duration.collectLatest { durationMs ->
+                if (durationMs > 0L && durationMs != originalDurationMs) {
+                    originalDurationMs = durationMs
+                    if (currentLyricInfoJson.isNotBlank()) {
+                        rebuildLyricInfo()
+                        onMetadataChanged?.invoke()
+                    }
+                }
+            }
+        }
     }
 
     private fun handleTrackChanged(mediaItem: MediaItem?) {
@@ -158,9 +171,12 @@ class ExternalLyricCoordinator(
         originalArtist = meta?.artist?.toString() ?: ""
         originalAlbum = meta?.albumTitle?.toString() ?: ""
         displayedTitle = originalTitle
+        originalDurationMs = playerManager.duration.value
 
         if (songId != currentSongId) {
             currentSongId = songId
+            sessionGeneration++
+            val generation = sessionGeneration
             currentLines = emptyList()
             currentLyricIndex = -1
             currentLyricInfoJson = ""
@@ -169,6 +185,7 @@ class ExternalLyricCoordinator(
             if (songId != -1L) {
                 lyricFetchJob = scope.launch {
                     lyricsResolver.lyricsFor(songId).collect { result ->
+                        if (generation != sessionGeneration) return@collect
                         result.onSuccess { lines ->
                             currentLines = lines
                             rebuildLyricInfo()
@@ -245,7 +262,7 @@ class ExternalLyricCoordinator(
     }
 
     private fun updateBluetoothTitleForIndex(index: Int) {
-        if (!isBluetoothLyricEnabled) {
+        if (!isBluetoothLyricEnabled || isLyricInfoEnabled) {
             displayedTitle = originalTitle
             return
         }
@@ -321,18 +338,22 @@ class ExternalLyricCoordinator(
             currentLyricInfoJson = ""
             return
         }
+        val durationSec = originalDurationMs / 1000
+        val trackKey = "$currentSongId|$originalTitle|$originalArtist|$durationSec"
         currentLyricInfoJson = LyricInfoBuilder.buildLyricInfoJson(
             songName = originalTitle,
             artist = originalArtist,
             songId = currentSongId.toString(),
             album = originalAlbum,
             lines = currentLines,
-            showTranslation = isShowTranslation
+            showTranslation = isShowTranslation,
+            sessionGeneration = sessionGeneration,
+            trackKey = trackKey
         )
     }
 
     fun applyToMediaMetadata(builder: MediaMetadata.Builder, original: MediaMetadata): MediaMetadata {
-        if (isBluetoothLyricEnabled && displayedTitle.isNotBlank()) {
+        if (isBluetoothLyricEnabled && !isLyricInfoEnabled && displayedTitle.isNotBlank()) {
             builder.setTitle(displayedTitle)
         } else {
             builder.setTitle(originalTitle.ifBlank { original.title })

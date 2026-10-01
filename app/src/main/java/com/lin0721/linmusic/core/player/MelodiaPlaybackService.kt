@@ -65,6 +65,7 @@ class MelodiaPlaybackService : MediaSessionService() {
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var isLikedListLoaded = false
+    private var isShowLockscreenEnabled = true
 
     private var player: Player? = null
     private var crossfadePlayer: CrossfadePlayer? = null
@@ -126,6 +127,12 @@ class MelodiaPlaybackService : MediaSessionService() {
         serviceScope.launch {
             songLikeRepository.likedSongIds.collect {
                 updateMediaSessionButtons()
+            }
+        }
+
+        serviceScope.launch {
+            settingsPreferences.showLockscreen.collect { enabled ->
+                isShowLockscreenEnabled = enabled
             }
         }
 
@@ -240,8 +247,7 @@ class MelodiaPlaybackService : MediaSessionService() {
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? {
-        val showLock = runBlocking { settingsPreferences.showLockscreen.first() }
-        if (!showLock) {
+        if (!isShowLockscreenEnabled) {
             val allowedPackages = listOf(packageName, "com.android.bluetooth")
             if (controllerInfo.packageName !in allowedPackages) {
                 return null
