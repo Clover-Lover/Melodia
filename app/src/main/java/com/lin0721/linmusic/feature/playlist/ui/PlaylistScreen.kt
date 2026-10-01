@@ -692,7 +692,8 @@ fun PlaylistScreen(
                 },
                 onRequireLogin = { showLoginSheet = true },
                 onLoadMore = viewModel::loadMoreComments,
-                onRetry = { viewModel.loadPlaylistComments(playlistId) }
+                onRetry = { viewModel.loadPlaylistComments(playlistId) },
+                bottomOverlayInset = LocalBottomOverlayInset.current
             )
         }
 
