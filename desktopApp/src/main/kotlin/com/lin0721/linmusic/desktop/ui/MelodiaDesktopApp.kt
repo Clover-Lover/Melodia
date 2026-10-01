@@ -44,6 +44,7 @@ import com.lin0721.linmusic.feature.library.ui.LibraryItem
 import com.lin0721.linmusic.feature.library.ui.LibraryItemType
 import com.lin0721.linmusic.feature.library.ui.LibraryViewModel
 import com.lin0721.linmusic.feature.music.ui.MusicViewModel
+import com.lin0721.linmusic.feature.music.ui.StyleDetailViewModel
 import com.lin0721.linmusic.feature.newworks.ui.NewWorksViewModel
 import com.lin0721.linmusic.feature.player.ui.PlayerViewModel
 import com.lin0721.linmusic.feature.playlist.ui.PlaylistViewModel
@@ -75,6 +76,7 @@ fun WindowScope.MelodiaDesktopApp(windowState: WindowState, onClose: () -> Unit)
     val playlistViewModel = remember { koin.get<PlaylistViewModel>() }
     val categoryViewModel = remember { koin.get<PlaylistCategoryViewModel>() }
     val artistViewModel = remember { koin.get<ArtistViewModel>() }
+    val styleDetailViewModel = remember { koin.get<StyleDetailViewModel>() }
     val desktopPreferences = remember { koin.get<DesktopPreferences>() }
     val mpvController = playbackController as? MpvPlaybackController
 
@@ -137,7 +139,7 @@ fun WindowScope.MelodiaDesktopApp(windowState: WindowState, onClose: () -> Unit)
         val playbackMessages = mpvController?.messages ?: emptyFlow()
         merge(
             homeViewModel.toastEvent,
-            musicViewModel.toastEvent,
+            styleDetailViewModel.toastEvent,
             libraryViewModel.toastEvent,
             searchViewModel.toastEvent,
             playlistViewModel.toastEvent,
@@ -270,7 +272,6 @@ fun WindowScope.MelodiaDesktopApp(windowState: WindowState, onClose: () -> Unit)
                                             musicViewModel = musicViewModel,
                                             podcastViewModel = podcastViewModel,
                                             newWorksViewModel = newWorksViewModel,
-                                            controller = playbackController,
                                             selectedTab = homeTab,
                                             // 点任意主胶囊都回到该 tab 的默认内容，「最新」只能由二级胶囊单独选中；
                                             // 已在「音乐」默认内容时再点「音乐」则回到「全部」，收起二级胶囊
@@ -284,7 +285,14 @@ fun WindowScope.MelodiaDesktopApp(windowState: WindowState, onClose: () -> Unit)
                                             },
                                             newWorksSelected = showNewWorks,
                                             onNewWorksSelectedChange = { showNewWorks = it },
-                                            onPlaylistClick = { id, title -> backStack.navigate(DesktopRoute.Playlist(id, title)) }
+                                            onPlaylistClick = { id, title -> backStack.navigate(DesktopRoute.Playlist(id, title)) },
+                                            onStyleClick = { id, name -> backStack.navigate(DesktopRoute.Style(id, name)) }
+                                        )
+                                        is DesktopRoute.Style -> StyleDetailPage(
+                                            tagId = route.id,
+                                            name = route.name,
+                                            viewModel = styleDetailViewModel,
+                                            controller = playbackController
                                         )
                                         is DesktopRoute.Playlist -> PlaylistPage(
                                             playlistId = route.id,

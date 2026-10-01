@@ -47,14 +47,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.feature.home.domain.HomeCard
 import com.lin0721.linmusic.feature.home.domain.HomeShelf
 import com.lin0721.linmusic.feature.home.ui.HomeFeedData
 import com.lin0721.linmusic.feature.home.ui.HomeUiState
 import com.lin0721.linmusic.feature.home.ui.HomeViewModel
-import com.lin0721.linmusic.feature.music.ui.MusicUiState
 import com.lin0721.linmusic.feature.music.ui.MusicViewModel
 import com.lin0721.linmusic.feature.newworks.ui.NewWorksViewModel
 import com.lin0721.linmusic.feature.podcast.ui.PodcastViewModel
@@ -80,16 +78,15 @@ fun HomePage(
     musicViewModel: MusicViewModel,
     podcastViewModel: PodcastViewModel,
     newWorksViewModel: NewWorksViewModel,
-    controller: PlaybackController,
     selectedTab: Int,
     onTabSelected: (Int) -> Unit,
     newWorksSelected: Boolean,
     onNewWorksSelectedChange: (Boolean) -> Unit,
     onPlaylistClick: (id: Long, title: String) -> Unit,
+    onStyleClick: (id: Long, name: String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val navigator = LocalDesktopNavigator.current
-    val nowPlaying by controller.nowPlaying.collectAsState()
     val musicState by musicViewModel.uiState.collectAsState()
     val podcastState by podcastViewModel.uiState.collectAsState()
     val newWorksState by newWorksViewModel.uiState.collectAsState()
@@ -128,16 +125,7 @@ fun HomePage(
                 selectedTab == HOME_TAB_MUSIC -> MusicTab(
                     uiState = musicState,
                     listState = musicListState,
-                    nowPlayingSongId = nowPlaying?.songId,
-                    onStyleSelect = musicViewModel::selectStyle,
-                    onChildStyleSelect = musicViewModel::selectChildStyle,
-                    onPlaylistClick = onPlaylistClick,
-                    onArtistClick = navigator.openArtist,
-                    onPlaySongAt = musicViewModel::playSongAt,
-                    onPlayFavourite = {
-                        (musicState as? MusicUiState.Success)?.data?.content?.head?.favouriteSong
-                            ?.let(musicViewModel::playFavouriteSong)
-                    },
+                    onStyleClick = onStyleClick,
                     onRetry = musicViewModel::loadStyles
                 )
                 selectedTab == HOME_TAB_PODCAST -> PodcastTab(

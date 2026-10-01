@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.feature.music.domain
 
+import com.lin0721.linmusic.feature.music.data.StyleAlbumDto
 import com.lin0721.linmusic.feature.music.data.StyleArtistDto
 import com.lin0721.linmusic.feature.music.data.StyleHeadDto
 import com.lin0721.linmusic.feature.music.data.StylePlaylistDto
@@ -109,6 +110,12 @@ fun List<StylePlaylistDto>.toStylePlaylistItems(): List<StylePlaylistItem> = map
     if (dto.id <= 0 || dto.name.isBlank()) return@mapNotNull null
     val cover = dto.cover?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
     StylePlaylistItem(dto.id, dto.name, cover, dto.playCount)
+}
+
+fun List<StyleAlbumDto>.toStyleAlbumItems(): List<StyleAlbumItem> = mapNotNull { dto ->
+    if (dto.id <= 0 || dto.name.isBlank()) return@mapNotNull null
+    val cover = dto.picUrl?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+    StyleAlbumItem(dto.id, dto.name, cover, dto.artist?.name.orEmpty(), dto.publishTime.coerceAtLeast(0))
 }
 
 // 歌手有方图与 1:1 两种图，优先取 1:1 —— 圆形头像裁方图容易切到脸

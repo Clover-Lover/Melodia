@@ -54,6 +54,7 @@ fun HomeScreen(
     onArtistClick: (Long) -> Unit = {},
     onRadioClick: (Long) -> Unit = {},
     onMvClick: (Long, String) -> Unit = { _, _ -> },
+    onStyleClick: (id: Long, name: String) -> Unit = { _, _ -> },
     onSearchClick: () -> Unit = {},
     onOpenSidebar: () -> Unit = {},
     onLoginScreenVisibilityChanged: (Boolean) -> Unit = {}
@@ -75,12 +76,6 @@ fun HomeScreen(
 
     LaunchedEffect(viewModel) {
         viewModel.toastEvent.collect { message ->
-            ToastManager.showToast(message)
-        }
-    }
-
-    LaunchedEffect(musicViewModel) {
-        musicViewModel.toastEvent.collect { message ->
             ToastManager.showToast(message)
         }
     }
@@ -134,16 +129,7 @@ fun HomeScreen(
 
                     selectedTab == TAB_MUSIC -> MusicContent(
                         uiState = musicUiState,
-                        onStyleSelect = { musicViewModel.selectStyle(it) },
-                        onChildStyleSelect = { musicViewModel.selectChildStyle(it) },
-                        onPlaylistClick = { onPlaylistClick(it.id, false) },
-                        onArtistClick = { onArtistClick(it.id) },
-                        onPlaySongAt = { musicViewModel.playSongAt(it) },
-                        onPlayFavourite = {
-                            (musicUiState as? com.lin0721.linmusic.feature.music.ui.MusicUiState.Success)
-                                ?.data?.content?.head?.favouriteSong
-                                ?.let { musicViewModel.playFavouriteSong(it) }
-                        },
+                        onStyleClick = onStyleClick,
                         onRetry = { musicViewModel.loadStyles() }
                     )
 

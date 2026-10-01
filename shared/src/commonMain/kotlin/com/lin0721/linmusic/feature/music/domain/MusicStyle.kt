@@ -59,10 +59,25 @@ data class StyleArtistItem(
     val musicSize: Int
 )
 
-// 一个曲风页的完整内容
-data class StyleContent(
-    val head: StyleHead?,
-    val playlists: List<StylePlaylistItem>,
-    val songs: List<Track>,
-    val artists: List<StyleArtistItem>
+// 曲风下的专辑
+data class StyleAlbumItem(
+    val id: Long,
+    val name: String,
+    val coverUrl: String,
+    val artistName: String,
+    // 毫秒时间戳，0 表示未知
+    val publishTime: Long
 )
+
+// 曲风单曲的一页。nextCursor 按请求页长推算，屏蔽歌手过滤掉的条目不影响翻页位置
+data class StyleSongPage(
+    val songs: List<Track>,
+    val nextCursor: Int,
+    val hasMore: Boolean
+)
+
+// 曲风单曲 / 专辑排序。服务端 sort=2 只回 30 条且规律不明，sort=3 与 0 相同，均不暴露
+enum class StyleSort(val value: Int) {
+    Hot(0),
+    Latest(1)
+}

@@ -166,7 +166,35 @@ data class StyleArtistDto(
     val musicSize: Int = 0
 )
 
-// 三个内容接口共用的翻页信息
+@Serializable
+data class StyleAlbumResponse(
+    val code: Int = 0,
+    val data: StyleAlbumData? = null
+) {
+    val isSuccess: Boolean get() = code == 200
+}
+
+@Serializable
+data class StyleAlbumData(
+    val albums: List<StyleAlbumDto> = emptyList(),
+    val page: StylePageDto? = null
+)
+
+@Serializable
+data class StyleAlbumDto(
+    val id: Long = 0,
+    val name: String = "",
+    val picUrl: String? = null,
+    val publishTime: Long = 0,
+    val artist: StyleAlbumArtistDto? = null
+)
+
+@Serializable
+data class StyleAlbumArtistDto(
+    val name: String = ""
+)
+
+// 四个内容接口共用的翻页信息，cursor 为偏移量
 @Serializable
 data class StylePageDto(
     val cursor: Int = 0,

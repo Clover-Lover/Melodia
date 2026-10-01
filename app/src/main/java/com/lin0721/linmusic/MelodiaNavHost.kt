@@ -110,6 +110,7 @@ fun MelodiaNavHost(
                     onArtistClick = onNavigateToArtist,
                     onRadioClick = onNavigateToRadio,
                     onMvClick = onNavigateToMv,
+                    onStyleClick = { id, name -> onNavigateToScreen(Screen.Style(id, name)) },
                     onSearchClick = onNavigateToSearch,
                     onOpenSidebar = onOpenSidebar,
                     onLoginScreenVisibilityChanged = onLoginScreenVisibilityChanged
@@ -169,6 +170,16 @@ fun MelodiaNavHost(
                 com.lin0721.linmusic.feature.podcast.ui.RadioDetailScreen(
                     radioId = screen.id,
                     onBack = onBack
+                )
+            }
+            is Screen.Style -> {
+                com.lin0721.linmusic.feature.music.ui.StyleDetailScreen(
+                    tagId = screen.id,
+                    name = screen.name,
+                    onBack = onBack,
+                    onPlaylistClick = { playlistId -> onNavigateToPlaylist(playlistId, false) },
+                    onAlbumClick = { albumId -> onNavigateToPlaylist(albumId, true) },
+                    onArtistClick = onNavigateToArtist
                 )
             }
             is Screen.Artist -> {

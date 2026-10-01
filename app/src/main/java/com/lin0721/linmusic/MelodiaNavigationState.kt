@@ -36,6 +36,9 @@ sealed class Screen {
     data class MvPlayer(val id: Long, val name: String) : Screen()
     @Serializable
     data class PlaylistCategory(val category: String) : Screen()
+    // 「音乐」tab 的曲风详情
+    @Serializable
+    data class Style(val id: Long, val name: String) : Screen()
     // 侧边栏二级页
     @Serializable
     data object RecentPlay : Screen()
