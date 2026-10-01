@@ -80,8 +80,7 @@ fun LibraryFilterPillsRow(
     val filters = listOf(
         LibraryFilter.PLAYLIST to "歌单${if (playlistCount > 0) " $playlistCount" else ""}",
         LibraryFilter.ALBUM to "专辑${if (albumCount > 0) " $albumCount" else ""}",
-        LibraryFilter.ARTIST to "歌手${if (artistCount > 0) " $artistCount" else ""}",
-        LibraryFilter.MV to "MV"
+        LibraryFilter.ARTIST to "歌手${if (artistCount > 0) " $artistCount" else ""}"
     )
     val visibleFilters = if (selectedFilter == null) filters else filters.filter { it.first == selectedFilter }
     val ownerFilters = listOf(

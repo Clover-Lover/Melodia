@@ -524,7 +524,6 @@ private fun typeLabel(type: LibraryItemType): String = when (type) {
     LibraryItemType.PLAYLIST -> "歌单"
     LibraryItemType.ALBUM -> "专辑"
     LibraryItemType.ARTIST -> "艺人"
-    LibraryItemType.MV -> "MV"
 }
 
 // 小网格：只有封面，悬停显示标题

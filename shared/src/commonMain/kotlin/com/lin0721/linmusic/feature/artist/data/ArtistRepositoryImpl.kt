@@ -6,9 +6,7 @@ import com.lin0721.linmusic.core.model.ArtistInfo
 import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.network.apiFlow
 import com.lin0721.linmusic.feature.artist.domain.ArtistAlbumPage
-import com.lin0721.linmusic.feature.artist.domain.ArtistMvPage
 import com.lin0721.linmusic.feature.artist.domain.ArtistSongsPage
-import com.lin0721.linmusic.feature.artist.domain.MvDetail
 import kotlinx.coroutines.flow.Flow
 
 private const val TAG = "ArtistRepositoryImpl"
@@ -84,20 +82,6 @@ class ArtistRepositoryImpl(
         }
     )
 
-    override fun getArtistMvs(artistId: Long, limit: Int, offset: Int): Flow<Result<ArtistMvPage>> = apiFlow(
-        request = { apiService.getArtistMvs(ArtistMvsRequest(artistId = artistId, limit = limit, offset = offset)) },
-        isSuccess = { it.isSuccess },
-        code = { it.code },
-        transform = { ArtistMvPage(mvs = it.mvs, hasMore = it.hasMore) }
-    )
-
-    override fun getMvUrl(mvId: Long, resolution: Int): Flow<Result<String>> = apiFlow(
-        request = { apiService.getMvUrl(MvUrlRequest(id = mvId, r = resolution)) },
-        isSuccess = { !it.data?.url.isNullOrBlank() },
-        code = { it.code },
-        transform = { it.data!!.url!! }
-    )
-
     // 全部歌曲接口是裸 api，前缀未经真机验证：优先请求 eapi，非 200 或异常时回退 weapi，日志标注实际生效的前缀
     override fun getArtistAllSongs(artistId: Long, offset: Int, limit: Int, order: String): Flow<Result<ArtistSongsPage>> = apiFlow(
         request = {
@@ -120,54 +104,5 @@ class ArtistRepositoryImpl(
         isSuccess = { it.isSuccess },
         code = { it.code },
         transform = { ArtistSongsPage(songs = it.songs, hasMore = it.more) }
-    )
-
-    override fun getMvDetail(mvId: Long): Flow<Result<MvDetail>> = apiFlow(
-        request = { apiService.getMvDetail(MvDetailRequest(id = mvId)) },
-        isSuccess = { it.isSuccess && it.data != null },
-        code = { it.code },
-        transform = {
-            val d = it.data!!
-            MvDetail(
-                id = d.id,
-                name = d.name,
-                artistId = d.artistId,
-                artistName = d.artistName,
-                cover = d.cover,
-                duration = d.duration,
-                playCount = d.playCount,
-                subCount = d.subCount,
-                commentCount = d.commentCount,
-                likedCount = d.likedCount,
-                isSubscribed = d.subed,
-                isLiked = d.liked,
-                publishTime = d.publishTime,
-                briefDesc = d.briefDesc.orEmpty()
-            )
-        }
-    )
-
-    override fun subscribeMv(mvId: Long, subscribe: Boolean): Flow<Result<Unit>> = apiFlow(
-        request = {
-            apiService.subscribeMv(
-                op = if (subscribe) "sub" else "unsub",
-                body = MvSubscriptionRequest(mvId = mvId, mvIds = "[\"$mvId\"]")
-            )
-        },
-        isSuccess = { it.isSuccess },
-        code = { it.code },
-        transform = { Unit }
-    )
-
-    override fun likeMv(mvId: Long, like: Boolean): Flow<Result<Unit>> = apiFlow(
-        request = {
-            apiService.likeResource(
-                op = if (like) "like" else "unlike",
-                body = ResourceLikeRequest(threadId = "R_MV_5_$mvId")
-            )
-        },
-        isSuccess = { it.isSuccess },
-        code = { it.code },
-        transform = { Unit }
     )
 }

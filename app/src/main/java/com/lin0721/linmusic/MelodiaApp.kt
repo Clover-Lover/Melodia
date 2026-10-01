@@ -149,10 +149,6 @@ fun MelodiaApp() {
     }
     // 网页登录界面可见性状态
     var isLoginScreenVisible by remember { mutableStateOf(false) }
-    // MV 播放页是否处于全屏态：全屏时隐藏底部导航栏/悬浮播放条，避免盖住视频
-    var isMvFullscreen by remember { mutableStateOf(false) }
-    // MV 播放页评论区是否展开：展开时临时隐藏悬浮 MiniPlayer，为评论区和输入栏让出空间
-    var isMvCommentsOpen by remember { mutableStateOf(false) }
     // 悬浮播放卡片 + 导航栏的实际高度，下发给各页面用作列表底部留白
     var bottomOverlayHeight by remember { mutableStateOf(0.dp) }
     // 平板适配断点，顶层下发供 MelodiaBottomOverlay 及后续各阶段消费
@@ -382,9 +378,6 @@ fun MelodiaApp() {
                                     onNavigateToPlaylist = { id, isAlbum -> navigation.openPlaylist(id, isAlbum) },
                                     onNavigateToArtist = { id -> navigation.openArtist(id) },
                                     onNavigateToRadio = { id -> navigation.openRadio(id) },
-                                    onNavigateToMv = { id, name -> navigation.openMvPlayer(id, name) },
-                                    onMvFullscreenChanged = { isMvFullscreen = it },
-                                    onMvCommentsVisibilityChanged = { isMvCommentsOpen = it },
                                     onNavigateToPlaylistCategory = { category -> navigation.openPlaylistCategory(category) },
                                     onNavigateToProfile = { uid -> navigation.openProfile(uid) },
                                     onNavigateToFollowList = { uid, mode -> navigation.openFollowList(uid, mode) },
@@ -415,8 +408,6 @@ fun MelodiaApp() {
                             currentScreen = navigation.currentScreen,
                             showCreateSheet = showCreateSheet,
                             isLoginScreenVisible = isLoginScreenVisible,
-                            isMvFullscreen = isMvFullscreen,
-                            isMvCommentsOpen = isMvCommentsOpen,
                             isPanelDocked = isPanelDocked,
                             currentTrack = currentTrack,
                             isPlaying = miniPlayerShowPause,

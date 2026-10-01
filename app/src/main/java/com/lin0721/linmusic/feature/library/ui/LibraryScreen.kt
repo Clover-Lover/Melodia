@@ -170,7 +170,6 @@ fun LibraryScreen(
             LibraryItemType.PLAYLIST -> "歌单" to "playlist"
             LibraryItemType.ALBUM -> "专辑" to "album"
             LibraryItemType.ARTIST -> "歌手" to "artist"
-            LibraryItemType.MV -> "MV" to "mv"
         }
         val shareText = "${item.title} https://music.163.com/$path?id=${item.id}"
         val intent = Intent(Intent.ACTION_SEND).apply {

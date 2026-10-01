@@ -22,7 +22,6 @@ import com.lin0721.linmusic.core.ui.components.PlaylistCollectState
 import com.lin0721.linmusic.core.model.ArtistAlbum
 import com.lin0721.linmusic.core.model.ArtistDetailInfo
 import com.lin0721.linmusic.core.model.ArtistInfo
-import com.lin0721.linmusic.core.model.ArtistMv
 import com.lin0721.linmusic.core.ui.theme.CoverPlaceholderDark
 import com.lin0721.linmusic.feature.playlist.ui.PlaylistSongOptionsSheet
 
@@ -37,8 +36,6 @@ fun ArtistContent(
     albums: List<ArtistAlbum>,
     albumsHasMore: Boolean,
     albumsLoadingMore: Boolean,
-    mvs: List<ArtistMv>,
-    mvsLoadingMore: Boolean,
     allSongs: List<Track>,
     allSongsLoadingMore: Boolean,
     similarArtists: List<ArtistInfo>,
@@ -52,7 +49,6 @@ fun ArtistContent(
     onArtistClick: (Long) -> Unit,
     onPlaylistClick: (Long) -> Unit,
     onAlbumClick: (Long) -> Unit,
-    onMvClick: (Long, String) -> Unit,
     onFollowClick: () -> Unit,
     onBlockClick: () -> Unit,
     onPlaySong: (Track, List<Track>) -> Unit,
@@ -63,7 +59,6 @@ fun ArtistContent(
     onSaveNewCollection: (String, Long) -> Unit,
     onRequireLogin: () -> Unit,
     onLoadMoreAlbums: () -> Unit,
-    onLoadMoreMvs: () -> Unit,
     onLoadAllSongsIfNeeded: () -> Unit,
     onLoadMoreAllSongs: () -> Unit
 ) {
@@ -125,7 +120,6 @@ fun ArtistContent(
         when (selectedTab) {
             0 -> if (musicSubTab == 1) onLoadMoreAllSongs()
             1 -> onLoadMoreAlbums()
-            2 -> onLoadMoreMvs()
         }
     }
 
@@ -203,12 +197,7 @@ fun ArtistContent(
                         loadingMore = albumsLoadingMore,
                         onAlbumClick = onAlbumClick
                     )
-                    2 -> artistMvTab(
-                        mvs = mvs,
-                        loadingMore = mvsLoadingMore,
-                        onMvClick = { mv -> onMvClick(mv.id, mv.name) }
-                    )
-                    3 -> artistAboutTab(
+                    2 -> artistAboutTab(
                         artist = artist,
                         similarArtists = similarArtists,
                         onShowBioDialog = { showBioDialog = true },

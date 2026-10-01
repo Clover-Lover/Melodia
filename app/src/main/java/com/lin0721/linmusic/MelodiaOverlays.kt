@@ -63,8 +63,6 @@ fun MelodiaBottomOverlay(
     currentScreen: Screen,
     showCreateSheet: Boolean,
     isLoginScreenVisible: Boolean,
-    isMvFullscreen: Boolean,
-    isMvCommentsOpen: Boolean = false,
     // 平板播放面板是否已让位（内容区已收窄、面板常驻右侧）
     isPanelDocked: Boolean = false,
     currentTrack: MediaItem?,
@@ -132,7 +130,7 @@ fun MelodiaBottomOverlay(
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 // 更新横幅与下载进度横幅
                 AnimatedVisibility(
-                    visible = !isLoginScreenVisible && !isMvFullscreen,
+                    visible = !isLoginScreenVisible,
                     enter = expandVertically() + fadeIn(),
                     exit = shrinkVertically() + fadeOut(),
                     modifier = Modifier.fillMaxWidth()
@@ -156,7 +154,7 @@ fun MelodiaBottomOverlay(
                         verticalAlignment = Alignment.Bottom
                     ) {
                         AnimatedVisibility(
-                            visible = !isLoginScreenVisible && !isMvFullscreen && !isMvCommentsOpen,
+                            visible = !isLoginScreenVisible,
                             enter = expandVertically() + fadeIn(),
                             exit = shrinkVertically() + fadeOut(),
                             modifier = Modifier.weight(1f).fillMaxHeight()
@@ -187,7 +185,7 @@ fun MelodiaBottomOverlay(
                         // 与导航栏的间距放在迷你条自身而非 spacedBy，否则入场/退场首尾会各有一次 8dp 突变
                         if (!isPanelDocked) {
                             AnimatedVisibility(
-                                visible = currentTrack != null && !isLoginScreenVisible && !isMvFullscreen && !isMvCommentsOpen,
+                                visible = currentTrack != null && !isLoginScreenVisible,
                                 enter = fadeIn() + expandHorizontally(),
                                 exit = fadeOut() + shrinkHorizontally(),
                                 modifier = Modifier.fillMaxHeight()
@@ -222,7 +220,7 @@ fun MelodiaBottomOverlay(
                 } else {
                     // 手机：迷你播放卡在上、导航栏在下，垂直堆叠（现状不变）
                     AnimatedVisibility(
-                        visible = currentTrack != null && !isLoginScreenVisible && !isMvFullscreen && !isMvCommentsOpen,
+                        visible = currentTrack != null && !isLoginScreenVisible,
                         enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
                         exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
                         modifier = Modifier.fillMaxWidth()
@@ -251,7 +249,7 @@ fun MelodiaBottomOverlay(
                     }
 
                     AnimatedVisibility(
-                        visible = !isLoginScreenVisible && !isMvFullscreen && !isMvCommentsOpen,
+                        visible = !isLoginScreenVisible,
                         enter = expandVertically() + fadeIn(),
                         exit = shrinkVertically() + fadeOut()
                     ) {

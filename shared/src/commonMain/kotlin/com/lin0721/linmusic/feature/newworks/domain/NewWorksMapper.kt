@@ -1,16 +1,7 @@
 package com.lin0721.linmusic.feature.newworks.domain
 
-import com.lin0721.linmusic.feature.newworks.data.NewWorksMvDto
+import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.feature.newworks.data.NewWorksReleaseItem
-
-fun NewWorksMvDto.toDomain(): NewWorksMv = NewWorksMv(
-    id = mvId,
-    name = mvName,
-    coverUrl = mvCoverUrl,
-    durationMs = duration,
-    playCount = playCount,
-    artistName = artistName
-)
 
 // blockType 非 song/album（未知新类型）时返回 null，交给上层过滤，不硬渲染陌生结构
 fun NewWorksReleaseItem.toReleaseDomain(): NewWorksRelease? {
@@ -27,13 +18,28 @@ fun NewWorksReleaseItem.toReleaseDomain(): NewWorksRelease? {
         ?.ifBlank { null }
         ?: blockTitle.artistName
 
+    val title = blockTitle.resourceName
+    val tracks = if (isAlbum) {
+        info.songLists.map { it.toNewWorksTrack(cover) }
+    } else {
+        listOf(firstTrack?.toNewWorksTrack(cover) ?: NewWorksTrack(id, title, artistName, cover))
+    }
+
     return NewWorksRelease(
         id = id,
-        title = blockTitle.resourceName,
+        title = title,
         coverUrl = cover,
         artistName = artistName,
         isAlbum = isAlbum,
         trackCount = if (isAlbum) info.albumSongCount else 1,
-        publishTime = publishTime.coerceAtLeast(0)
+        publishTime = publishTime.coerceAtLeast(0),
+        tracks = tracks
     )
 }
+
+private fun Track.toNewWorksTrack(fallbackCover: String): NewWorksTrack = NewWorksTrack(
+    id = id,
+    title = name,
+    artistName = ar.joinToString(" / ") { it.name },
+    coverUrl = al.picUrl.ifBlank { fallbackCover }
+)

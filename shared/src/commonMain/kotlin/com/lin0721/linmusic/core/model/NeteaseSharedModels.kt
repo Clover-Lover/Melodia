@@ -121,21 +121,6 @@ data class ArtistAlbum(
     val size: Int = 0
 )
 
-// 歌手 MV 载荷模型；封面/播放量字段名未经真机数据验证，用 JsonNames 兜底常见别名
-@Serializable
-data class ArtistMv(
-    val id: Long = 0,
-    val name: String = "",
-    @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
-    @JsonNames("imgurl16v9", "imgurl", "cover")
-    val cover: String = "",
-    val duration: Long = 0,
-    @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
-    @JsonNames("playCount", "playcount")
-    val playCount: Long = 0,
-    val publishTime: String = ""
-)
-
 // ======================= 评论载荷模型（core/comment 产出，player/playlist 消费）=======================
 
 @Serializable

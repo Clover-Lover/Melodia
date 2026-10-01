@@ -22,7 +22,6 @@ import com.lin0721.linmusic.feature.profile.ui.ProfileViewModel
 import com.lin0721.linmusic.feature.recent.ui.RecentPlayViewModel
 import com.lin0721.linmusic.feature.cloud.ui.CloudViewModel
 import com.lin0721.linmusic.feature.artist.ui.ArtistViewModel
-import com.lin0721.linmusic.feature.artist.ui.ArtistMvPlayerViewModel
 import com.lin0721.linmusic.feature.search.ui.SearchViewModel
 import com.lin0721.linmusic.feature.search.ui.PlaylistCategoryViewModel
 import org.koin.core.module.dsl.viewModelOf
@@ -42,7 +41,6 @@ val viewModelModule = module {
     viewModelOf(::RadioDetailViewModel)
     viewModelOf(::PlaylistViewModel)
     viewModelOf(::ArtistViewModel)
-    viewModelOf(::ArtistMvPlayerViewModel)
     viewModelOf(::SearchViewModel)
     viewModelOf(::PlaylistCategoryViewModel)
     viewModelOf(::LibraryViewModel)

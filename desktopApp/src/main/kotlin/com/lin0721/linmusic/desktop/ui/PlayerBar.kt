@@ -28,9 +28,7 @@ import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.Fullscreen
 import androidx.compose.material.icons.rounded.Lyrics
-import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PictureInPictureAlt
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Repeat
 import androidx.compose.material.icons.rounded.RepeatOne
 import androidx.compose.material.icons.rounded.Shuffle
@@ -151,11 +149,7 @@ fun PlayerBar(
                     contentAlignment = Alignment.Center
                 ) {
                     IconButton(onClick = controller::togglePlayPause, enabled = hasTrack) {
-                        Icon(
-                            if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                            if (isPlaying) "暂停" else "播放",
-                            tint = DesktopColors.Pane
-                        )
+                        PlayPauseIcon(isPlaying, DesktopColors.Pane, contentDescription = if (isPlaying) "暂停" else "播放")
                     }
                 }
                 BarIconButton(Icons.Rounded.SkipNext, "下一首", enabled = hasTrack, onClick = controller::playNext)

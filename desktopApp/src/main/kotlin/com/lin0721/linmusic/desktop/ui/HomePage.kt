@@ -90,6 +90,9 @@ fun HomePage(
     val musicState by musicViewModel.uiState.collectAsState()
     val podcastState by podcastViewModel.uiState.collectAsState()
     val newWorksState by newWorksViewModel.uiState.collectAsState()
+    val newWorksCollectState by newWorksViewModel.collectState.collectAsState()
+    val newWorksImportState by newWorksViewModel.importState.collectAsState()
+    val newWorksStatus by newWorksViewModel.releaseStatus.collectAsState()
     val allListState = rememberLazyListState()
     val musicListState = rememberLazyListState()
     val podcastListState = rememberLazyListState()
@@ -117,10 +120,25 @@ fun HomePage(
                 selectedTab == HOME_TAB_MUSIC && newWorksSelected -> NewWorksTab(
                     uiState = newWorksState,
                     gridState = newWorksGridState,
-                    onAlbumClick = navigator.openAlbum,
-                    onSongPlay = newWorksViewModel::playRelease,
-                    onRetry = newWorksViewModel::load,
-                    onLoadMore = newWorksViewModel::loadMore
+                    collectState = newWorksCollectState,
+                    importState = newWorksImportState,
+                    status = newWorksStatus,
+                    actions = remember(newWorksViewModel, navigator) {
+                        NewWorksTabActions(
+                            onAlbumClick = navigator.openAlbum,
+                            onTogglePlay = newWorksViewModel::togglePlayRelease,
+                            onToggleLibrary = newWorksViewModel::toggleInLibrary,
+                            onAddToPlayNext = newWorksViewModel::addToPlayNext,
+                            onPrepareCollect = newWorksViewModel::prepareCollectDialog,
+                            onSaveCollection = newWorksViewModel::savePlaylistCollection,
+                            onSaveNewCollection = newWorksViewModel::createPlaylistAndAddSong,
+                            onPrepareImportTargets = newWorksViewModel::prepareImportTargets,
+                            onAddToPlaylist = newWorksViewModel::addToPlaylist,
+                            onCreatePlaylistAndAdd = newWorksViewModel::createPlaylistAndAdd,
+                            onRetry = newWorksViewModel::load,
+                            onLoadMore = newWorksViewModel::loadMore
+                        )
+                    }
                 )
                 selectedTab == HOME_TAB_MUSIC -> MusicTab(
                     uiState = musicState,

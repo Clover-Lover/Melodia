@@ -149,6 +149,7 @@ fun WindowScope.MelodiaDesktopApp(windowState: WindowState, onClose: () -> Unit)
             categoryViewModel.toastEvent,
             playerViewModel.toastEvent,
             artistViewModel.toastEvent,
+            newWorksViewModel.toastEvent,
             navigatorMessages,
             playbackMessages
         )
@@ -161,8 +162,6 @@ fun WindowScope.MelodiaDesktopApp(windowState: WindowState, onClose: () -> Unit)
                 LibraryItemType.PLAYLIST -> backStack.navigate(DesktopRoute.Playlist(id, item.title))
                 LibraryItemType.ALBUM -> navigator.openAlbum(id, item.title)
                 LibraryItemType.ARTIST -> navigator.openArtist(id, item.title)
-                // 桌面端暂不支持 MV 播放
-                LibraryItemType.MV -> Unit
             }
         }
     }

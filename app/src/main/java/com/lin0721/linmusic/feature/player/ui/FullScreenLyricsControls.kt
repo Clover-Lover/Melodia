@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.feature.player.ui
 
+import com.lin0721.linmusic.core.ui.components.PlayPauseIcon
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
@@ -20,8 +21,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.RepeatOne
 import androidx.compose.material.icons.filled.Shuffle
@@ -681,12 +680,7 @@ fun FullScreenControls(
                         ),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                        tint = Color.Black,
-                        modifier = Modifier.size(42.dp),
-                        contentDescription = null
-                    )
+                    PlayPauseIcon(isPlaying, Color.Black, size = 42.dp)
                 }
 
                 MelodiaIconButton(onClick = onPlayNext, style = MelodiaPress.Transport) {

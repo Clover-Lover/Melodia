@@ -334,8 +334,6 @@ fun LibraryItemOptionsSheet(
                             )
                         )
                     }
-
-                    LibraryItemType.MV -> Unit
                 }
             }
 
