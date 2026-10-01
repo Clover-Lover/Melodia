@@ -33,9 +33,9 @@ import com.lin0721.linmusic.feature.podcast.ui.PodcastContent
 import com.lin0721.linmusic.feature.podcast.ui.PodcastViewModel
 import org.koin.androidx.compose.koinViewModel
 
-private const val TAB_ALL = 0
-private const val TAB_MUSIC = 1
-private const val TAB_PODCAST = 2
+internal const val TAB_ALL = 0
+internal const val TAB_MUSIC = 1
+internal const val TAB_PODCAST = 2
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable

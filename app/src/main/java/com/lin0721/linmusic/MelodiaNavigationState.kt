@@ -10,6 +10,8 @@ import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 
+import com.lin0721.linmusic.feature.home.ui.TAB_ALL
+import com.lin0721.linmusic.feature.home.ui.TAB_MUSIC
 import com.lin0721.linmusic.feature.profile.ui.FollowListMode
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -201,7 +203,8 @@ class MelodiaNavigationState(
     }
 
     fun selectHomeTab(index: Int) {
-        homeTab = index
+        // 已在「音乐」默认内容时再点「音乐」回到「全部」，收起「最新」
+        homeTab = if (index == TAB_MUSIC && homeTab == TAB_MUSIC && !showMusicNewWorks) TAB_ALL else index
         // 点任意主药丸都回到该 tab 的默认内容，「最新」只能通过下面的入口单独选中
         showMusicNewWorks = false
     }
