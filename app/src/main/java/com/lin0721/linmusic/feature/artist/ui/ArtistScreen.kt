@@ -107,13 +107,8 @@ fun ArtistScreen(
                     onMvClick = onMvClick,
                     onFollowClick = { viewModel.toggleFollow(artistId) },
                     onBlockClick = { viewModel.toggleBlockArtist(artistId) },
-                    onPlaySong = { track ->
-                        viewModel.playSongInList(track, state.topSongs)
-                    },
-                    onPlayAll = {
-                        state.topSongs.firstOrNull()?.let { first ->
-                            viewModel.playSongInList(first, state.topSongs)
-                        }
+                    onPlaySong = { track, queue ->
+                        viewModel.playSongInList(track, queue)
                     },
                     onLikeClick = { songId ->
                         viewModel.prepareCollectDialog(songId)

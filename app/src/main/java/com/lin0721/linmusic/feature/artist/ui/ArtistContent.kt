@@ -55,8 +55,7 @@ fun ArtistContent(
     onMvClick: (Long, String) -> Unit,
     onFollowClick: () -> Unit,
     onBlockClick: () -> Unit,
-    onPlaySong: (Track) -> Unit,
-    onPlayAll: () -> Unit,
+    onPlaySong: (Track, List<Track>) -> Unit,
     onLikeClick: (Long) -> Unit,
     onToggleLike: (Long, Boolean) -> Unit,
     onAddToPlayNext: (Track) -> Unit,
@@ -165,7 +164,10 @@ fun ArtistContent(
                         isFollowed = isFollowed,
                         onFollowClick = onFollowClick,
                         onMoreClick = { showMoreMenuSheet = true },
-                        onPlayAll = onPlayAll
+                        onPlayAll = {
+                            val queue = if (musicSubTab == 1 && allSongs.isNotEmpty()) allSongs else topSongs
+                            queue.firstOrNull()?.let { onPlaySong(it, queue) }
+                        }
                     )
                 }
 
