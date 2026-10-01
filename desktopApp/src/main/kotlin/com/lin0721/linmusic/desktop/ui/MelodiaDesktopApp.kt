@@ -31,6 +31,7 @@ import androidx.compose.ui.window.WindowScope
 import androidx.compose.ui.window.WindowState
 import com.lin0721.linmusic.core.auth.LoginViewModel
 import com.lin0721.linmusic.core.player.PlaybackController
+import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.desktop.platform.DesktopPreferences
 import com.lin0721.linmusic.desktop.platform.LibraryMode
 import com.lin0721.linmusic.desktop.platform.LibraryViewMode
@@ -78,6 +79,8 @@ fun WindowScope.MelodiaDesktopApp(windowState: WindowState, onClose: () -> Unit)
     val artistViewModel = remember { koin.get<ArtistViewModel>() }
     val styleDetailViewModel = remember { koin.get<StyleDetailViewModel>() }
     val desktopPreferences = remember { koin.get<DesktopPreferences>() }
+    val settingsPreferences = remember { koin.get<SettingsPreferences>() }
+    val showDesktopLyric by settingsPreferences.showDesktopLrc.collectAsState(initial = false)
     val mpvController = playbackController as? MpvPlaybackController
 
     val backStack = remember { BackStack(DesktopRoute.Home) }
@@ -365,7 +368,9 @@ fun WindowScope.MelodiaDesktopApp(windowState: WindowState, onClose: () -> Unit)
                     volume = volume,
                     onVolumeChange = { mpvController?.setVolume(it) },
                     nowPlayingOpen = dockOpen,
-                    onToggleNowPlaying = { setDockOpen(!dockOpen) }
+                    onToggleNowPlaying = { setDockOpen(!dockOpen) },
+                    lyricVisible = showDesktopLyric,
+                    onToggleLyric = { scope.launch { settingsPreferences.saveShowDesktopLrc(!showDesktopLyric) } }
                 )
             }
             SnackbarHost(snackbarHostState, Modifier.align(Alignment.BottomCenter).padding(bottom = 96.dp))
