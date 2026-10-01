@@ -9,9 +9,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -52,9 +53,8 @@ import com.lin0721.linmusic.feature.music.domain.StylePortrait
 import com.lin0721.linmusic.feature.music.domain.StylePreference
 
 private val TileGap = 10.dp
-private val PreferenceTileHeight = 96.dp
-private val StyleTileHeight = 62.dp
-private val TiltedCoverSize = 64.dp
+// 偏好与全部曲风共用同一比例，随列宽等比缩放
+private const val TileAspectRatio = 1.7f
 
 // 「音乐」tab 曲风浏览：顶栏由 HomeScreen 统一渲染，点色块进入曲风详情
 @Composable
@@ -63,8 +63,7 @@ fun MusicContent(
     onStyleClick: (id: Long, name: String) -> Unit,
     onRetry: () -> Unit
 ) {
-    val preferenceColumns = rememberMelodiaGridColumns(compact = 2, expandedPortrait = 3, expandedLandscape = 4)
-    val styleColumns = rememberMelodiaGridColumns(compact = 3, expandedPortrait = 5, expandedLandscape = 6)
+    val columns = rememberMelodiaGridColumns(compact = 2, expandedPortrait = 4, expandedLandscape = 5)
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -88,15 +87,15 @@ fun MusicContent(
                             data.portrait?.let { MusicPortraitSummary(it) }
                         }
                     }
-                    items(data.preferences.chunked(preferenceColumns), key = { row -> "pref_${row.first().id}" }) { row ->
-                        TileRow(row, preferenceColumns) { pref ->
+                    items(data.preferences.chunked(columns), key = { row -> "pref_${row.first().id}" }) { row ->
+                        TileRow(row, columns) { pref ->
                             PreferenceTile(pref, data.preferenceCovers[pref.id]) { onStyleClick(pref.id, pref.name) }
                         }
                     }
                 }
                 item(key = "styles_title") { MusicSectionTitle("全部曲风") }
-                items(data.styles.chunked(styleColumns), key = { row -> "style_${row.first().id}" }) { row ->
-                    TileRow(row, styleColumns) { style ->
+                items(data.styles.chunked(columns), key = { row -> "style_${row.first().id}" }) { row ->
+                    TileRow(row, columns) { style ->
                         StyleTile(style) { onStyleClick(style.id, style.name) }
                     }
                 }
@@ -164,7 +163,7 @@ private fun PreferenceTile(pref: StylePreference, coverUrl: String?, onClick: ()
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(PreferenceTileHeight)
+            .aspectRatio(TileAspectRatio)
             .pressable(MelodiaPress.Card) { onClick() }
             .clip(RoundedCornerShape(8.dp))
             .background(pref.colorHex.toStyleColor().liftedForTile())
@@ -177,59 +176,52 @@ private fun PreferenceTile(pref: StylePreference, coverUrl: String?, onClick: ()
                     .align(Alignment.BottomEnd)
                     .offset(x = 14.dp, y = 4.dp)
                     .rotate(25f)
-                    .size(TiltedCoverSize)
+                    .fillMaxHeight(0.66f)
+                    .aspectRatio(1f)
                     .clip(RoundedCornerShape(4.dp)),
                 contentScale = ContentScale.Crop,
                 loading = { CoverPlaceholder() },
                 error = { CoverPlaceholder() }
             )
         }
-        Column(modifier = Modifier.padding(12.dp).fillMaxWidth(0.7f)) {
-            Text(
-                text = pref.name,
-                color = Color.White,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.ExtraBold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Text(
-                text = "${pref.ratio}%",
-                color = Color.White.copy(alpha = 0.8f),
-                fontSize = 11.5.sp,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.padding(top = 1.dp)
-            )
-        }
+        TileLabel(title = pref.name, subtitle = "${pref.ratio}%", modifier = Modifier.fillMaxWidth(0.7f))
     }
 }
 
 @Composable
 private fun StyleTile(style: MusicStyle, onClick: () -> Unit) {
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(StyleTileHeight)
+            .aspectRatio(TileAspectRatio)
             .pressable(MelodiaPress.Card) { onClick() }
             .clip(RoundedCornerShape(8.dp))
             .background(style.colorHex.toStyleColor().liftedForTile())
-            .padding(horizontal = 10.dp, vertical = 9.dp)
     ) {
+        TileLabel(title = style.name, subtitle = style.enName)
+    }
+}
+
+@Composable
+private fun TileLabel(title: String, subtitle: String, modifier: Modifier = Modifier) {
+    Column(modifier = modifier.padding(12.dp)) {
         Text(
-            text = style.name,
+            text = title,
             color = Color.White,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Bold,
+            fontSize = 17.sp,
+            fontWeight = FontWeight.ExtraBold,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
-        if (style.enName.isNotBlank()) {
+        if (subtitle.isNotBlank()) {
             Text(
-                text = style.enName,
-                color = Color.White.copy(alpha = 0.6f),
-                fontSize = 10.5.sp,
+                text = subtitle,
+                color = Color.White.copy(alpha = 0.7f),
+                fontSize = 11.5.sp,
+                fontWeight = FontWeight.SemiBold,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(top = 1.dp)
             )
         }
     }
