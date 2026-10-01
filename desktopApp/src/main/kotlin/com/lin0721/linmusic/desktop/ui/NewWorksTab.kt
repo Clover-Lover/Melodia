@@ -43,7 +43,9 @@ import coil3.compose.AsyncImage
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.feature.newworks.domain.NewWorksMv
 import com.lin0721.linmusic.feature.newworks.domain.NewWorksRelease
+import com.lin0721.linmusic.feature.newworks.domain.caption
 import com.lin0721.linmusic.feature.newworks.ui.NewWorksUiState
+import java.time.ZoneId
 import java.util.Locale
 
 // 曲目数超过这个阈值时角标改用强调色，提示这条发布内联了大量曲目
@@ -120,11 +122,17 @@ private fun NewWorksGrid(
         if (state.mvs.isNotEmpty()) {
             item(key = "mv_section", span = { GridItemSpan(maxLineSpan) }) { MvSection(state.mvs) }
         }
-        if (state.releases.isNotEmpty()) {
-            item(key = "release_header", span = { GridItemSpan(maxLineSpan) }) {
-                Text("新发布", color = DesktopColors.TextPrimary, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+        state.releaseGroups.forEachIndexed { index, group ->
+            item(key = "group_${group.period.name}", span = { GridItemSpan(maxLineSpan) }) {
+                Text(
+                    group.period.title,
+                    color = DesktopColors.TextPrimary,
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(top = if (index > 0) 16.dp else 0.dp)
+                )
             }
-            items(state.releases, key = { "${it.isAlbum}_${it.id}" }) { release ->
+            items(group.releases, key = { "${it.isAlbum}_${it.id}" }) { release ->
                 ReleaseCard(release, onAlbumClick, onSongPlay)
             }
         }
@@ -264,7 +272,7 @@ private fun ReleaseCard(
         )
         Text(release.artistName, color = DesktopColors.TextGray, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         Text(
-            if (release.isAlbum) "共 ${release.trackCount} 首" else "单曲",
+            release.caption(System.currentTimeMillis(), ZoneId.systemDefault()),
             color = if (isBulky) DesktopColors.Accent else DesktopColors.TextGray,
             fontSize = 11.sp,
             modifier = Modifier.padding(top = 4.dp).clip(RoundedCornerShape(4.dp))

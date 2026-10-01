@@ -60,6 +60,8 @@ import com.lin0721.linmusic.core.ui.theme.RadiusCompact
 import com.lin0721.linmusic.core.ui.theme.rememberMelodiaGridColumns
 import com.lin0721.linmusic.feature.newworks.domain.NewWorksMv
 import com.lin0721.linmusic.feature.newworks.domain.NewWorksRelease
+import com.lin0721.linmusic.feature.newworks.domain.caption
+import java.time.ZoneId
 import java.util.Locale
 
 // 曲目数超过这个阈值时角标改用强调色，提示这条发布内联了大量曲目（真机实测最多见过 157 首）
@@ -120,8 +122,8 @@ private fun NewWorksFeedGrid(
     val shouldLoadMore by remember(state.releases.size, state.hasMore, state.isLoadingMore) {
         derivedStateOf {
             val lastVisible = gridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
-            // 网格第 0 项是整块 MV 头图区，release 项的 grid index 相应整体 +1
-            lastVisible >= state.releases.size - 2 && state.hasMore && !state.isLoadingMore
+            // 网格里还穿插着 MV 区与各组标题，用总项数比较而不是 release 下标
+            lastVisible >= gridState.layoutInfo.totalItemsCount - 2 && state.hasMore && !state.isLoadingMore
         }
     }
     LaunchedEffect(shouldLoadMore) {
@@ -148,18 +150,18 @@ private fun NewWorksFeedGrid(
             }
         }
 
-        if (state.releases.isNotEmpty()) {
-            item(key = "release_header", span = { GridItemSpan(maxLineSpan) }) {
+        state.releaseGroups.forEachIndexed { index, group ->
+            item(key = "group_${group.period.name}", span = { GridItemSpan(maxLineSpan) }) {
                 Text(
-                    text = "新发布",
+                    text = group.period.title,
                     color = MaterialTheme.colorScheme.onSurface,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Medium,
-                    modifier = Modifier.padding(bottom = MelodiaSpacing.xs)
+                    modifier = Modifier.padding(top = if (index > 0) MelodiaSpacing.sm else 0.dp, bottom = MelodiaSpacing.xs)
                 )
             }
 
-            items(state.releases, key = { "${it.isAlbum}_${it.id}" }) { release ->
+            items(group.releases, key = { "${it.isAlbum}_${it.id}" }) { release ->
                 ReleaseGridCard(
                     release = release,
                     onClick = {
@@ -380,7 +382,7 @@ private fun ReleaseGridCard(release: NewWorksRelease, onClick: () -> Unit) {
         )
         Spacer(Modifier.height(4.dp))
         Text(
-            text = if (release.isAlbum) "共 ${release.trackCount} 首" else "单曲",
+            text = release.caption(System.currentTimeMillis(), ZoneId.systemDefault()),
             color = if (isBulky) NeteaseRed.copy(alpha = 0.85f) else MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 8.sp,
             modifier = Modifier

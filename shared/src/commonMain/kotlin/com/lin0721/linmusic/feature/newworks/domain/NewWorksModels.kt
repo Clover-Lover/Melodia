@@ -17,7 +17,9 @@ data class NewWorksRelease(
     val artistName: String,
     val isAlbum: Boolean,
     // 单曲固定为 1，专辑取服务端下发的 albumSongCount
-    val trackCount: Int
+    val trackCount: Int,
+    // 毫秒时间戳，0 表示服务端未给
+    val publishTime: Long
 )
 
 data class NewWorksReleasePage(

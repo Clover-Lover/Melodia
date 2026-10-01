@@ -9,6 +9,8 @@ import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.QueueItem
 import com.lin0721.linmusic.feature.newworks.data.NewWorksRepository
 import com.lin0721.linmusic.feature.newworks.domain.NewWorksRelease
+import com.lin0721.linmusic.feature.newworks.domain.NewWorksReleaseGroup
+import com.lin0721.linmusic.feature.newworks.domain.groupByWeek
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,6 +18,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
+import java.time.ZoneId
 
 private const val TAG = "NewWorksViewModel"
 
@@ -49,9 +52,11 @@ class NewWorksViewModel(
 
             releasesResult.onSuccess { page ->
                 cursor = page.nextCursor
+                val releases = page.items.distinctByReleaseKey()
                 _uiState.value = NewWorksUiState.Success(
                     mvs = mvsResult.getOrDefault(emptyList()),
-                    releases = page.items.distinctByReleaseKey(),
+                    releases = releases,
+                    releaseGroups = releases.groupedByWeek(),
                     hasMore = page.hasMore,
                     isLoadingMore = false
                 )
@@ -73,8 +78,10 @@ class NewWorksViewModel(
                     cursor = page.nextCursor
                     val latest = _uiState.value
                     if (latest is NewWorksUiState.Success) {
+                        val releases = (latest.releases + page.items).distinctByReleaseKey()
                         _uiState.value = latest.copy(
-                            releases = (latest.releases + page.items).distinctByReleaseKey(),
+                            releases = releases,
+                            releaseGroups = releases.groupedByWeek(),
                             hasMore = page.hasMore,
                             isLoadingMore = false
                         )
@@ -105,6 +112,9 @@ class NewWorksViewModel(
         runCatching { block().firstOrNull() ?: Result.failure(IllegalStateException("$label 无响应")) }
             .getOrElse { e -> Result.failure(e) }
             .onFailure { AppLogger.w(TAG, "$label 加载失败", it) }
+
+    private fun List<NewWorksRelease>.groupedByWeek(): List<NewWorksReleaseGroup> =
+        groupByWeek(this, System.currentTimeMillis(), ZoneId.systemDefault())
 
     // 真机实测：同一专辑会在单页内重复出现，翻页游标边界重叠时也会跨页重复——
     // 网格用 (isAlbum, id) 做 key，重复项会直接让 LazyVerticalGrid 崩溃，必须去重

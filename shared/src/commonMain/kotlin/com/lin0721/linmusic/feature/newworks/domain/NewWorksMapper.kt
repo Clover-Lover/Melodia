@@ -33,6 +33,7 @@ fun NewWorksReleaseItem.toReleaseDomain(): NewWorksRelease? {
         coverUrl = cover,
         artistName = artistName,
         isAlbum = isAlbum,
-        trackCount = if (isAlbum) info.albumSongCount else 1
+        trackCount = if (isAlbum) info.albumSongCount else 1,
+        publishTime = publishTime.coerceAtLeast(0)
     )
 }
