@@ -829,11 +829,16 @@ class PlayerManager(
         roaming.cancel()
     }
 
+    // 当前曲目开始上报时的来源，切歌后补报时长要沿用它而不是新队列的来源
+    private var reportingSource: PlaySource? = null
+
     // 歌曲一开始播放就立即打卡（进「最近播放」），跟切歌时补报的时长上报分开、各自独立失败互不影响
     private fun reportStartPlay(mediaItem: MediaItem) {
         val songId = mediaItem.mediaId.toLongOrNull() ?: return
+        val source = playbackQueue.playSource.value
+        reportingSource = source
         scope.launch {
-            repository.reportStartPlay(songId).collect { result ->
+            repository.reportStartPlay(songId, source).collect { result ->
                 result.onFailure { AppLogger.w(TAG, "打卡上报 startplay 失败 songId=$songId", it) }
             }
         }
@@ -848,8 +853,9 @@ class PlayerManager(
             return
         }
         AppLogger.i(TAG, "打卡上报触发 songId=$songId playedSeconds=$playedSeconds")
+        val source = reportingSource
         scope.launch {
-            repository.reportPlayEnd(songId, playedSeconds).collect { result ->
+            repository.reportPlayEnd(songId, playedSeconds, source).collect { result ->
                 result.onFailure { AppLogger.w(TAG, "打卡上报 play 失败 songId=$songId", it) }
             }
         }

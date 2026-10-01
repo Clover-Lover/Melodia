@@ -1,8 +1,10 @@
 package com.lin0721.linmusic.core.player.data
 
 import com.lin0721.linmusic.core.model.Track
+import com.lin0721.linmusic.core.player.PlaySource
 import com.lin0721.linmusic.core.player.domain.LyricLine
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.SharedFlow
 
 // 播放引擎数据仓储（core 共享能力，服务于 PlayerManager/FloatingLyricService 及多个域的推荐入口）
 interface PlaybackRepository {
@@ -20,9 +22,12 @@ interface PlaybackRepository {
 
     fun getIntelligenceSongs(songId: Long, playlistId: Long): Flow<Result<List<Track>>>
 
-    // 打卡上报，sourceId 暂用 songId 本身代替；开始播放时报，进「最近播放」
-    fun reportStartPlay(songId: Long): Flow<Result<Unit>>
+    // 打卡上报：开始播放时报，进「最近播放」；来源为歌单时以歌单 id 作容器，否则退回 songId
+    fun reportStartPlay(songId: Long, source: PlaySource?): Flow<Result<Unit>>
 
     // 打卡上报：离开歌曲时报实际播放时长，涨「听歌排行」计数
-    fun reportPlayEnd(songId: Long, playedSeconds: Long): Flow<Result<Unit>>
+    fun reportPlayEnd(songId: Long, playedSeconds: Long, source: PlaySource?): Flow<Result<Unit>>
+
+    // 歌单播放记录写入本地后发出，供首页即时刷新最近播放
+    val playlistRecorded: SharedFlow<Long>
 }

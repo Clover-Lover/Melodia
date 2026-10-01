@@ -10,6 +10,7 @@ import com.lin0721.linmusic.core.log.AppLogger
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
@@ -31,6 +32,15 @@ data class QueueState(
     val playSource: PlaySource? = null
 )
 
+// 本地维护的最近播放歌单，服务端不会记录本客户端的歌单播放
+@Serializable
+data class LocalRecentPlaylist(
+    val id: Long,
+    val name: String,
+    val coverUrl: String = "",
+    val playTime: Long
+)
+
 class PlaybackPreferences(private val dataStore: DataStore<Preferences>) {
 
     companion object {
@@ -45,7 +55,30 @@ class PlaybackPreferences(private val dataStore: DataStore<Preferences>) {
         private val KEY_QUEUE_INDEX = intPreferencesKey("queue_index")
         private val KEY_PLAY_CONTEXT = stringPreferencesKey("play_context")
         private val KEY_PLAY_SOURCE = stringPreferencesKey("play_source")
+        private val KEY_RECENT_PLAYLISTS = stringPreferencesKey("local_recent_playlists")
+        private const val MAX_LOCAL_RECENT_PLAYLISTS = 20
         private val json = Json { ignoreUnknownKeys = true }
+    }
+
+    val recentPlaylists: Flow<List<LocalRecentPlaylist>> = dataStore.data.map { prefs ->
+        decodeRecentPlaylists(prefs[KEY_RECENT_PLAYLISTS])
+    }.distinctUntilChanged()
+
+    // 同一歌单只留最新一条，按播放时间倒序保留最近 20 个
+    suspend fun recordRecentPlaylist(item: LocalRecentPlaylist) {
+        dataStore.edit { prefs ->
+            val merged = (listOf(item) + decodeRecentPlaylists(prefs[KEY_RECENT_PLAYLISTS]))
+                .distinctBy { it.id }
+                .take(MAX_LOCAL_RECENT_PLAYLISTS)
+            prefs[KEY_RECENT_PLAYLISTS] = json.encodeToString(merged)
+        }
+    }
+
+    private fun decodeRecentPlaylists(raw: String?): List<LocalRecentPlaylist> {
+        if (raw.isNullOrBlank()) return emptyList()
+        return runCatching { json.decodeFromString<List<LocalRecentPlaylist>>(raw) }
+            .onFailure { AppLogger.w(TAG, "本地最近播放歌单反序列化失败", it) }
+            .getOrDefault(emptyList())
     }
 
     val playbackState: Flow<PlaybackState> = dataStore.data.map { prefs ->

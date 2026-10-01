@@ -115,6 +115,7 @@ class MpvPlaybackController(
 
     // 播放时长上报：累计实际发声的挂钟时长，暂停段不计
     private var reportingSongId: Long? = null
+    private var reportingSource: PlaySource? = null
     private var playedMs = 0L
     private var playingSince: Long? = null
 
@@ -504,10 +505,12 @@ class MpvPlaybackController(
 
     private fun beginReporting(songId: Long) {
         reportingSongId = songId
+        val source = playbackQueue.playSource.value
+        reportingSource = source
         playedMs = 0L
         playingSince = null
         scope.launch {
-            repository.reportStartPlay(songId).collect { result ->
+            repository.reportStartPlay(songId, source).collect { result ->
                 result.onFailure { AppLogger.w(TAG, "打卡上报 startplay 失败 songId=$songId", it) }
             }
         }
@@ -531,8 +534,9 @@ class MpvPlaybackController(
         playedMs = 0L
         if (played < MIN_REPORT_PLAYED_MS) return
         val playedSeconds = played / 1000
+        val source = reportingSource
         scope.launch {
-            repository.reportPlayEnd(songId, playedSeconds).collect { result ->
+            repository.reportPlayEnd(songId, playedSeconds, source).collect { result ->
                 result.onFailure { AppLogger.w(TAG, "打卡上报 play 失败 songId=$songId", it) }
             }
         }

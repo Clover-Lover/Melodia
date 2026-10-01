@@ -5,6 +5,8 @@ import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.player.data.PlaybackRepository
 import com.lin0721.linmusic.core.player.domain.LyricLine
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
@@ -28,8 +30,9 @@ class LyricsResolverTest {
         override fun getSongDetail(songId: Long): Flow<Result<Track>> = emptyFlow()
         override fun getSimilarSongs(songId: Long): Flow<Result<List<Track>>> = emptyFlow()
         override fun getIntelligenceSongs(songId: Long, playlistId: Long): Flow<Result<List<Track>>> = emptyFlow()
-        override fun reportStartPlay(songId: Long): Flow<Result<Unit>> = emptyFlow()
-        override fun reportPlayEnd(songId: Long, playedSeconds: Long): Flow<Result<Unit>> = emptyFlow()
+        override fun reportStartPlay(songId: Long, source: PlaySource?): Flow<Result<Unit>> = emptyFlow()
+        override fun reportPlayEnd(songId: Long, playedSeconds: Long, source: PlaySource?): Flow<Result<Unit>> = emptyFlow()
+        override val playlistRecorded: SharedFlow<Long> = MutableSharedFlow()
     }
 
     private class FakeLocalMusicApi(private val lyrics: String?) : LocalMusicApi {

@@ -9,6 +9,7 @@ import com.lin0721.linmusic.core.network.NetworkStateProvider
 import com.lin0721.linmusic.core.network.ResourceProvider
 import com.lin0721.linmusic.core.network.crypto.XeapiKeyStore
 import com.lin0721.linmusic.core.network.crypto.XeapiKeyStoreImpl
+import com.lin0721.linmusic.core.player.PlaybackPreferences
 import com.lin0721.linmusic.core.player.data.PlaybackRepositoryImpl
 import com.lin0721.linmusic.core.playlistmutation.PlaylistMutationBus
 import com.lin0721.linmusic.core.preferences.PreferencesStores
@@ -53,6 +54,7 @@ class SharedModulesResolveTest {
         val platformModule = module {
             single { UserPreferences(store(PreferencesStores.USER)) }
             single { SettingsPreferences(store(PreferencesStores.SETTINGS)) }
+            single { PlaybackPreferences(store(PreferencesStores.PLAYBACK)) }
             single { SearchHistoryPreferences(store(PreferencesStores.SEARCH_HISTORY)) }
             single<XeapiKeyStore> { XeapiKeyStoreImpl(store(PreferencesStores.XEAPI_KEY)) }
             single { ContentFilter(get()) }

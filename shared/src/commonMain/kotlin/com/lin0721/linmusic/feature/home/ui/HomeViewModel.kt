@@ -78,6 +78,9 @@ class HomeViewModel(
             playerManager.initController()
         }
         viewModelScope.launch {
+            playbackRepository.playlistRecorded.collect { refreshRecentPlaylists() }
+        }
+        viewModelScope.launch {
             userProfile.collect { profile ->
                 if (profile != null) {
                     loadLikedSongIdsUseCase()
@@ -136,6 +139,14 @@ class HomeViewModel(
             )
             _isRefreshing.value = false
         }
+    }
+
+    // 仅替换最近播放一块；失败或首页尚未加载完时保持原状
+    private suspend fun refreshRecentPlaylists() {
+        val latest = runCatching { recentRepository.getRecentPlaylists().first() }
+            .getOrNull()?.getOrNull() ?: return
+        val current = _uiState.value as? HomeUiState.Success ?: return
+        _uiState.value = HomeUiState.Success(current.data.copy(recentPlaylists = latest))
     }
 
     // 货架序列是整页主数据源，它失败才算整页失败；其余几项各自兜底不影响渲染

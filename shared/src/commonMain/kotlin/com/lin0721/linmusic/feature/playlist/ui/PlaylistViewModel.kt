@@ -390,7 +390,7 @@ class PlaylistViewModel(
         }
         val startIndex = allTracks.indexOfFirst { it.id == track.id }.coerceAtLeast(0)
         val source = playlist?.let {
-            PlaySource(if (isAlbumMode) PlaySource.Kind.ALBUM else PlaySource.Kind.PLAYLIST, it.id, it.name)
+            PlaySource(if (isAlbumMode) PlaySource.Kind.ALBUM else PlaySource.Kind.PLAYLIST, it.id, it.name, it.coverImgUrl)
         }
         playerManager.playQueue(queueItems, startIndex, playlist?.name, source)
     }

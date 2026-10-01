@@ -8,11 +8,18 @@ import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.network.AppError
 import com.lin0721.linmusic.core.network.apiFlow
 import com.lin0721.linmusic.core.network.mapToAppError
+import com.lin0721.linmusic.core.player.LocalRecentPlaylist
+import com.lin0721.linmusic.core.player.PlaySource
+import com.lin0721.linmusic.core.player.PlaybackPreferences
 import com.lin0721.linmusic.core.player.domain.LyricLine
 import com.lin0721.linmusic.core.player.domain.LyricParser
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.core.userplaylist.UserPlaylistRepository
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
@@ -26,6 +33,7 @@ class PlaybackRepositoryImpl(
     private val settingsPreferences: SettingsPreferences,
     private val userPreferences: UserPreferences,
     private val userPlaylistRepository: UserPlaylistRepository,
+    private val playbackPreferences: PlaybackPreferences,
     private val contentFilter: ContentFilter,
     private val networkStateProvider: NetworkStateProvider,
     private val json: Json
@@ -143,13 +151,38 @@ class PlaybackRepositoryImpl(
         }
     )
 
-    // 歌曲开始播放时立即上报，进「最近播放」；sourceId 暂用 songId 本身代替（缺少真实来源容器映射）
-    override fun reportStartPlay(songId: Long): Flow<Result<Unit>> = flow {
+    private val _playlistRecorded = MutableSharedFlow<Long>(extraBufferCapacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
+    override val playlistRecorded: SharedFlow<Long> = _playlistRecorded.asSharedFlow()
+
+    // 上一次已记录的歌单，同一歌单连续切歌不重复记录
+    private var lastRecordedPlaylistId: Long = 0L
+
+    // 歌单来源用歌单 id 作容器，专辑与无来源仍用 songId
+    private fun containerIdOf(songId: Long, source: PlaySource?): Long =
+        source?.takeIf { it.kind == PlaySource.Kind.PLAYLIST }?.id ?: songId
+
+    // 服务端不记录本客户端的歌单播放，改在本地记录，记录完成后通知首页刷新
+    private suspend fun recordPlaylistPlay(source: PlaySource) {
+        runCatching {
+            playbackPreferences.recordRecentPlaylist(
+                LocalRecentPlaylist(source.id, source.name, source.coverUrl, System.currentTimeMillis())
+            )
+        }.onSuccess { _playlistRecorded.tryEmit(source.id) }
+            .onFailure { AppLogger.w(TAG, "记录本地最近播放歌单失败 playlistId=${source.id}", it) }
+    }
+
+    // 歌曲开始播放时立即上报，进「最近播放」
+    override fun reportStartPlay(songId: Long, source: PlaySource?): Flow<Result<Unit>> = flow {
+        val containerId = containerIdOf(songId, source)
         val startplayLogs = json.encodeToString(
-            listOf(StartPlayLogEntry(json = StartPlayLogJson(id = songId, content = "id=$songId")))
+            listOf(StartPlayLogEntry(json = StartPlayLogJson(id = songId, content = "id=$containerId")))
         )
+        if (source?.kind == PlaySource.Kind.PLAYLIST && source.id != lastRecordedPlaylistId) {
+            lastRecordedPlaylistId = source.id
+            recordPlaylistPlay(source)
+        }
         val startRes = apiService.reportWeblog(WeblogRequest(logs = startplayLogs))
-        AppLogger.i(TAG, "打卡上报 startplay 返回: songId=$songId code=${startRes.code} data=${startRes.data}")
+        AppLogger.i(TAG, "打卡上报 startplay 返回: songId=$songId container=$containerId code=${startRes.code} data=${startRes.data}")
 
         if (startRes.isSuccess) {
             emit(Result.success(Unit))
@@ -162,15 +195,16 @@ class PlaybackRepositoryImpl(
     }
 
     // 离开歌曲（切歌/退出播放器）时上报实际播放时长，涨「听歌排行」计数
-    override fun reportPlayEnd(songId: Long, playedSeconds: Long): Flow<Result<Unit>> = flow {
+    override fun reportPlayEnd(songId: Long, playedSeconds: Long, source: PlaySource?): Flow<Result<Unit>> = flow {
+        val containerId = containerIdOf(songId, source)
         val playLogs = json.encodeToString(
             listOf(
                 PlayLogEntry(
                     json = PlayLogJson(
                         id = songId,
-                        sourceId = songId,
+                        sourceId = containerId,
                         time = playedSeconds,
-                        content = "id=$songId"
+                        content = "id=$containerId"
                     )
                 )
             )
