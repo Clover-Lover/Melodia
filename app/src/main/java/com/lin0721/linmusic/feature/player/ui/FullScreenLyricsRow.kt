@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -28,6 +29,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lin0721.linmusic.core.player.domain.LyricAlignment
 import com.lin0721.linmusic.core.player.domain.LyricLine
 import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
@@ -72,17 +74,20 @@ fun FullScreenLyricsRow(
         }
     } else Modifier
 
-    val textAlign = when (alignment) {
+    // AMLL TTML 的对唱行自带左右对齐：END 表示第二声部，固定靠右；
+    // 其余行（含所有普通歌词）继续沿用全局对齐设置，不改变原有观感。
+    val effectiveAlignment = if (line.alignment == LyricAlignment.END) "right" else alignment
+    val textAlign = when (effectiveAlignment) {
         "center" -> TextAlign.Center
         "right" -> TextAlign.End
         else -> TextAlign.Start
     }
-    val horizontalAlignment = when (alignment) {
+    val horizontalAlignment = when (effectiveAlignment) {
         "center" -> Alignment.CenterHorizontally
         "right" -> Alignment.End
         else -> Alignment.Start
     }
-    val targetTransformOrigin = when (alignment) {
+    val targetTransformOrigin = when (effectiveAlignment) {
         "center" -> TransformOrigin(0.5f, 0.5f)
         "right" -> TransformOrigin(1f, 0.5f)
         else -> TransformOrigin(0f, 0.5f)
@@ -123,17 +128,23 @@ fun FullScreenLyricsRow(
         label = "fs_lyric_alpha_$index"
     )
 
-    val widthFraction = if (alignment == "center") 0.9f else 0.85f
-    val paddingStart = when (alignment) {
+    val widthFraction = if (effectiveAlignment == "center") 0.9f else 0.85f
+    val paddingStart = when (effectiveAlignment) {
         "center" -> 24.dp
         "left" -> MelodiaSpacing.md
         else -> 0.dp
     }
-    val paddingEnd = when (alignment) {
+    val paddingEnd = when (effectiveAlignment) {
         "center" -> 24.dp
         "right" -> MelodiaSpacing.md
         else -> 0.dp
     }
+
+    val backgroundSpacing = 8.dp
+    val backgroundFontSize = (fontSize - 5).coerceAtLeast(12).sp
+    val backgroundLineHeight = (backgroundFontSize.value * 1.4f).sp
+    val backgroundTranslationFontSize = (fontSize - 8).coerceAtLeast(11).sp
+    val backgroundRomaFontSize = (fontSize - 9).coerceAtLeast(11).sp
 
     Column(
         modifier = Modifier
@@ -200,6 +211,68 @@ fun FullScreenLyricsRow(
             )
         } else {
             textBounds?.secondary = null
+        }
+        // AMLL TTML 的背景和声行（m:role="x-bg"）：字号更小、颜色更淡，
+        // 整体缩进到 90% 宽并按自身对齐方式摆放，避免和主声部抢视觉重心。
+        line.backgroundLine?.let { background ->
+            val backgroundTextAlign = if (background.alignment == LyricAlignment.END) {
+                TextAlign.End
+            } else {
+                TextAlign.Start
+            }
+            Spacer(modifier = Modifier.height(backgroundSpacing))
+            Column(
+                modifier = Modifier.fillMaxWidth(0.9f),
+                horizontalAlignment = if (background.alignment == LyricAlignment.END) {
+                    Alignment.End
+                } else {
+                    Alignment.Start
+                }
+            ) {
+                if (isCurrent && background.words.isNotEmpty()) {
+                    KaraokeLyricRow(
+                        line = background,
+                        currentPositionProvider = currentPositionProvider,
+                        inactiveColor = highlightColor.copy(alpha = 0.22f),
+                        activeColor = Color.White.copy(alpha = 0.82f),
+                        fontSize = backgroundFontSize,
+                        lineHeight = backgroundLineHeight,
+                        textAlign = backgroundTextAlign,
+                        advancedEffect = advancedKaraokeEffect,
+                        isPlaying = isPlaying
+                    )
+                } else {
+                    Text(
+                        text = background.text,
+                        fontSize = backgroundFontSize,
+                        lineHeight = backgroundLineHeight,
+                        color = if (isCurrent) Color.White.copy(alpha = 0.82f) else highlightColor.copy(alpha = 0.72f),
+                        fontWeight = FontWeight.Bold,
+                        textAlign = backgroundTextAlign,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+                background.translation?.let {
+                    Spacer(modifier = Modifier.height(3.dp))
+                    Text(
+                        text = it,
+                        fontSize = backgroundTranslationFontSize,
+                        color = Color.White.copy(alpha = 0.55f),
+                        textAlign = backgroundTextAlign,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+                background.roma?.let {
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = it,
+                        fontSize = backgroundRomaFontSize,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                        textAlign = backgroundTextAlign,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
         }
     }
 }
