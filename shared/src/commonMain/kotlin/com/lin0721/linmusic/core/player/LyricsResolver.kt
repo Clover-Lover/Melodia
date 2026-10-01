@@ -3,27 +3,43 @@ package com.lin0721.linmusic.core.player
 import com.lin0721.linmusic.core.player.data.PlaybackRepository
 import com.lin0721.linmusic.core.player.domain.LyricLine
 import com.lin0721.linmusic.core.player.domain.LyricParser
+import com.lin0721.linmusic.core.player.domain.TtmlLyricParser
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.withTimeoutOrNull
 
-// 已匹配网易的歌优先网易歌词（逐字与翻译更全），拿不到再读本地
+// 已匹配网易的歌优先网易歌词（逐字与翻译更全），拿不到再读本地。
+// 接入 AMLL 后：AMLL TTML 与网易并行拉取，AMLL 拿到逐字时序就直接采信（TTML 的逐字与背景和声
+// 比网易 YRC 更完整）；否则等双方到齐后一起比较，有逐字的胜出，都没逐字时取有内容的一方。
 class LyricsResolver(
     private val playbackRepository: PlaybackRepository,
     // 按来源 Uri 读取本地歌词原文，平台无本地音乐时返回 null
     private val readLocalLyrics: suspend (sourceUri: String) -> String?,
-    private val localUriOf: (songId: Long) -> String?
+    private val localUriOf: (songId: Long) -> String?,
+    // 按 songId 读取 AMLL TTML 原文；平台未接入 AMLL 时保持默认实现返回 null
+    private val readAmllLyrics: suspend (songId: Long) -> String? = { null }
 ) {
+
+    private companion object {
+        // 真机上 TLS 加 XML 解析偶发超过 1.2s，首次择优要留出窗口，否则慢镜像会把结果拖成网易歌词。
+        // 网易一侧刻意不加超时，保持上游"等到出结果为止"的行为。
+        const val SELECTION_WINDOW_MS = 2500L
+        const val AMLL_TIMEOUT_MS = 4000L
+    }
 
     fun lyricsFor(songId: Long): Flow<Result<List<LyricLine>>> = flow {
         val localUri = localUriOf(songId)
         if (localUri == null) {
-            if (songId > 0) emitAll(playbackRepository.getLyrics(songId)) else emit(Result.success(emptyList()))
+            if (songId > 0) emitAll(onlineLyricsFor(songId)) else emit(Result.success(emptyList()))
             return@flow
         }
         if (songId > 0) {
-            val online = playbackRepository.getLyrics(songId).first()
+            val online = onlineLyricsFor(songId).first()
             if (online.getOrNull().orEmpty().isNotEmpty()) {
                 emit(online)
                 return@flow
@@ -32,4 +48,83 @@ class LyricsResolver(
         val lines = readLocalLyrics(localUri)?.let(LyricParser::parseLocal).orEmpty()
         emit(Result.success(lines))
     }
+
+    private fun onlineLyricsFor(songId: Long): Flow<Result<List<LyricLine>>> = flow {
+        coroutineScope {
+            val amll = async { fetchAmllLines(songId) }
+            val netease = async { fetchNeteaseResult(songId) }
+            try {
+                // 只承诺一次：窗口内 AMLL 若已带逐字时序就直接定型，不让慢镜像在播放中途替换歌词
+                withTimeoutOrNull(SELECTION_WINDOW_MS) { amll.await() }
+                if (amll.takeIf { it.isCompleted }?.getCompleted().orEmpty().any { it.words.isNotEmpty() }) {
+                    emit(Result.success(amll.getCompleted()))
+                    return@coroutineScope
+                }
+                val neteaseResult = netease.await()
+                // 网易已到齐，此时再给 AMLL 一次机会；仍没回来就是确实拿不到
+                val amllLines = amll.takeIf { it.isCompleted }?.getCompleted().orEmpty()
+                emit(choose(amllLines, neteaseResult))
+            } finally {
+                amll.cancel()
+                netease.cancel()
+            }
+        }
+    }
+
+    /** AMLL 任何失败都降级为空列表；网易的失败要原样带回，上层需要区分"没有歌词"与"请求失败"。 */
+    private suspend fun fetchAmllLines(songId: Long): List<LyricLine> = try {
+        withTimeoutOrNull(AMLL_TIMEOUT_MS) { readAmllLyrics(songId) }
+            ?.let(TtmlLyricParser::parse)
+            .orEmpty()
+    } catch (e: CancellationException) {
+        throw e
+    } catch (_: Exception) {
+        emptyList()
+    }
+
+    private suspend fun fetchNeteaseResult(songId: Long): Result<List<LyricLine>> = try {
+        playbackRepository.getLyrics(songId).first()
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
+
+    internal fun choose(amll: List<LyricLine>, netease: Result<List<LyricLine>>): Result<List<LyricLine>> {
+        val a = cleanLines(amll)
+        val n = cleanLines(netease.getOrNull().orEmpty())
+        val lines = when {
+            a.any { it.words.isNotEmpty() } -> a
+            n.any { it.words.isNotEmpty() } -> n
+            a.isNotEmpty() -> a
+            n.isNotEmpty() -> n
+            // 两边都没内容：保留网易原结果，是失败就继续向上抛
+            else -> return netease
+        }
+        return Result.success(lines)
+    }
+}
+
+private fun cleanLines(lines: List<LyricLine>): List<LyricLine> = lines
+    .filter { it.timeMs >= 0 && it.text.isNotBlank() }
+    .map(::cleanLine)
+    .sortedBy { it.timeMs }
+
+// 逐字时序不合法时整行退回普通行——宁可整行高亮，也不能渲染出错位的逐字；
+// 背景和声行（TTML x-bg）走同一套校验。
+private fun cleanLine(line: LyricLine): LyricLine {
+    val wordsValid = line.words.isNotEmpty() &&
+        line.words.any { it.durationMs > 0 } &&
+        line.words.all {
+            it.startOffsetMs >= 0 && it.durationMs >= 0 &&
+                it.startOffsetMs <= line.durationMs && it.durationMs <= line.durationMs - it.startOffsetMs
+        } &&
+        line.words.zipWithNext().all { (a, b) -> a.startOffsetMs <= b.startOffsetMs } &&
+        line.words.joinToString("") { it.text } == line.text
+    return line.copy(
+        words = if (wordsValid) line.words else emptyList(),
+        backgroundLine = line.backgroundLine
+            ?.takeIf { it.timeMs >= 0 && it.text.isNotBlank() }
+            ?.let(::cleanLine)
+    )
 }
