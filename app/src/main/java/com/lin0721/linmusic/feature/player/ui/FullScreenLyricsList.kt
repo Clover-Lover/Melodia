@@ -37,8 +37,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.snapshotFlow
-import kotlinx.coroutines.flow.first
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -86,14 +84,9 @@ fun ColumnScope.FullScreenLyricsList(
     onLyricClick: (LyricLine) -> Unit
 ) {
     val density = LocalDensity.current
-    // 顶部留白让首句可拖到视口中心；静止时仍通过滚动抵消，保持首句贴顶
-    val topPaddingPx = (viewportHeightPx / 2f).toInt()
 
     LaunchedEffect(currentIndex, isUserScrolling, viewportHeightPx, secondaryMode, lineSpacing, secondarySpacing) {
-        // 未唱到首句时 currentIndex 为 -1，同样需要把列表摆回贴顶位置
-        if (!isUserScrolling && lyrics.isNotEmpty() && currentIndex < lyrics.size && viewportHeightPx > 0f) {
-            // 等布局应用新的顶部内边距后再计算偏移，否则读到的是旧布局
-            snapshotFlow { lazyListState.layoutInfo.beforeContentPadding }.first { it == topPaddingPx }
+        if (!isUserScrolling && currentIndex in lyrics.indices && viewportHeightPx > 0f) {
             // 估算值以默认间距（行距 24dp、副文本距 6dp）为基准，按用户设置的差值修正
             val itemStridePx = with(density) { (66 + lineSpacing - 24).coerceAtLeast(1).dp.toPx() }
             val linesAboveCentre = (viewportHeightPx / 2 / itemStridePx).toInt()
@@ -101,8 +94,8 @@ fun ColumnScope.FullScreenLyricsList(
             if (currentIndex < linesAboveCentre) {
                 lazyListState.springScrollToCentre(
                     targetIndex = 0,
-                    desiredOffsetPx = -topPaddingPx,
-                    fallbackScrollOffsetPx = topPaddingPx
+                    desiredOffsetPx = 0,
+                    fallbackScrollOffsetPx = 0
                 )
                 return@LaunchedEffect
             }
@@ -117,10 +110,10 @@ fun ColumnScope.FullScreenLyricsList(
                 if (hasSecondary) (96 + secondarySpacing - 6).dp.toPx() else 54.dp.toPx()
             }
             val desiredOffsetPx = ((viewportHeightPx - itemHeightPx) / 2f).toInt()
-            val centreOffsetPx = topPaddingPx - desiredOffsetPx
+            val centreOffsetPx = -desiredOffsetPx
             lazyListState.springScrollToCentre(
                 targetIndex = currentIndex,
-                desiredOffsetPx = desiredOffsetPx - topPaddingPx,
+                desiredOffsetPx = desiredOffsetPx,
                 fallbackScrollOffsetPx = centreOffsetPx
             )
         }
@@ -181,7 +174,7 @@ fun ColumnScope.FullScreenLyricsList(
                     .onSizeChanged { onViewportHeightChange(it.height.toFloat()) },
                 verticalArrangement = Arrangement.spacedBy(lineSpacing.coerceAtLeast(0).dp),
                 contentPadding = PaddingValues(
-                    top = with(density) { topPaddingPx.toDp() },
+                    top = 0.dp,
                     bottom = with(density) { (viewportHeightPx / 2f).toDp() }
                 ),
                 horizontalAlignment = when (alignment) {
