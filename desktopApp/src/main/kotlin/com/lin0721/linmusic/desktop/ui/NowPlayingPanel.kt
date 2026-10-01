@@ -83,27 +83,30 @@ fun NowPlayingPanel(
     val detailState by playerViewModel.songDetailState.collectAsState()
     val currentLyricIndex by playerViewModel.currentLyricIndex.collectAsState()
 
-    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
-        PanelHeader(track, controller, playerViewModel, hovered, onClose)
-        BoxWithConstraints(Modifier.fillMaxWidth().padding(top = 8.dp)) {
-            Cover(track.artworkUri, maxWidth, shape = RoundedCornerShape(8.dp), requestSize = DesktopDimens.NowPlayingMaxWidth)
+    val scrollState = rememberScrollState()
+    HoverScrollbarBox(scrollState) {
+        Column(modifier.fillMaxSize().verticalScroll(scrollState).padding(16.dp)) {
+            PanelHeader(track, controller, playerViewModel, hovered, onClose)
+            BoxWithConstraints(Modifier.fillMaxWidth().padding(top = 8.dp)) {
+                Cover(track.artworkUri, maxWidth, shape = RoundedCornerShape(8.dp), requestSize = DesktopDimens.NowPlayingMaxWidth)
+            }
+            Text(
+                track.title,
+                color = DesktopColors.TextPrimary,
+                fontWeight = FontWeight.Bold,
+                fontSize = 22.sp,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(top = 16.dp)
+            )
+            NowPlayingArtists(track, playerViewModel, 14.sp)
+            LyricPreviewCard(
+                lines = detailState.lyrics,
+                isLoading = detailState.isLyricsLoading,
+                currentIndex = currentLyricIndex,
+                modifier = Modifier.padding(top = 16.dp)
+            )
         }
-        Text(
-            track.title,
-            color = DesktopColors.TextPrimary,
-            fontWeight = FontWeight.Bold,
-            fontSize = 22.sp,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(top = 16.dp)
-        )
-        NowPlayingArtists(track, playerViewModel, 14.sp)
-        LyricPreviewCard(
-            lines = detailState.lyrics,
-            isLoading = detailState.isLyricsLoading,
-            currentIndex = currentLyricIndex,
-            modifier = Modifier.padding(top = 16.dp)
-        )
     }
 }
 
@@ -304,23 +307,25 @@ private fun LyricList(lines: List<LyricLine>, currentIndex: Int) {
     LaunchedEffect(currentIndex, lines) {
         if (currentIndex in lines.indices) listState.animateScrollToItem(currentIndex, -offsetPx)
     }
-    LazyColumn(
-        state = listState,
-        modifier = Modifier.fillMaxSize(),
-        // 底部留白让末尾几行也能滚到定位处
-        contentPadding = PaddingValues(bottom = LyricCardHeight)
-    ) {
-        itemsIndexed(lines) { index, line ->
-            val active = index == currentIndex
-            Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
-                Text(
-                    line.text,
-                    color = if (active) DesktopColors.TextPrimary else DesktopColors.TextGray,
-                    fontWeight = if (active) FontWeight.Bold else FontWeight.Normal,
-                    fontSize = if (active) 18.sp else 16.sp
-                )
-                line.translation?.takeIf { it.isNotBlank() }?.let {
-                    Text(it, color = DesktopColors.TextGray, fontSize = 13.sp)
+    HoverScrollbarBox(listState) {
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxSize(),
+            // 底部留白让末尾几行也能滚到定位处
+            contentPadding = PaddingValues(bottom = LyricCardHeight)
+        ) {
+            itemsIndexed(lines) { index, line ->
+                val active = index == currentIndex
+                Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+                    Text(
+                        line.text,
+                        color = if (active) DesktopColors.TextPrimary else DesktopColors.TextGray,
+                        fontWeight = if (active) FontWeight.Bold else FontWeight.Normal,
+                        fontSize = if (active) 18.sp else 16.sp
+                    )
+                    line.translation?.takeIf { it.isNotBlank() }?.let {
+                        Text(it, color = DesktopColors.TextGray, fontSize = 13.sp)
+                    }
                 }
             }
         }

@@ -435,9 +435,11 @@ private fun LibraryList(items: List<LibraryItem>, onItemClick: (LibraryItem) -> 
     val listState = rememberLazyListState()
     val scrolled by remember { derivedStateOf { listState.isScrolled } }
     Box(Modifier.fillMaxSize()) {
-        LazyColumn(Modifier.fillMaxSize(), state = listState) {
-            items(items, key = { it.id }) { item ->
-                if (compact) LibraryCompactRow(item) { onItemClick(item) } else LibraryRow(item) { onItemClick(item) }
+        HoverScrollbarBox(listState) {
+            LazyColumn(Modifier.fillMaxSize(), state = listState) {
+                items(items, key = { it.id }) { item ->
+                    if (compact) LibraryCompactRow(item) { onItemClick(item) } else LibraryRow(item) { onItemClick(item) }
+                }
             }
         }
         ListTopShadow(scrolled)
@@ -455,16 +457,18 @@ private fun LibraryGrid(
     val gridState = rememberLazyGridState()
     val scrolled by remember { derivedStateOf { gridState.isScrolled } }
     Box(Modifier.fillMaxSize()) {
-        LazyVerticalGrid(
-            columns = GridCells.Adaptive(cardMinWidth),
-            state = gridState,
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(horizontal = edgePadding - if (small) SmallTileInset else LargeCardInset, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            items(items, key = { it.id }) { item ->
-                if (small) LibraryCoverTile(item) { onItemClick(item) } else LibraryCard(item) { onItemClick(item) }
+        HoverScrollbarBox(gridState) {
+            LazyVerticalGrid(
+                columns = GridCells.Adaptive(cardMinWidth),
+                state = gridState,
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(horizontal = edgePadding - if (small) SmallTileInset else LargeCardInset, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                items(items, key = { it.id }) { item ->
+                    if (small) LibraryCoverTile(item) { onItemClick(item) } else LibraryCard(item) { onItemClick(item) }
+                }
             }
         }
         ListTopShadow(scrolled)

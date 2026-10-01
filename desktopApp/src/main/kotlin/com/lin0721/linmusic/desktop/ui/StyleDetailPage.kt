@@ -133,97 +133,99 @@ private fun StyleDetailContent(
         if (shouldLoadMore) viewModel.loadMoreSongs()
     }
 
-    LazyColumn(state = listState, modifier = modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
-        item(key = "hero") { StyleHero(data.head, fallbackName, accent) }
-        item(key = "actions") {
-            Column(
-                Modifier.fillMaxWidth().background(Brush.verticalGradient(listOf(accent.copy(alpha = 0.32f), Color.Transparent)))
-                    .padding(top = 24.dp, bottom = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(20.dp)
-            ) {
-                ActionRow(
-                    favourite = data.head?.favouriteSong,
-                    canPlay = data.songs.isNotEmpty(),
-                    onPlayAll = { viewModel.playSongAt(0) },
-                    onPlayFavourite = viewModel::playFavourite
-                )
-                if (data.children.isNotEmpty()) {
-                    LazyRow(
-                        contentPadding = PaddingValues(horizontal = EdgePadding),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        item(key = "all") { OutlineChip("全部", data.selectedChildId == null) { viewModel.selectChild(null) } }
-                        items(data.children, key = { it.id }) { child ->
-                            OutlineChip(child.name, data.selectedChildId == child.id) { viewModel.selectChild(child.id) }
-                        }
-                    }
-                }
-            }
-        }
-
-        if (data.isContentLoading) {
-            item(key = "content_loading") { HomeTabLoading(Modifier.fillMaxWidth().height(200.dp)) }
-            return@LazyColumn
-        }
-
-        data.playlists.takeIf { it.isNotEmpty() }?.let { playlists ->
-            item(key = "playlists") {
-                Box(Modifier.padding(top = SectionGap)) {
-                    ShelfRow("热门歌单", playlists) { playlist ->
-                        CardTile(playlist.coverUrl, playlist.name, playlist.playCount.toPlayCountText()) {
-                            navigator.openPlaylist(playlist.id, playlist.name)
-                        }
-                    }
-                }
-            }
-        }
-        data.albums.takeIf { it.isNotEmpty() }?.let { albums ->
-            item(key = "albums") {
-                Box(Modifier.padding(top = SectionGap)) {
-                    ShelfRow("热门专辑", albums) { album ->
-                        val year = album.publishTime.takeIf { it > 0 }
-                            ?.let { Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).year.toString() }
-                        CardTile(album.coverUrl, album.name, listOfNotNull(year, album.artistName.ifBlank { null }).joinToString(" · ")) {
-                            navigator.openAlbum(album.id, album.name)
-                        }
-                    }
-                }
-            }
-        }
-        data.artists.takeIf { it.isNotEmpty() }?.let { artists ->
-            item(key = "artists") {
-                Box(Modifier.padding(top = SectionGap)) { ArtistShelf(artists, navigator.openArtist) }
-            }
-        }
-
-        item(key = "songs_title") {
-            Column(Modifier.padding(top = SectionGap)) {
-                Row(
-                    Modifier.fillMaxWidth().padding(end = EdgePadding),
-                    verticalAlignment = Alignment.CenterVertically
+    HoverScrollbarBox(listState) {
+        LazyColumn(state = listState, modifier = modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
+            item(key = "hero") { StyleHero(data.head, fallbackName, accent) }
+            item(key = "actions") {
+                Column(
+                    Modifier.fillMaxWidth().background(Brush.verticalGradient(listOf(accent.copy(alpha = 0.32f), Color.Transparent)))
+                        .padding(top = 24.dp, bottom = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(20.dp)
                 ) {
-                    Box(Modifier.weight(1f)) { SectionTitle("歌曲") }
-                    SortMenu(data.sort, viewModel::selectSort)
+                    ActionRow(
+                        favourite = data.head?.favouriteSong,
+                        canPlay = data.songs.isNotEmpty(),
+                        onPlayAll = { viewModel.playSongAt(0) },
+                        onPlayFavourite = viewModel::playFavourite
+                    )
+                    if (data.children.isNotEmpty()) {
+                        LazyRow(
+                            contentPadding = PaddingValues(horizontal = EdgePadding),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            item(key = "all") { OutlineChip("全部", data.selectedChildId == null) { viewModel.selectChild(null) } }
+                            items(data.children, key = { it.id }) { child ->
+                                OutlineChip(child.name, data.selectedChildId == child.id) { viewModel.selectChild(child.id) }
+                            }
+                        }
+                    }
                 }
-                SongTableHeader()
             }
-        }
-        if (data.isSongsLoading) {
-            item(key = "songs_loading") { HomeTabLoading(Modifier.fillMaxWidth().height(200.dp)) }
-        } else {
-            itemsIndexed(data.songs, key = { index, track -> "${track.id}_$index" }) { index, track ->
-                TrackRow(
-                    index = index,
-                    track = track,
-                    isCurrent = nowPlayingSongId == track.id,
-                    onPlay = { viewModel.playSongAt(index) },
-                    modifier = Modifier.padding(horizontal = 16.dp)
-                )
+
+            if (data.isContentLoading) {
+                item(key = "content_loading") { HomeTabLoading(Modifier.fillMaxWidth().height(200.dp)) }
+                return@LazyColumn
             }
-            if (data.isLoadingMore) {
-                item(key = "loading_more") {
-                    Box(Modifier.fillMaxWidth().padding(12.dp), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = DesktopColors.Accent)
+
+            data.playlists.takeIf { it.isNotEmpty() }?.let { playlists ->
+                item(key = "playlists") {
+                    Box(Modifier.padding(top = SectionGap)) {
+                        ShelfRow("热门歌单", playlists) { playlist ->
+                            CardTile(playlist.coverUrl, playlist.name, playlist.playCount.toPlayCountText()) {
+                                navigator.openPlaylist(playlist.id, playlist.name)
+                            }
+                        }
+                    }
+                }
+            }
+            data.albums.takeIf { it.isNotEmpty() }?.let { albums ->
+                item(key = "albums") {
+                    Box(Modifier.padding(top = SectionGap)) {
+                        ShelfRow("热门专辑", albums) { album ->
+                            val year = album.publishTime.takeIf { it > 0 }
+                                ?.let { Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).year.toString() }
+                            CardTile(album.coverUrl, album.name, listOfNotNull(year, album.artistName.ifBlank { null }).joinToString(" · ")) {
+                                navigator.openAlbum(album.id, album.name)
+                            }
+                        }
+                    }
+                }
+            }
+            data.artists.takeIf { it.isNotEmpty() }?.let { artists ->
+                item(key = "artists") {
+                    Box(Modifier.padding(top = SectionGap)) { ArtistShelf(artists, navigator.openArtist) }
+                }
+            }
+
+            item(key = "songs_title") {
+                Column(Modifier.padding(top = SectionGap)) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(end = EdgePadding),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(Modifier.weight(1f)) { SectionTitle("歌曲") }
+                        SortMenu(data.sort, viewModel::selectSort)
+                    }
+                    SongTableHeader()
+                }
+            }
+            if (data.isSongsLoading) {
+                item(key = "songs_loading") { HomeTabLoading(Modifier.fillMaxWidth().height(200.dp)) }
+            } else {
+                itemsIndexed(data.songs, key = { index, track -> "${track.id}_$index" }) { index, track ->
+                    TrackRow(
+                        index = index,
+                        track = track,
+                        isCurrent = nowPlayingSongId == track.id,
+                        onPlay = { viewModel.playSongAt(index) },
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    )
+                }
+                if (data.isLoadingMore) {
+                    item(key = "loading_more") {
+                        Box(Modifier.fillMaxWidth().padding(12.dp), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(color = DesktopColors.Accent)
+                        }
                     }
                 }
             }

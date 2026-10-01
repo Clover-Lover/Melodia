@@ -56,40 +56,42 @@ fun PodcastTab(
         is PodcastUiState.Error -> HomeTabError(uiState.message, onRetry)
         is PodcastUiState.Success -> {
             val data = uiState.data
-            LazyColumn(
-                state = listState,
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(top = 4.dp, bottom = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(24.dp)
-            ) {
-                if (data.categories.isNotEmpty()) {
-                    item(key = "categories") {
-                        CategoryChips(data.categories, data.selectedCategoryId, onCategorySelect)
+            HoverScrollbarBox(listState) {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(top = 4.dp, bottom = 24.dp),
+                    verticalArrangement = Arrangement.spacedBy(24.dp)
+                ) {
+                    if (data.categories.isNotEmpty()) {
+                        item(key = "categories") {
+                            CategoryChips(data.categories, data.selectedCategoryId, onCategorySelect)
+                        }
                     }
-                }
-                item(key = "programs") {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        SectionTitle("最新节目")
-                        if (data.isProgramLoading) {
-                            HomeTabLoading(Modifier.fillMaxWidth().height(160.dp))
-                        } else {
-                            Column(Modifier.padding(horizontal = EdgePadding - 12.dp)) {
-                                data.programs.forEachIndexed { index, program ->
-                                    ProgramRow(program) { onProgramPlay(index) }
+                    item(key = "programs") {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            SectionTitle("最新节目")
+                            if (data.isProgramLoading) {
+                                HomeTabLoading(Modifier.fillMaxWidth().height(160.dp))
+                            } else {
+                                Column(Modifier.padding(horizontal = EdgePadding - 12.dp)) {
+                                    data.programs.forEachIndexed { index, program ->
+                                        ProgramRow(program) { onProgramPlay(index) }
+                                    }
                                 }
                             }
                         }
                     }
-                }
-                // 未登录时该段为空，整块不出现
-                if (data.personalizedRadios.isNotEmpty()) {
-                    item(key = "personalized") { RadioShelf("猜你喜欢", data.personalizedRadios) }
-                }
-                if (data.recommendRadios.isNotEmpty()) {
-                    item(key = "recommend") { RadioShelf("精选电台", data.recommendRadios) }
-                }
-                if (data.toplistRadios.isNotEmpty()) {
-                    item(key = "toplist") { RadioShelf("热门电台榜", data.toplistRadios, showRank = true) }
+                    // 未登录时该段为空，整块不出现
+                    if (data.personalizedRadios.isNotEmpty()) {
+                        item(key = "personalized") { RadioShelf("猜你喜欢", data.personalizedRadios) }
+                    }
+                    if (data.recommendRadios.isNotEmpty()) {
+                        item(key = "recommend") { RadioShelf("精选电台", data.recommendRadios) }
+                    }
+                    if (data.toplistRadios.isNotEmpty()) {
+                        item(key = "toplist") { RadioShelf("热门电台榜", data.toplistRadios, showRank = true) }
+                    }
                 }
             }
         }

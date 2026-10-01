@@ -71,27 +71,30 @@ fun SearchPage(
 @Composable
 private fun RecentContent(viewModel: SearchViewModel) {
     val history by viewModel.history.collectAsState()
-    LazyColumn(contentPadding = PaddingValues(24.dp)) {
-        if (history.isEmpty()) {
-            item { Text("输入关键词后按回车搜索", color = DesktopColors.TextGray) }
-            return@LazyColumn
-        }
-        item {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                SectionHeader("最近搜索", Modifier.weight(1f))
-                TextButton(onClick = viewModel::clearHistory) {
-                    Text("清空", color = DesktopColors.TextGray)
+    val listState = rememberLazyListState()
+    HoverScrollbarBox(listState) {
+        LazyColumn(state = listState, contentPadding = PaddingValues(24.dp)) {
+            if (history.isEmpty()) {
+                item { Text("输入关键词后按回车搜索", color = DesktopColors.TextGray) }
+                return@LazyColumn
+            }
+            item {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    SectionHeader("最近搜索", Modifier.weight(1f))
+                    TextButton(onClick = viewModel::clearHistory) {
+                        Text("清空", color = DesktopColors.TextGray)
+                    }
                 }
             }
-        }
-        items(history) { keyword ->
-            ListEntry(Icons.Rounded.History, keyword, onClick = { viewModel.searchWithKeyword(keyword) }) {
-                Icon(
-                    Icons.Rounded.Close,
-                    "删除",
-                    tint = DesktopColors.TextGray,
-                    modifier = Modifier.clickable { viewModel.removeHistory(keyword) }
-                )
+            items(history) { keyword ->
+                ListEntry(Icons.Rounded.History, keyword, onClick = { viewModel.searchWithKeyword(keyword) }) {
+                    Icon(
+                        Icons.Rounded.Close,
+                        "删除",
+                        tint = DesktopColors.TextGray,
+                        modifier = Modifier.clickable { viewModel.removeHistory(keyword) }
+                    )
+                }
             }
         }
     }
@@ -100,18 +103,21 @@ private fun RecentContent(viewModel: SearchViewModel) {
 @Composable
 private fun SuggestionContent(viewModel: SearchViewModel) {
     val input by viewModel.inputState.collectAsState()
-    LazyColumn(contentPadding = PaddingValues(24.dp)) {
-        item {
-            ListEntry(Icons.Rounded.Search, "搜索“${input.query}”", onClick = { viewModel.searchWithKeyword(input.query) })
-        }
-        // 歌手/专辑直达页后续接入，联想项统一按文字搜索
-        items(input.currentSuggestions) { suggestion ->
-            val label = when (suggestion) {
-                is SearchSuggestion.ArtistMatch -> "歌手：${suggestion.text}"
-                is SearchSuggestion.AlbumMatch -> "专辑：${suggestion.text} - ${suggestion.artistName}"
-                else -> suggestion.text
+    val listState = rememberLazyListState()
+    HoverScrollbarBox(listState) {
+        LazyColumn(state = listState, contentPadding = PaddingValues(24.dp)) {
+            item {
+                ListEntry(Icons.Rounded.Search, "搜索“${input.query}”", onClick = { viewModel.searchWithKeyword(input.query) })
             }
-            ListEntry(Icons.Rounded.Search, label, onClick = { viewModel.searchWithKeyword(suggestion.text) })
+            // 歌手/专辑直达页后续接入，联想项统一按文字搜索
+            items(input.currentSuggestions) { suggestion ->
+                val label = when (suggestion) {
+                    is SearchSuggestion.ArtistMatch -> "歌手：${suggestion.text}"
+                    is SearchSuggestion.AlbumMatch -> "专辑：${suggestion.text} - ${suggestion.artistName}"
+                    else -> suggestion.text
+                }
+                ListEntry(Icons.Rounded.Search, label, onClick = { viewModel.searchWithKeyword(suggestion.text) })
+            }
         }
     }
 }
@@ -177,12 +183,14 @@ private fun ResultsContent(
                 LaunchedEffect(shouldLoadMore) {
                     if (shouldLoadMore) viewModel.loadMore()
                 }
-                LazyColumn(state = listState, contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
-                    itemsIndexed(state.items) { index, item ->
-                        ResultEntry(index, item, nowPlaying?.songId, viewModel, actions, onOpenPlaylist)
-                    }
-                    if (state.isLoadingMore) {
-                        item { Centered { CircularProgressIndicator(color = DesktopColors.Accent) } }
+                HoverScrollbarBox(listState) {
+                    LazyColumn(state = listState, contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
+                        itemsIndexed(state.items) { index, item ->
+                            ResultEntry(index, item, nowPlaying?.songId, viewModel, actions, onOpenPlaylist)
+                        }
+                        if (state.isLoadingMore) {
+                            item { Centered { CircularProgressIndicator(color = DesktopColors.Accent) } }
+                        }
                     }
                 }
             }

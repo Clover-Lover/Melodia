@@ -61,18 +61,20 @@ fun LibraryRail(
             val listState = rememberLazyListState()
             val scrolled by remember { derivedStateOf { listState.isScrolled } }
             Box(Modifier.fillMaxSize()) {
-                LazyColumn(
-                    Modifier.fillMaxSize(),
-                    state = listState,
-                    contentPadding = PaddingValues(vertical = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    items(state.filteredItems, key = { it.id }) { item ->
-                        TooltipArea(tooltip = { TooltipLabel(item.title) }, delayMillis = 400) {
-                            val shape = coverShape(item)
-                            Box(Modifier.clip(shape).pointerHoverIcon(PointerIcon.Hand).clickable { onItemClick(item) }) {
-                                Cover(item.coverUrl, RailCoverSize, shape = shape)
+                HoverScrollbarBox(listState) {
+                    LazyColumn(
+                        Modifier.fillMaxSize(),
+                        state = listState,
+                        contentPadding = PaddingValues(vertical = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        items(state.filteredItems, key = { it.id }) { item ->
+                            TooltipArea(tooltip = { TooltipLabel(item.title) }, delayMillis = 400) {
+                                val shape = coverShape(item)
+                                Box(Modifier.clip(shape).pointerHoverIcon(PointerIcon.Hand).clickable { onItemClick(item) }) {
+                                    Cover(item.coverUrl, RailCoverSize, shape = shape)
+                                }
                             }
                         }
                     }

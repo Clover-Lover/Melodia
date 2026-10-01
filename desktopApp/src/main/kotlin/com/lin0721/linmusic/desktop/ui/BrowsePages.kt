@@ -64,6 +64,7 @@ fun BrowsePage(
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.discoveryState.collectAsState()
+    val discoveryGridState = rememberLazyGridState()
     when (val s = state) {
         DiscoveryUiState.Loading -> Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             CircularProgressIndicator(color = DesktopColors.Accent)
@@ -74,23 +75,26 @@ fun BrowsePage(
                 TextButton(onClick = viewModel::retryDiscovery) { Text("重试", color = DesktopColors.TextPrimary) }
             }
         }
-        is DiscoveryUiState.Success -> LazyVerticalGrid(
-            columns = GridCells.Adaptive(180.dp),
-            modifier = modifier.fillMaxSize(),
-            contentPadding = PaddingValues(24.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            if (s.hotSearches.isNotEmpty()) {
-                item(span = { GridItemSpan(maxLineSpan) }) { PageTitle("热搜榜") }
-                item(span = { GridItemSpan(maxLineSpan) }) {
-                    HotSearchColumns(s.hotSearches.take(HOT_SEARCH_SHOWN), onHotSearchClick)
+        is DiscoveryUiState.Success -> HoverScrollbarBox(discoveryGridState) {
+            LazyVerticalGrid(
+                state = discoveryGridState,
+                columns = GridCells.Adaptive(180.dp),
+                modifier = modifier.fillMaxSize(),
+                contentPadding = PaddingValues(24.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                if (s.hotSearches.isNotEmpty()) {
+                    item(span = { GridItemSpan(maxLineSpan) }) { PageTitle("热搜榜") }
+                    item(span = { GridItemSpan(maxLineSpan) }) {
+                        HotSearchColumns(s.hotSearches.take(HOT_SEARCH_SHOWN), onHotSearchClick)
+                    }
                 }
-            }
-            if (s.playlistTags.isNotEmpty()) {
-                item(span = { GridItemSpan(maxLineSpan) }) { PageTitle("歌单分类") }
-                itemsIndexed(s.playlistTags, key = { _, tag -> tag.name }) { index, tag ->
-                    TagTile(tag, TagColors[index % TagColors.size]) { onCategoryClick(tag.name) }
+                if (s.playlistTags.isNotEmpty()) {
+                    item(span = { GridItemSpan(maxLineSpan) }) { PageTitle("歌单分类") }
+                    itemsIndexed(s.playlistTags, key = { _, tag -> tag.name }) { index, tag ->
+                        TagTile(tag, TagColors[index % TagColors.size]) { onCategoryClick(tag.name) }
+                    }
                 }
             }
         }
@@ -191,24 +195,26 @@ fun PlaylistCategoryPage(
             LaunchedEffect(shouldLoadMore) {
                 if (shouldLoadMore) viewModel.loadMore()
             }
-            LazyVerticalGrid(
-                state = gridState,
-                columns = GridCells.Adaptive(CardWidth),
-                modifier = modifier.fillMaxSize(),
-                contentPadding = PaddingValues(24.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                verticalArrangement = Arrangement.spacedBy(24.dp)
-            ) {
-                item(span = { GridItemSpan(maxLineSpan) }) { PageTitle(category) }
-                items(s.playlists, key = { it.id }) { playlist ->
-                    CardTile(playlist.coverImgUrl, playlist.name, playlist.creator?.nickname.orEmpty()) {
-                        onPlaylistClick(playlist.id, playlist.name)
+            HoverScrollbarBox(gridState) {
+                LazyVerticalGrid(
+                    state = gridState,
+                    columns = GridCells.Adaptive(CardWidth),
+                    modifier = modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(24.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(24.dp)
+                ) {
+                    item(span = { GridItemSpan(maxLineSpan) }) { PageTitle(category) }
+                    items(s.playlists, key = { it.id }) { playlist ->
+                        CardTile(playlist.coverImgUrl, playlist.name, playlist.creator?.nickname.orEmpty()) {
+                            onPlaylistClick(playlist.id, playlist.name)
+                        }
                     }
-                }
-                if (s.isLoadingMore) {
-                    item(span = { GridItemSpan(maxLineSpan) }) {
-                        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator(color = DesktopColors.Accent)
+                    if (s.isLoadingMore) {
+                        item(span = { GridItemSpan(maxLineSpan) }) {
+                            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                                CircularProgressIndicator(color = DesktopColors.Accent)
+                            }
                         }
                     }
                 }

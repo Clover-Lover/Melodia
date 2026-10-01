@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AlertDialogDefaults
@@ -107,6 +108,7 @@ private fun CollectToPlaylistDialog(
     val overrides = remember(songId) { mutableStateMapOf<Long, Boolean>() }
     var newName by remember(songId) { mutableStateOf("") }
     val ready = state.songId == songId && !state.isLoading
+    val collectListState = rememberLazyListState()
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -139,32 +141,34 @@ private fun CollectToPlaylistDialog(
                     state.collectItems.isEmpty() -> Box(Modifier.fillMaxWidth().height(120.dp), contentAlignment = Alignment.Center) {
                         Text("还没有自建歌单", color = DesktopColors.TextGray, fontSize = 14.sp)
                     }
-                    else -> LazyColumn(Modifier.fillMaxWidth().heightIn(max = 360.dp).padding(top = 12.dp)) {
-                        items(state.collectItems, key = { it.playlistId }) { item ->
-                            val checked = overrides[item.playlistId] ?: item.isContains
-                            Row(
-                                Modifier.fillMaxWidth().clip(RoundedCornerShape(4.dp))
-                                    .clickable { overrides[item.playlistId] = !checked }
-                                    .padding(vertical = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Checkbox(
-                                    checked = checked,
-                                    onCheckedChange = { overrides[item.playlistId] = it },
-                                    colors = CheckboxDefaults.colors(
-                                        checkedColor = DesktopColors.Accent,
-                                        uncheckedColor = DesktopColors.TextGray
+                    else -> HoverScrollbarBox(collectListState) {
+                        LazyColumn(Modifier.fillMaxWidth().heightIn(max = 360.dp).padding(top = 12.dp), state = collectListState) {
+                            items(state.collectItems, key = { it.playlistId }) { item ->
+                                val checked = overrides[item.playlistId] ?: item.isContains
+                                Row(
+                                    Modifier.fillMaxWidth().clip(RoundedCornerShape(4.dp))
+                                        .clickable { overrides[item.playlistId] = !checked }
+                                        .padding(vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Checkbox(
+                                        checked = checked,
+                                        onCheckedChange = { overrides[item.playlistId] = it },
+                                        colors = CheckboxDefaults.colors(
+                                            checkedColor = DesktopColors.Accent,
+                                            uncheckedColor = DesktopColors.TextGray
+                                        )
                                     )
-                                )
-                                Cover(item.coverUrl, 40.dp, shape = RoundedCornerShape(4.dp))
-                                Text(
-                                    item.playlistName,
-                                    color = DesktopColors.TextPrimary,
-                                    fontSize = 14.sp,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.padding(start = 12.dp)
-                                )
+                                    Cover(item.coverUrl, 40.dp, shape = RoundedCornerShape(4.dp))
+                                    Text(
+                                        item.playlistName,
+                                        color = DesktopColors.TextPrimary,
+                                        fontSize = 14.sp,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.padding(start = 12.dp)
+                                    )
+                                }
                             }
                         }
                     }

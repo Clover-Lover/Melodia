@@ -101,32 +101,34 @@ fun PlaylistPage(
             LaunchedEffect(shouldLoadMore) {
                 if (shouldLoadMore) viewModel.loadMoreTracks()
             }
-            LazyColumn(
-                state = listState,
-                modifier = modifier.fillMaxSize(),
-                contentPadding = PaddingValues(bottom = 24.dp)
-            ) {
-                item(key = "header") {
-                    PlaylistHeader(
-                        playlist = state.playlist,
-                        isAlbum = isAlbum,
-                        onPlayAll = { viewModel.playAll(shuffle = false) }
-                    )
-                }
-                itemsIndexed(tracks, key = { index, track -> "${track.id}_$index" }) { index, track ->
-                    TrackRow(
-                        index = index,
-                        track = track,
-                        isCurrent = nowPlaying?.songId == track.id,
-                        onPlay = { viewModel.playTrackInPlaylist(track) },
-                        actions = actions,
-                        modifier = Modifier.padding(horizontal = 16.dp)
-                    )
-                }
-                if (state.isLoadingMoreTracks) {
-                    item(key = "loading_more") {
-                        Box(Modifier.fillMaxWidth().padding(12.dp), contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator(color = DesktopColors.Accent)
+            HoverScrollbarBox(listState) {
+                LazyColumn(
+                    state = listState,
+                    modifier = modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(bottom = 24.dp)
+                ) {
+                    item(key = "header") {
+                        PlaylistHeader(
+                            playlist = state.playlist,
+                            isAlbum = isAlbum,
+                            onPlayAll = { viewModel.playAll(shuffle = false) }
+                        )
+                    }
+                    itemsIndexed(tracks, key = { index, track -> "${track.id}_$index" }) { index, track ->
+                        TrackRow(
+                            index = index,
+                            track = track,
+                            isCurrent = nowPlaying?.songId == track.id,
+                            onPlay = { viewModel.playTrackInPlaylist(track) },
+                            actions = actions,
+                            modifier = Modifier.padding(horizontal = 16.dp)
+                        )
+                    }
+                    if (state.isLoadingMoreTracks) {
+                        item(key = "loading_more") {
+                            Box(Modifier.fillMaxWidth().padding(12.dp), contentAlignment = Alignment.Center) {
+                                CircularProgressIndicator(color = DesktopColors.Accent)
+                            }
                         }
                     }
                 }

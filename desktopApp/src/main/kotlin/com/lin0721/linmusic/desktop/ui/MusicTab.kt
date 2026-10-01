@@ -98,30 +98,32 @@ private fun MusicBrowseList(
     styleColumns: Int,
     onStyleClick: (id: Long, name: String) -> Unit
 ) {
-    LazyColumn(
-        state = listState,
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(top = 4.dp, bottom = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(TileGap)
-    ) {
-        if (data.hasPreference) {
-            item(key = "preference_title") {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    SectionTitle("你的偏好")
-                    data.portrait?.let { PortraitSummary(it) }
+    HoverScrollbarBox(listState) {
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(top = 4.dp, bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(TileGap)
+        ) {
+            if (data.hasPreference) {
+                item(key = "preference_title") {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        SectionTitle("你的偏好")
+                        data.portrait?.let { PortraitSummary(it) }
+                    }
                 }
-            }
-            items(data.preferences.chunked(preferenceColumns), key = { row -> "pref_${row.first().id}" }) { row ->
-                TileRow(row, preferenceColumns) { pref ->
-                    PreferenceTile(pref, data.preferenceCovers[pref.id]) { onStyleClick(pref.id, pref.name) }
+                items(data.preferences.chunked(preferenceColumns), key = { row -> "pref_${row.first().id}" }) { row ->
+                    TileRow(row, preferenceColumns) { pref ->
+                        PreferenceTile(pref, data.preferenceCovers[pref.id]) { onStyleClick(pref.id, pref.name) }
+                    }
                 }
+                item(key = "styles_gap") { Spacer(Modifier.height(8.dp)) }
             }
-            item(key = "styles_gap") { Spacer(Modifier.height(8.dp)) }
-        }
-        item(key = "styles_title") { SectionTitle("全部曲风") }
-        items(data.styles.chunked(styleColumns), key = { row -> "style_${row.first().id}" }) { row ->
-            TileRow(row, styleColumns) { style ->
-                StyleTile(style) { onStyleClick(style.id, style.name) }
+            item(key = "styles_title") { SectionTitle("全部曲风") }
+            items(data.styles.chunked(styleColumns), key = { row -> "style_${row.first().id}" }) { row ->
+                TileRow(row, styleColumns) { style ->
+                    StyleTile(style) { onStyleClick(style.id, style.name) }
+                }
             }
         }
     }

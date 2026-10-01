@@ -156,60 +156,62 @@ private fun ArtistContent(
 
     BoxWithConstraints(modifier.fillMaxSize()) {
         val columns = ((maxWidth - ContentPadding * 2) / (AlbumCardWidth + 16.dp)).toInt().coerceAtLeast(2)
-        LazyColumn(
-            state = listState,
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 24.dp)
-        ) {
-            item(key = "header") {
-                ArtistHeader(
-                    state = state,
-                    isBlocked = state.artist.id in blockedIds,
-                    onPlayHot = { state.topSongs.firstOrNull()?.let { viewModel.playSongInList(it, state.topSongs) } },
-                    onToggleFollow = {
-                        if (navigator.isLoggedIn) viewModel.toggleFollow(state.artist.id) else navigator.showMessage("请先登录账号")
-                    },
-                    onToggleBlock = { viewModel.toggleBlockArtist(state.artist.id) }
-                )
-            }
-            item(key = "tabs") {
-                TabBar(ArtistTab.entries, tab, { it.label }, { tab = it }, Modifier.padding(horizontal = ContentPadding))
-            }
-            when (tab) {
-                ArtistTab.SONGS -> {
-                    item(key = "song_tabs") {
-                        TabBar(
-                            SongTab.entries,
-                            songTab,
-                            { it.label },
-                            { songTab = it },
-                            Modifier.padding(horizontal = ContentPadding, vertical = 8.dp),
-                            small = true
-                        )
-                    }
-                    val tracks = if (songTab == SongTab.HOT) state.topSongs else state.allSongs
-                    trackItems(tracks, nowPlaying?.songId, actions) { viewModel.playSongInList(it, tracks) }
-                    if (songTab == SongTab.ALL && state.allSongsLoadingMore) loadingItem("songs_loading")
-                    if (songTab == SongTab.ALL && state.allSongsLoaded && tracks.isEmpty()) emptyItem("songs_empty", "暂无歌曲")
+        HoverScrollbarBox(listState) {
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = 24.dp)
+            ) {
+                item(key = "header") {
+                    ArtistHeader(
+                        state = state,
+                        isBlocked = state.artist.id in blockedIds,
+                        onPlayHot = { state.topSongs.firstOrNull()?.let { viewModel.playSongInList(it, state.topSongs) } },
+                        onToggleFollow = {
+                            if (navigator.isLoggedIn) viewModel.toggleFollow(state.artist.id) else navigator.showMessage("请先登录账号")
+                        },
+                        onToggleBlock = { viewModel.toggleBlockArtist(state.artist.id) }
+                    )
                 }
-                ArtistTab.ALBUMS -> {
-                    val rows = state.albums.chunked(columns)
-                    items(rows.size, key = { "album_row_$it" }) { rowIndex ->
-                        Row(
-                            Modifier.fillMaxWidth().padding(horizontal = ContentPadding, vertical = 8.dp),
-                            horizontalArrangement = Arrangement.spacedBy(16.dp)
-                        ) {
-                            rows[rowIndex].forEach { album ->
-                                AlbumCard(album) { navigator.openAlbum(album.id, album.name) }
+                item(key = "tabs") {
+                    TabBar(ArtistTab.entries, tab, { it.label }, { tab = it }, Modifier.padding(horizontal = ContentPadding))
+                }
+                when (tab) {
+                    ArtistTab.SONGS -> {
+                        item(key = "song_tabs") {
+                            TabBar(
+                                SongTab.entries,
+                                songTab,
+                                { it.label },
+                                { songTab = it },
+                                Modifier.padding(horizontal = ContentPadding, vertical = 8.dp),
+                                small = true
+                            )
+                        }
+                        val tracks = if (songTab == SongTab.HOT) state.topSongs else state.allSongs
+                        trackItems(tracks, nowPlaying?.songId, actions) { viewModel.playSongInList(it, tracks) }
+                        if (songTab == SongTab.ALL && state.allSongsLoadingMore) loadingItem("songs_loading")
+                        if (songTab == SongTab.ALL && state.allSongsLoaded && tracks.isEmpty()) emptyItem("songs_empty", "暂无歌曲")
+                    }
+                    ArtistTab.ALBUMS -> {
+                        val rows = state.albums.chunked(columns)
+                        items(rows.size, key = { "album_row_$it" }) { rowIndex ->
+                            Row(
+                                Modifier.fillMaxWidth().padding(horizontal = ContentPadding, vertical = 8.dp),
+                                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                rows[rowIndex].forEach { album ->
+                                    AlbumCard(album) { navigator.openAlbum(album.id, album.name) }
+                                }
                             }
                         }
+                        if (state.albumsLoadingMore) loadingItem("albums_loading")
+                        if (state.albums.isEmpty()) emptyItem("albums_empty", "暂无专辑")
                     }
-                    if (state.albumsLoadingMore) loadingItem("albums_loading")
-                    if (state.albums.isEmpty()) emptyItem("albums_empty", "暂无专辑")
-                }
-                ArtistTab.ABOUT -> {
-                    item(key = "about") {
-                        AboutSection(state.artist.briefDesc, state.similarArtists) { navigator.openArtist(it.id, it.name) }
+                    ArtistTab.ABOUT -> {
+                        item(key = "about") {
+                            AboutSection(state.artist.briefDesc, state.similarArtists) { navigator.openArtist(it.id, it.name) }
+                        }
                     }
                 }
             }

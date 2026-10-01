@@ -100,51 +100,54 @@ fun SettingsPage(modifier: Modifier = Modifier) {
     val failedHotkeys by hotkeys.failed.collectAsState()
     val smtcAvailable by smtc.available.collectAsState()
 
-    Column(
-        modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 32.dp, vertical = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        Text("设置", color = DesktopColors.TextPrimary, fontSize = 32.sp, fontWeight = FontWeight.Bold)
+    val scrollState = rememberScrollState()
+    HoverScrollbarBox(scrollState) {
+        Column(
+            modifier.fillMaxSize().verticalScroll(scrollState).padding(horizontal = 32.dp, vertical = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text("设置", color = DesktopColors.TextPrimary, fontSize = 32.sp, fontWeight = FontWeight.Bold)
 
-        SettingsCard("播放") {
-            SettingRow("在线播放音质") {
-                QualitySelector(quality) { scope.launch { settingsPreferences.saveWifiQuality(it) } }
-            }
-        }
-
-        SettingsCard("桌面歌词") {
-            SettingRow("显示桌面歌词") {
-                SettingSwitch(showDesktopLyric) { scope.launch { settingsPreferences.saveShowDesktopLrc(it) } }
-            }
-        }
-
-        SettingsCard("窗口") {
-            SettingRow("关闭主窗口时") {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    CloseOption("最小化到托盘", closeAction == CloseAction.TRAY) {
-                        scope.launch { desktopPreferences.saveCloseAction(CloseAction.TRAY) }
-                    }
-                    CloseOption("直接退出", closeAction == CloseAction.EXIT) {
-                        scope.launch { desktopPreferences.saveCloseAction(CloseAction.EXIT) }
-                    }
+            SettingsCard("播放") {
+                SettingRow("在线播放音质") {
+                    QualitySelector(quality) { scope.launch { settingsPreferences.saveWifiQuality(it) } }
                 }
             }
-            AutoStartRow()
-        }
 
-        SettingsCard("快捷键") {
-            SettingRow(
-                title = "系统媒体控制（媒体键与系统播放卡片）",
-                subtitle = if (smtcAvailable) null else "系统卡片不可用，已改用全局媒体键"
-            ) {
-                SettingSwitch(mediaKeysEnabled) { scope.launch { desktopPreferences.saveMediaKeysEnabled(it) } }
+            SettingsCard("桌面歌词") {
+                SettingRow("显示桌面歌词") {
+                    SettingSwitch(showDesktopLyric) { scope.launch { settingsPreferences.saveShowDesktopLrc(it) } }
+                }
             }
-            HotkeyEditor(
-                hotkeyMap = hotkeyMap,
-                failed = failedHotkeys,
-                hotkeys = hotkeys,
-                onSave = { scope.launch { desktopPreferences.saveHotkeys(it) } }
-            )
+
+            SettingsCard("窗口") {
+                SettingRow("关闭主窗口时") {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        CloseOption("最小化到托盘", closeAction == CloseAction.TRAY) {
+                            scope.launch { desktopPreferences.saveCloseAction(CloseAction.TRAY) }
+                        }
+                        CloseOption("直接退出", closeAction == CloseAction.EXIT) {
+                            scope.launch { desktopPreferences.saveCloseAction(CloseAction.EXIT) }
+                        }
+                    }
+                }
+                AutoStartRow()
+            }
+
+            SettingsCard("快捷键") {
+                SettingRow(
+                    title = "系统媒体控制（媒体键与系统播放卡片）",
+                    subtitle = if (smtcAvailable) null else "系统卡片不可用，已改用全局媒体键"
+                ) {
+                    SettingSwitch(mediaKeysEnabled) { scope.launch { desktopPreferences.saveMediaKeysEnabled(it) } }
+                }
+                HotkeyEditor(
+                    hotkeyMap = hotkeyMap,
+                    failed = failedHotkeys,
+                    hotkeys = hotkeys,
+                    onSave = { scope.launch { desktopPreferences.saveHotkeys(it) } }
+                )
+            }
         }
     }
 }

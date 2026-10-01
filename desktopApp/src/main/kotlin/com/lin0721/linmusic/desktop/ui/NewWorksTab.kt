@@ -111,35 +111,37 @@ private fun NewWorksGrid(
         if (shouldLoadMore) onLoadMore()
     }
 
-    LazyVerticalGrid(
-        columns = GridCells.Adaptive(CardWidth),
-        state = gridState,
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = EdgePadding, end = EdgePadding, top = 4.dp, bottom = 24.dp),
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        if (state.mvs.isNotEmpty()) {
-            item(key = "mv_section", span = { GridItemSpan(maxLineSpan) }) { MvSection(state.mvs) }
-        }
-        state.releaseGroups.forEachIndexed { index, group ->
-            item(key = "group_${group.period.name}", span = { GridItemSpan(maxLineSpan) }) {
-                Text(
-                    group.period.title,
-                    color = DesktopColors.TextPrimary,
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(top = if (index > 0) 16.dp else 0.dp)
-                )
+    HoverScrollbarBox(gridState) {
+        LazyVerticalGrid(
+            columns = GridCells.Adaptive(CardWidth),
+            state = gridState,
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(start = EdgePadding, end = EdgePadding, top = 4.dp, bottom = 24.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            if (state.mvs.isNotEmpty()) {
+                item(key = "mv_section", span = { GridItemSpan(maxLineSpan) }) { MvSection(state.mvs) }
             }
-            items(group.releases, key = { "${it.isAlbum}_${it.id}" }) { release ->
-                ReleaseCard(release, onAlbumClick, onSongPlay)
+            state.releaseGroups.forEachIndexed { index, group ->
+                item(key = "group_${group.period.name}", span = { GridItemSpan(maxLineSpan) }) {
+                    Text(
+                        group.period.title,
+                        color = DesktopColors.TextPrimary,
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(top = if (index > 0) 16.dp else 0.dp)
+                    )
+                }
+                items(group.releases, key = { "${it.isAlbum}_${it.id}" }) { release ->
+                    ReleaseCard(release, onAlbumClick, onSongPlay)
+                }
             }
-        }
-        if (state.isLoadingMore) {
-            item(key = "loading_more", span = { GridItemSpan(maxLineSpan) }) {
-                Box(Modifier.fillMaxWidth().padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = DesktopColors.Accent)
+            if (state.isLoadingMore) {
+                item(key = "loading_more", span = { GridItemSpan(maxLineSpan) }) {
+                    Box(Modifier.fillMaxWidth().padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = DesktopColors.Accent)
+                    }
                 }
             }
         }

@@ -191,13 +191,15 @@ private fun HomeFeed(
 
     LookaheadScope {
         CompositionLocalProvider(LocalHomeLookaheadScope provides this) {
-            LazyColumn(
-                state = listState,
-                modifier = modifier.fillMaxSize(),
-                contentPadding = PaddingValues(vertical = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(32.dp)
-            ) {
-                homeItems(data, viewModel, onPlaylistClick)
+            HoverScrollbarBox(listState) {
+                LazyColumn(
+                    state = listState,
+                    modifier = modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(vertical = 24.dp),
+                    verticalArrangement = Arrangement.spacedBy(32.dp)
+                ) {
+                    homeItems(data, viewModel, onPlaylistClick)
+                }
             }
         }
     }
