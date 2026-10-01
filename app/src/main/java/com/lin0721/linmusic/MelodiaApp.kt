@@ -117,6 +117,7 @@ fun MelodiaApp() {
     val viewModel: HomeViewModel = koinViewModel()
     val settingsPreferences: SettingsPreferences = koinInject()
     val showCreateEntry by settingsPreferences.showCreateEntry.collectAsStateWithLifecycle(initialValue = true)
+    val panelDefaultFullscreen by settingsPreferences.panelDefaultFullscreen.collectAsStateWithLifecycle(initialValue = false)
     // 迷你条、面板等 Android 组件直接消费 Media3 MediaItem，取具体实现
     val playerManager: PlayerManager = koinInject()
     val currentTrack by playerManager.currentTrack.collectAsStateWithLifecycle()
@@ -189,7 +190,12 @@ fun MelodiaApp() {
         if (isPanelShown) hasPanelBeenShown = true
     }
     LaunchedEffect(isPanelFullscreen) {
-        panelFullscreen.animateTo(if (isPanelFullscreen) 1f else 0f, PanelFullscreenSpec)
+        // 面板尚未显示时直接就位：默认全屏展开若与升起动画同时拉宽，首帧组合时进度已走一半，宽度会跳变
+        if (isPanelFullscreen && panelRise.value == 0f) {
+            panelFullscreen.snapTo(1f)
+        } else {
+            panelFullscreen.animateTo(if (isPanelFullscreen) 1f else 0f, PanelFullscreenSpec)
+        }
     }
     val panelWidth = rememberMelodiaPlayerPanelWidth()
     // 主页面内容层的实际宽度，用于算出播放面板铺满全屏时的卡片宽度
@@ -204,6 +210,12 @@ fun MelodiaApp() {
     val density = LocalDensity.current
 
     val toastMessage = rememberGlobalToastMessage()
+
+    // 已展开时不重置全屏态，避免点击迷你条把用户手动切换的侧栏/全屏状态覆盖
+    fun openPanel() {
+        if (!isPanelExpanded) isPanelFullscreen = panelDefaultFullscreen
+        isPanelExpanded = true
+    }
 
     fun handleBack() {
         val shouldReopenPlayer = navigation.navigateBack()
@@ -222,10 +234,9 @@ fun MelodiaApp() {
 
     // 系统返回键与侧滑返回拦截：按优先级关闭浮层或返回上一级。
     // activeTab != Home 时即使当前 tab 栈深为 1，也需要交给 handleBack() 退回主页 tab，而不是转给系统。
-    // 平板常驻播放面板不占用返回键——面板作为常驻工具栏跨页面持续展开，
-    // 只能通过自身的收起箭头/下拉手势关闭，返回键始终只处理内容导航
+    // 平板播放面板展开时，返回键先收起面板，再处理内容导航
     val isAnyOverlayOpen = playerSheet.isOpen || navigation.isNavigatingFromPlayer || sidebar.isOpen ||
-            showCreateSheet || navigation.showMusicNewWorks || navigation.canNavigateBack ||
+            showCreateSheet || navigation.showMusicNewWorks || isPanelVisible || navigation.canNavigateBack ||
             navigation.activeTab != Screen.Home
 
     BackHandler(enabled = isAnyOverlayOpen) {
@@ -238,6 +249,7 @@ fun MelodiaApp() {
             sidebar.isOpen -> sidebar.close()
             showCreateSheet -> showCreateSheet = false
             navigation.showMusicNewWorks -> navigation.updateShowMusicNewWorks(false)
+            isPanelVisible -> isPanelExpanded = false
             navigation.canNavigateBack || navigation.activeTab != Screen.Home -> handleBack()
         }
     }
@@ -415,7 +427,7 @@ fun MelodiaApp() {
                             onNext = { viewModel.playerManager.playNext() },
                             onMiniPlayerClick = {
                                 if (windowSizeClass == MelodiaWindowSizeClass.Expanded) {
-                                    isPanelExpanded = true
+                                    openPanel()
                                 } else {
                                     playerSheet.animateTo(true, 0f)
                                 }
@@ -598,7 +610,7 @@ fun MelodiaApp() {
                             if (windowSizeClass == MelodiaWindowSizeClass.Expanded) {
                                 // 平板播放面板位于内容层，会被识别页挡住，只能先收起识别页
                                 showRecognition = false
-                                isPanelExpanded = true
+                                openPanel()
                             } else {
                                 // 全屏播放页层级高于识别页，收起后回到识别页
                                 playerSheet.animateTo(true, 0f)

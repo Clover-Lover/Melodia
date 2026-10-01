@@ -88,6 +88,8 @@ class SettingsViewModel(
 
     val showCreateEntry = settingsPreferences.showCreateEntry.asState(true)
 
+    val panelDefaultFullscreen = settingsPreferences.panelDefaultFullscreen.asState(false)
+
     val lyricTextSize = settingsPreferences.lyricTextSize.asState(14)
 
     val lyricTextColor = settingsPreferences.lyricTextColor.asState("#FFFFFF")
@@ -246,6 +248,8 @@ class SettingsViewModel(
     fun updateCarMode(enabled: Boolean) = launchSave { settingsPreferences.saveCarMode(enabled) }
 
     fun updateShowCreateEntry(enabled: Boolean) = launchSave { settingsPreferences.saveShowCreateEntry(enabled) }
+
+    fun updatePanelDefaultFullscreen(enabled: Boolean) = launchSave { settingsPreferences.savePanelDefaultFullscreen(enabled) }
 
     fun updateLyricTextSize(size: Int) = launchSave { settingsPreferences.saveLyricTextSize(size) }
 

@@ -64,6 +64,8 @@ class SettingsPreferences(private val dataStore: DataStore<Preferences>) {
         private val KEY_CAR_MODE = booleanPreferencesKey("car_mode")
         // 底栏是否显示创建歌单快捷入口，默认 true
         private val KEY_SHOW_CREATE_ENTRY = booleanPreferencesKey("show_create_entry")
+        // 平板点击播放条时播放页直接全屏展开，默认 false（侧栏展开）
+        private val KEY_PANEL_DEFAULT_FULLSCREEN = booleanPreferencesKey("panel_default_fullscreen")
         // 悬浮歌词字体大小，默认 14sp
         private val KEY_LYRIC_TEXT_SIZE = intPreferencesKey("lyric_text_size")
         // 悬浮歌词颜色，默认 "#FFFFFF"
@@ -344,6 +346,16 @@ class SettingsPreferences(private val dataStore: DataStore<Preferences>) {
     suspend fun saveShowCreateEntry(enabled: Boolean) {
         dataStore.edit { prefs ->
             prefs[KEY_SHOW_CREATE_ENTRY] = enabled
+        }
+    }
+
+    val panelDefaultFullscreen: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_PANEL_DEFAULT_FULLSCREEN] ?: false
+    }
+
+    suspend fun savePanelDefaultFullscreen(enabled: Boolean) {
+        dataStore.edit { prefs ->
+            prefs[KEY_PANEL_DEFAULT_FULLSCREEN] = enabled
         }
     }
 
