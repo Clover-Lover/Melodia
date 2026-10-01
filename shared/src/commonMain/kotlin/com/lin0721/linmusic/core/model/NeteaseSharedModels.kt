@@ -77,7 +77,9 @@ data class PlaylistDetail(
     // 仅歌单搜索结果（cloudsearch type=1000）下发，详情接口里 tracks 本身已能反映曲目数，此字段该场景不下发，已真机核实
     val trackCount: Int = 0,
     // 完整曲目 id 顺序表；playlist/detail 的 tracks 字段服务端会截断（约1000首），超出部分需按此列表分批用 song/detail 补全
-    val trackIds: List<PlaylistTrackId> = emptyList()
+    val trackIds: List<PlaylistTrackId> = emptyList(),
+    // 仅专辑详情填充：专辑署名歌手
+    val artists: List<Artist> = emptyList()
 )
 
 @Serializable

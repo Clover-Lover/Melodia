@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.feature.playlist.data
 
+import com.lin0721.linmusic.core.model.Artist
 import com.lin0721.linmusic.core.model.EmptyBody
 import com.lin0721.linmusic.core.model.PlaylistCreator
 import com.lin0721.linmusic.core.model.PlaylistDetail
@@ -150,7 +151,9 @@ data class AlbumInfo(
     val id: Long = 0,
     val name: String = "",
     val picUrl: String = "",
-    val description: String? = null
+    val description: String? = null,
+    // 专辑署名歌手（可能多位），比取首曲 ar 更准确
+    val artists: List<Artist> = emptyList()
 )
 
 // ======================= 歌单管理 DTO =======================
