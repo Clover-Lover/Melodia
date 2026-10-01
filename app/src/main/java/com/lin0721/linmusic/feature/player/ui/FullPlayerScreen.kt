@@ -44,6 +44,8 @@ import androidx.media3.common.MediaItem
 import com.lin0721.linmusic.core.download.ui.DownloadQualityPickerSheet
 import com.lin0721.linmusic.core.player.PlayerManager
 import com.lin0721.linmusic.core.player.rememberQueueItemCoverUrl
+import com.lin0721.linmusic.core.ui.components.ArtistPickerEntry
+import com.lin0721.linmusic.core.ui.components.ArtistPickerSheet
 import com.lin0721.linmusic.core.ui.components.SwipeToSkipCover
 import com.lin0721.linmusic.core.ui.components.ToastManager
 import com.lin0721.linmusic.core.ui.theme.FallbackBackdropPalette
@@ -134,6 +136,27 @@ fun FullPlayerScreen(
     var showOutputDeviceSheet by remember { mutableStateOf(false) }
     var showDownloadQualitySheet by remember { mutableStateOf(false) }
     var showCardEditorSheet by remember { mutableStateOf(false) }
+    var artistPickerEntries by remember { mutableStateOf<List<ArtistPickerEntry>>(emptyList()) }
+    // 歌手入口统一走这里：单歌手直接跳转，多歌手弹选择面板（头像优先取已加载的歌手卡片资料）
+    val openSongArtist: () -> Unit = {
+        val avatars = songDetailState.artists.associate { it.artistId to it.artistDetail?.avatar }
+        val artists = songDetail?.ar.orEmpty()
+            .filter { it.id > 0L }
+            .distinctBy { it.id }
+            .map { ar ->
+                ArtistPickerEntry(
+                    id = ar.id,
+                    name = ar.name,
+                    avatarUrl = avatars[ar.id]?.takeIf { it.isNotBlank() }
+                        ?: ar.picUrl.ifBlank { ar.img1v1Url }.takeIf { it.isNotBlank() }
+                )
+            }
+        when (artists.size) {
+            0 -> ToastManager.showToast("未找到歌手信息")
+            1 -> onArtistClick(artists.first().id)
+            else -> artistPickerEntries = artists
+        }
+    }
     val cardLayout by viewModel.fullPlayerCardLayout.collectAsStateWithLifecycle()
     val connectedDevice = rememberCurrentOutputDevice()
 
@@ -447,11 +470,7 @@ fun FullPlayerScreen(
                         onClose = onClose,
                         onMoreClick = { showMoreOptionsSheet = true },
                         onToggleLike = viewModel::toggleLike,
-                        onArtistClick = {
-                            songDetail?.ar?.firstOrNull()?.id?.let { id ->
-                                onArtistClick(id)
-                            }
-                        },
+                        onArtistClick = openSongArtist,
                         onSeek = onSeek,
                         onTogglePlay = onTogglePlay,
                         onPlayNext = viewModel.playerManager::playNext,
@@ -497,11 +516,7 @@ fun FullPlayerScreen(
                     backgroundColor = colors.base,
                     currentPositionProvider = currentPositionProvider,
                     duration = duration,
-                    onArtistClick = {
-                        songDetail?.ar?.firstOrNull()?.id?.let { id ->
-                            onArtistClick(id)
-                        }
-                    },
+                    onArtistClick = openSongArtist,
                     modifier = Modifier.draggable(
                         orientation = Orientation.Vertical,
                         state = rememberDraggableState { delta ->
@@ -554,9 +569,7 @@ fun FullPlayerScreen(
                         artist = displayedArtist,
                         isLiked = songDetailState.isLiked,
                         onToggleLike = viewModel::toggleLike,
-                        onArtistClick = {
-                            songDetail?.ar?.firstOrNull()?.id?.let { id -> onArtistClick(id) }
-                        }
+                        onArtistClick = openSongArtist
                     )
                     ProgressSection(
                         currentPositionProvider = currentPositionProvider,
@@ -646,6 +659,14 @@ fun FullPlayerScreen(
             onMoreClick = { showMoreOptionsSheet = true }
         )
 
+        if (artistPickerEntries.isNotEmpty()) {
+            ArtistPickerSheet(
+                artists = artistPickerEntries,
+                onArtistClick = onArtistClick,
+                onDismiss = { artistPickerEntries = emptyList() }
+            )
+        }
+
         FullPlayerSheets(
             songState = songDetailState,
             showQueueSheet = showQueueSheet,
@@ -686,13 +707,8 @@ fun FullPlayerScreen(
                 }
             },
             onArtistClick = {
-                val artistId = songDetail?.ar?.firstOrNull()?.id ?: 0L
-                if (artistId > 0L) {
-                    showMoreOptionsSheet = false
-                    onArtistClick(artistId)
-                } else {
-                    ToastManager.showToast("未找到歌手信息")
-                }
+                showMoreOptionsSheet = false
+                openSongArtist()
             },
             onShowTimerClick = {
                 showTimerSheet = true
