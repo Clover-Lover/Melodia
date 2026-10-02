@@ -286,6 +286,8 @@ fun FullScreenLyricsSettingsSheet(
     hasRoma: Boolean,
     advancedKaraokeEffect: Boolean = true,
     onAdvancedKaraokeEffectChange: (Boolean) -> Unit = {},
+    amllLyricsEnabled: Boolean = true,
+    onAmllLyricsEnabledChange: (Boolean) -> Unit = {},
     onDismiss: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -381,7 +383,10 @@ fun FullScreenLyricsSettingsSheet(
                 ) {
                     Text(
                         text = label,
-                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                        color = when {
+                            isSelected -> MaterialTheme.colorScheme.primary
+                            else -> MaterialTheme.colorScheme.onSurface
+                        },
                         fontSize = 15.sp
                     )
                     if (isSelected) {
@@ -432,6 +437,32 @@ fun FullScreenLyricsSettingsSheet(
             }
 
             Spacer(modifier = Modifier.height(MelodiaSpacing.sm))
+
+            // AMLL 歌词源
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable { onAmllLyricsEnabledChange(!amllLyricsEnabled) }
+                    .padding(vertical = 8.dp, horizontal = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = "启用 AMLL 歌词源",
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontSize = 15.sp,
+                    modifier = Modifier.weight(1f)
+                )
+                Switch(
+                    checked = amllLyricsEnabled,
+                    onCheckedChange = onAmllLyricsEnabledChange,
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = MaterialTheme.colorScheme.primary,
+                        checkedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                    )
+                )
+            }
 
             // 逐字歌词流光动效
             Row(

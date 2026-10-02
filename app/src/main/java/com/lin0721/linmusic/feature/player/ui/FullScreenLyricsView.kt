@@ -48,6 +48,8 @@ import org.koin.compose.koinInject
 fun FullScreenLyricsView(
     lyrics: List<LyricLine>,
     currentIndex: Int,
+    // 同时需要高亮的行（对唱/背景和声的重叠区间）；留空时退回只高亮 currentIndex
+    activeIndices: Set<Int> = emptySet(),
     isLoading: Boolean,
     title: String,
     artist: String,
@@ -59,6 +61,7 @@ fun FullScreenLyricsView(
     onDragClose: () -> Unit = onClose,
     isPlaying: Boolean,
     currentPositionProvider: () -> Long,
+    lyricPositionProvider: () -> Long = currentPositionProvider,
     duration: Long,
     onTogglePlay: () -> Unit,
     onPlayNext: () -> Unit,
@@ -77,6 +80,7 @@ fun FullScreenLyricsView(
     val fullScreenLyricAlignment by settingsPreferences.fullScreenLyricAlignment.collectAsStateWithLifecycle(initialValue = "left")
     val fullScreenLyricSecondaryMode by settingsPreferences.fullScreenLyricSecondaryMode.collectAsStateWithLifecycle(initialValue = "translation")
     val fullScreenKaraokeAdvancedEffect by settingsPreferences.fullScreenKaraokeAdvancedEffect.collectAsStateWithLifecycle(initialValue = true)
+    val amllLyricsEnabled by settingsPreferences.amllLyricsEnabled.collectAsStateWithLifecycle(initialValue = true)
     val fullScreenLyricLineSpacing by settingsPreferences.fullScreenLyricLineSpacing.collectAsStateWithLifecycle(initialValue = 24)
     val fullScreenLyricSecondarySpacing by settingsPreferences.fullScreenLyricSecondarySpacing.collectAsStateWithLifecycle(initialValue = 6)
 
@@ -227,10 +231,11 @@ fun FullScreenLyricsView(
             FullScreenLyricsList(
                 lyrics = lyrics,
                 currentIndex = currentIndex,
+                activeIndices = activeIndices,
                 isLoading = isLoading,
                 isUserScrolling = isUserScrolling,
                 highlightColor = highlightColor,
-                currentPositionProvider = currentPositionProvider,
+                currentPositionProvider = lyricPositionProvider,
                 lazyListState = lazyListState,
                 viewportHeightPx = dragState.viewportHeightPx,
                 onViewportHeightChange = { height -> dragState.onViewportHeightChange(height) },
@@ -296,6 +301,10 @@ fun FullScreenLyricsView(
                 advancedKaraokeEffect = fullScreenKaraokeAdvancedEffect,
                 onAdvancedKaraokeEffectChange = { enabled ->
                     scope.launch { settingsPreferences.saveFullScreenKaraokeAdvancedEffect(enabled) }
+                },
+                amllLyricsEnabled = amllLyricsEnabled,
+                onAmllLyricsEnabledChange = { enabled ->
+                    scope.launch { settingsPreferences.saveAmllLyricsEnabled(enabled) }
                 },
                 onDismiss = { showSettingsSheet = false }
             )

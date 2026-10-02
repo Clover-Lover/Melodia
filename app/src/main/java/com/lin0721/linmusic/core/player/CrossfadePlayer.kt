@@ -48,6 +48,12 @@ class CrossfadePlayer(
     private val active: ExoPlayer
         get() = if (player === secondary) secondary else primary
 
+    // 逐字歌词读取当前接管播放的 ExoPlayer，切换两台播放器时自动跟随。
+    // 与其余 Player API 一样，只能从 applicationLooper 所在线程调用。
+    internal fun currentPositionSample(): PlaybackPositionSample? = active.run {
+        currentMediaItem?.let { PlaybackPositionSample(it.mediaId, currentPosition) }
+    }
+
     private val fadeStep = object : Runnable {
         override fun run() {
             val out = outgoing ?: return

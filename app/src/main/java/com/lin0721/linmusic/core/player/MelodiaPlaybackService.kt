@@ -183,6 +183,7 @@ class MelodiaPlaybackService : MediaSessionService() {
             externalLyricCoordinator.applyToMediaMetadata(base.buildUpon(), base)
         }
         crossfadePlayer = sessionPlayer
+        playerManager.setPlaybackPositionSource(sessionPlayer::currentPositionSample)
 
         serviceScope.launch {
             settingsPreferences.playWithOtherApps.collect { playWithOtherApps ->
@@ -257,6 +258,7 @@ class MelodiaPlaybackService : MediaSessionService() {
     }
 
     override fun onDestroy() {
+        playerManager.setPlaybackPositionSource(null)
         AppLogger.i(TAG, "Service onDestroy instanceId=${System.identityHashCode(this)}")
         externalInterruptionResumeController.release()
         externalLyricCoordinator.onMetadataChanged = null

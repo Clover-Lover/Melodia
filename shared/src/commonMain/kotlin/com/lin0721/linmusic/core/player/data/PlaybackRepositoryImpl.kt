@@ -70,9 +70,8 @@ class PlaybackRepositoryImpl(
                 else -> {
                     val yrcText = response.yrc?.lyric
                     val lrcText = response.lrc?.lyric
-                    // 检测歌词文本中是否包含“纯音乐”或“Instrumental”标识
-                    val isInstrumental = (!yrcText.isNullOrBlank() && (yrcText.contains("纯音乐") || yrcText.contains("Instrumental", ignoreCase = true))) ||
-                            (!lrcText.isNullOrBlank() && (lrcText.contains("纯音乐") || lrcText.contains("Instrumental", ignoreCase = true)))
+                    // 只识别独立的纯音乐标识，制作人员信息中的 Instrumental 不能覆盖正文。
+                    val isInstrumental = isInstrumentalLyrics(yrcText) || isInstrumentalLyrics(lrcText)
                     if (isInstrumental) {
                         listOf(LyricLine(timeMs = 0, text = "纯音乐"))
                     } else {
@@ -220,5 +219,15 @@ class PlaybackRepositoryImpl(
     }.catch { e ->
         AppLogger.e(TAG, "打卡上报 play 请求异常", e)
         emit(Result.failure(mapToAppError(e)))
+    }
+}
+
+internal fun isInstrumentalLyrics(text: String?): Boolean {
+    if (text.isNullOrBlank()) return false
+    val lines = LyricParser.parseYrc(text).ifEmpty { LyricParser.parseLrc(text) }
+        .map { it.text.trim() }.filter { it.isNotEmpty() }
+    return lines.isNotEmpty() && lines.all {
+        it.equals("Instrumental", ignoreCase = true) ||
+            it == "纯音乐" || it == "纯音乐，请欣赏" || it == "纯音乐,请欣赏"
     }
 }

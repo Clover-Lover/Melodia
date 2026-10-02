@@ -106,12 +106,19 @@ fun FullPlayerScreen(
     val viewModel: PlayerViewModel = koinViewModel()
     // 输出设备切换为 Android 专属能力，不在跨平台接口里
     val playerManager: PlayerManager = koinInject()
+    val lyricPositionProvider: () -> Long = {
+        // 保留采样状态的读取依赖，让暂停时的手动跳转也触发重绘；
+        // 扫色进度使用共用的绘制时钟，只在 PlayerManager 中平滑推进和校正。
+        currentPositionProvider()
+        playerManager.currentPositionNow()
+    }
     val songDetailState by viewModel.songDetailState.collectAsStateWithLifecycle()
     val songDetail = songDetailState.songDetail
     // 大播放按钮专用：弱网缓冲期间也要立刻显示"暂停中"图标，不能等音频真正流出的 isPlaying；
     // 歌词区/顶栏/队列等其他地方仍按严格的 isPlaying 判断，不受影响
     val playWhenReady by viewModel.playerManager.playWhenReady.collectAsStateWithLifecycle()
     val currentLyricIndex by viewModel.currentLyricIndex.collectAsStateWithLifecycle()
+    val activeLyricIndices by viewModel.activeLyricIndices.collectAsStateWithLifecycle()
     val playContext by viewModel.playerManager.playContext.collectAsStateWithLifecycle()
     val sleepTimerRemaining by viewModel.sleepTimerRemaining.collectAsStateWithLifecycle()
     val commentsState by viewModel.commentsState.collectAsStateWithLifecycle()
@@ -471,7 +478,7 @@ fun FullPlayerScreen(
                         onMoreClick = { showMoreOptionsSheet = true },
                         onToggleLike = viewModel::toggleLike,
                         onArtistClick = openSongArtist,
-                        onSeek = onSeek,
+                        onSeek = viewModel::seekToTime,
                         onTogglePlay = onTogglePlay,
                         onPlayNext = viewModel.playerManager::playNext,
                         onPlayPrevious = viewModel.playerManager::playPrevious,
@@ -574,7 +581,7 @@ fun FullPlayerScreen(
                     ProgressSection(
                         currentPositionProvider = currentPositionProvider,
                         duration = if (duration > 0L) duration else (songDetail?.dt ?: 0L),
-                        onSeek = onSeek,
+                        onSeek = viewModel::seekToTime,
                         chorusStartMs = songDetailState.chorusStartMs
                     )
                     PlaybackControls(
@@ -600,8 +607,9 @@ fun FullPlayerScreen(
                 lyrics = songDetailState.lyrics,
                 isLyricsLoading = songDetailState.isLyricsLoading,
                 currentLyricIndex = currentLyricIndex,
+                activeLyricIndices = activeLyricIndices,
                 highlightColor = colors.textHighlight,
-                currentPositionProvider = currentPositionProvider,
+                currentPositionProvider = lyricPositionProvider,
                 isPlaying = isPlaying,
                 onLyricClick = { line -> viewModel.seekToTime(line.timeMs) },
                 onLyricsVisibleChange = { isWideLyricsVisible = it },
@@ -640,11 +648,13 @@ fun FullPlayerScreen(
             songState = songDetailState,
             colors = colors,
             currentLyricIndex = currentLyricIndex,
+            activeLyricIndices = activeLyricIndices,
             title = title,
             artist = artist,
             hazeState = hazeState,
             isPlaying = isPlaying,
             currentPositionProvider = currentPositionProvider,
+            lyricPositionProvider = lyricPositionProvider,
             duration = duration,
             playMode = playMode,
             onSeek = { timeMs ->

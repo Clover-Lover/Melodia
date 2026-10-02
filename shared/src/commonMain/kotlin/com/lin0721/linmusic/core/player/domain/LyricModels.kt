@@ -7,6 +7,9 @@ data class WordInfo(
     val durationMs: Long      // 该字/词的持续发音毫秒数
 )
 
+// TTML/AMLL 对唱对齐：首位 agent 靠左，其余靠右
+enum class LyricAlignment { START, END }
+
 // 歌词行领域模型
 data class LyricLine(
     val timeMs: Long,
@@ -14,7 +17,10 @@ data class LyricLine(
     val text: String,
     val translation: String? = null,
     val roma: String? = null,
-    val words: List<WordInfo> = emptyList() // 如果是普通LRC则此列表为空；YRC则填入单字列表
+    val words: List<WordInfo> = emptyList(), // 如果是普通LRC则此列表为空；YRC则填入单字列表
+    // 以下两项来自 AMLL TTML：alignment 决定对唱行的左右对齐，backgroundLine 承载 x-bg 背景和声
+    val alignment: LyricAlignment = LyricAlignment.START,
+    val backgroundLine: LyricLine? = null
 )
 
 // 歌词行在 LazyColumn 里展示用的稳定 key：不能只用 timeMs，逐字歌词里作词/作曲等信息行经常共享同一个

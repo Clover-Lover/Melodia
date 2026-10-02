@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -28,11 +29,21 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lin0721.linmusic.core.player.domain.LyricAlignment
 import com.lin0721.linmusic.core.player.domain.LyricLine
 import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 
+private const val RESERVED_LYRIC_SCALE = 1.15f
+private const val NEARBY_LYRIC_ALPHA = 0.65f
+
+// 为当前行的放大与弹簧回弹预留宽度。graphicsLayer 的缩放发生在布局之后、且不参与父级测量，
+// 所以必须在布局阶段预留空间，长行才会在放大后仍落在视口内。
+// 少了这层预留，放大后的左右两端会直接顶出屏幕。
+private const val SCALED_LYRIC_WIDTH_FRACTION = 1f / RESERVED_LYRIC_SCALE
+
+// 歌词单行：按距当前行的远近做缩放与透明度递减，当前行走逐字流光，可附带译文/罗马音与背景和声
 // 缩放/透明度动画值只在 graphicsLayer 块内读取，变化时仅刷新绘制阶段
 @Composable
 fun FullScreenLyricsRow(
@@ -72,32 +83,49 @@ fun FullScreenLyricsRow(
         }
     } else Modifier
 
-    val textAlign = when (alignment) {
+    // 右对齐时交换主声部和对唱声部的位置；居中时两者都居中。
+    val effectiveAlignment = when {
+        alignment == "center" -> "center"
+        alignment == "right" && line.alignment == LyricAlignment.END -> "left"
+        line.alignment == LyricAlignment.END -> "right"
+        else -> alignment
+    }
+    val textAlign = when (effectiveAlignment) {
         "center" -> TextAlign.Center
         "right" -> TextAlign.End
         else -> TextAlign.Start
     }
-    val horizontalAlignment = when (alignment) {
+    // 缩放不改变布局，所以得靠外层 Box 把定宽列推到正确的一侧
+    val contentAlignment = when (effectiveAlignment) {
+        "center" -> Alignment.Center
+        "right" -> Alignment.CenterEnd
+        else -> Alignment.CenterStart
+    }
+    val horizontalAlignment = when (effectiveAlignment) {
         "center" -> Alignment.CenterHorizontally
         "right" -> Alignment.End
         else -> Alignment.Start
     }
-    val targetTransformOrigin = when (alignment) {
+    val targetTransformOrigin = when (effectiveAlignment) {
         "center" -> TransformOrigin(0.5f, 0.5f)
         "right" -> TransformOrigin(1f, 0.5f)
         else -> TransformOrigin(0f, 0.5f)
     }
+
     val mainFontSize = fontSize.sp
-    val translationFontSize = (fontSize - 5).coerceAtLeast(12).sp
     val mainLineHeight = (fontSize * 1.35f).sp
-    val translationLineHeight = (translationFontSize.value * 1.35f).sp
     val spacingBetween = secondarySpacing.coerceAtLeast(0).dp
+    val secondaryFontSize = (fontSize - 5).coerceAtLeast(12).sp
+    val backgroundFontSize = (fontSize - 5).coerceAtLeast(12).sp
+    val backgroundLineHeight = (backgroundFontSize.value * 1.4f).sp
 
     val targetScale = when {
         isCurrent -> 1.12f
         isCenterTarget -> 1.04f
         else -> when (distance) {
-            1 -> 0.98f
+            // 间奏时锚点仍在已结束的行，但高亮集合已清空；距离 0 也属于邻近行，
+            // 不能像上游单行高亮模式那样假设它必然是 isCurrent，否则会缩到最小。
+            0, 1 -> 0.98f
             2 -> 0.94f
             else -> 0.90f
         }
@@ -112,7 +140,7 @@ fun FullScreenLyricsRow(
         isCurrent -> 1f
         isCenterTarget -> 0.95f
         else -> when (distance) {
-            1 -> 0.65f
+            0, 1 -> NEARBY_LYRIC_ALPHA
             2 -> 0.45f
             else -> 0.28f
         }
@@ -123,83 +151,145 @@ fun FullScreenLyricsRow(
         label = "fs_lyric_alpha_$index"
     )
 
-    val widthFraction = if (alignment == "center") 0.9f else 0.85f
-    val paddingStart = when (alignment) {
-        "center" -> 24.dp
-        "left" -> MelodiaSpacing.md
-        else -> 0.dp
-    }
-    val paddingEnd = when (alignment) {
-        "center" -> 24.dp
-        "right" -> MelodiaSpacing.md
-        else -> 0.dp
-    }
-
-    Column(
+    Box(
         modifier = Modifier
-            .fillMaxWidth(widthFraction)
-            .padding(start = paddingStart, end = paddingEnd)
-            .graphicsLayer {
-                scaleX = animatedScale
-                scaleY = animatedScale
-                alpha = animatedAlpha
-                transformOrigin = targetTransformOrigin
-            }
-            .pressable(MelodiaPress.None) {
-                onClick()
-            },
-        horizontalAlignment = horizontalAlignment
+            .fillMaxWidth()
+            .padding(horizontal = MelodiaSpacing.lg),
+        contentAlignment = contentAlignment
     ) {
-        if (isCurrent && line.words.isNotEmpty()) {
-            // 逐字高亮行拿不到排版结果，命中范围退化为整行
-            textBounds?.mainLayout = null
-            Box(modifier = reportMainBounds) {
-                KaraokeLyricRow(
-                    line = line,
-                    currentPositionProvider = currentPositionProvider,
-                    inactiveColor = highlightColor.copy(alpha = 0.5f),
-                    activeColor = Color.White,
+        Column(
+            modifier = Modifier
+                .fillMaxWidth(SCALED_LYRIC_WIDTH_FRACTION)
+                .graphicsLayer {
+                    scaleX = animatedScale
+                    scaleY = animatedScale
+                    alpha = animatedAlpha
+                    transformOrigin = targetTransformOrigin
+                }
+                .pressable(MelodiaPress.None) {
+                    onClick()
+                },
+            horizontalAlignment = horizontalAlignment
+        ) {
+            if (isCurrent && line.words.isNotEmpty()) {
+                // 逐字高亮行拿不到排版结果，命中范围退化为整行
+                textBounds?.mainLayout = null
+                Box(modifier = reportMainBounds) {
+                    KaraokeLyricRow(
+                        line = line,
+                        currentPositionProvider = currentPositionProvider,
+                        // 当前行未唱部分与相邻非高亮行使用同一亮度基准。
+                        inactiveColor = highlightColor.copy(alpha = highlightColor.alpha * NEARBY_LYRIC_ALPHA),
+                        activeColor = Color.White,
+                        fontSize = mainFontSize,
+                        lineHeight = mainLineHeight,
+                        textAlign = textAlign,
+                        advancedEffect = advancedKaraokeEffect,
+                        isPlaying = isPlaying,
+                        isActive = isCurrent
+                    )
+                }
+            } else {
+                Text(
+                    text = line.text,
                     fontSize = mainFontSize,
                     lineHeight = mainLineHeight,
+                    color = if (isCurrent) Color.White else highlightColor,
+                    fontWeight = FontWeight.ExtraBold,
                     textAlign = textAlign,
-                    advancedEffect = advancedKaraokeEffect,
-                    isPlaying = isPlaying
+                    onTextLayout = { textBounds?.mainLayout = it },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .then(reportMainBounds)
                 )
             }
-        } else {
-            Text(
-                text = line.text,
-                fontSize = mainFontSize,
-                lineHeight = mainLineHeight,
-                color = if (isCurrent) Color.White else highlightColor,
-                fontWeight = FontWeight.ExtraBold,
-                textAlign = textAlign,
-                onTextLayout = { textBounds?.mainLayout = it },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .then(reportMainBounds)
-            )
-        }
-        val secondaryText = when (secondaryMode) {
-            "translation" -> line.translation
-            "roma" -> line.roma
-            else -> null
-        }
-        if (secondaryText != null) {
-            Spacer(modifier = Modifier.height(spacingBetween))
-            Text(
-                text = secondaryText,
-                fontSize = translationFontSize,
-                lineHeight = translationLineHeight,
-                color = if (isCurrent) Color.White else highlightColor,
-                textAlign = textAlign,
-                onTextLayout = { textBounds?.secondaryLayout = it },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .then(reportSecondaryBounds)
-            )
-        } else {
-            textBounds?.secondary = null
+
+            val secondaryText = when (secondaryMode) {
+                "translation" -> line.translation
+                "roma" -> line.roma
+                else -> null
+            }
+            if (secondaryText != null) {
+                Spacer(modifier = Modifier.height(spacingBetween))
+                Text(
+                    text = secondaryText,
+                    fontSize = secondaryFontSize,
+                    // 只随整行 animatedAlpha 淡出。结束时切到不透明的 highlightColor
+                    // 会在整行透明度动画尚未下降前先提亮一次，让翻译看起来闪了一下。
+                    color = Color.White.copy(alpha = 0.65f),
+                    textAlign = textAlign,
+                    onTextLayout = { textBounds?.secondaryLayout = it },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .then(reportSecondaryBounds)
+                )
+            } else {
+                textBounds?.secondary = null
+            }
+
+            // AMLL TTML 的背景和声行（m:role="x-bg"）：字号更小、颜色更淡，
+            // 整体缩进到 90% 宽并按自身对齐方式摆放，避免和主声部抢视觉重心。
+            line.backgroundLine?.let { background ->
+                // 未激活和本行激活但和声尚未开唱时使用同一底色，避免状态切换变色。
+                val backgroundInactiveColor = Color.White.copy(alpha = 0.22f)
+                val backgroundActiveColor = Color.White.copy(alpha = 0.82f)
+                val backgroundTextAlign = textAlign
+                Spacer(modifier = Modifier.height(8.dp))
+                Column(
+                    modifier = Modifier.fillMaxWidth(0.9f),
+                    horizontalAlignment = when (backgroundTextAlign) {
+                        TextAlign.Center -> Alignment.CenterHorizontally
+                        TextAlign.End -> Alignment.End
+                        else -> Alignment.Start
+                    }
+                ) {
+                    if (background.words.isNotEmpty()) {
+                        KaraokeLyricRow(
+                            line = background,
+                            currentPositionProvider = currentPositionProvider,
+                            inactiveColor = backgroundInactiveColor,
+                            activeColor = backgroundActiveColor,
+                            fontSize = backgroundFontSize,
+                            lineHeight = backgroundLineHeight,
+                            textAlign = backgroundTextAlign,
+                            advancedEffect = advancedKaraokeEffect,
+                            isPlaying = isPlaying,
+                            fontWeight = FontWeight.Bold,
+                            isActive = isCurrent
+                        )
+                    } else {
+                        Text(
+                            text = background.text,
+                            fontSize = backgroundFontSize,
+                            lineHeight = backgroundLineHeight,
+                            color = if (isCurrent) backgroundActiveColor else backgroundInactiveColor,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = backgroundTextAlign,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                    background.translation?.let {
+                        Spacer(modifier = Modifier.height(3.dp))
+                        Text(
+                            text = it,
+                            fontSize = (fontSize - 8).coerceAtLeast(11).sp,
+                            color = Color.White.copy(alpha = 0.55f),
+                            textAlign = backgroundTextAlign,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                    background.roma?.let {
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = it,
+                            fontSize = (fontSize - 9).coerceAtLeast(11).sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                            textAlign = backgroundTextAlign,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+            }
         }
     }
 }
