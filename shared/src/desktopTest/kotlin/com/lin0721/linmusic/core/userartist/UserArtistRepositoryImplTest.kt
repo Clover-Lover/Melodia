@@ -9,11 +9,9 @@ import org.junit.Test
 
 // 手写 Fake 代替真实网络请求
 private class FakeUserArtistApi(
-    private val sublist: () -> ArtistSublistResponse = { error("not used in this test") },
-    private val topArtists: () -> TopArtistsResponse = { error("not used in this test") }
+    private val sublist: (ArtistSublistRequest) -> ArtistSublistResponse = { error("not used in this test") }
 ) : UserArtistApi {
-    override suspend fun getArtistSublist(body: ArtistSublistRequest): ArtistSublistResponse = sublist()
-    override suspend fun getTopArtists(body: TopArtistsRequest): TopArtistsResponse = topArtists()
+    override suspend fun getArtistSublist(body: ArtistSublistRequest): ArtistSublistResponse = sublist(body)
 }
 
 class UserArtistRepositoryImplTest {
@@ -21,70 +19,43 @@ class UserArtistRepositoryImplTest {
     private fun artist(id: Long, name: String) = Artist(id = id, name = name, picUrl = "pic/$id", img1v1Url = "avatar/$id")
 
     @Test
-    fun `已关注歌手非空时直接使用已关注列表，不回退到热门歌手`() = runBlocking {
+    fun `返回已关注歌手列表`() = runBlocking {
         val api = FakeUserArtistApi(
-            sublist = { ArtistSublistResponse(code = 200, data = listOf(artist(1, "已关注歌手"))) },
-            topArtists = { error("不应该调用热门歌手接口") }
+            sublist = { _ -> ArtistSublistResponse(code = 200, data = listOf(artist(1, "已关注歌手"))) }
         )
-        val repo = UserArtistRepositoryImpl(api)
 
-        val result = repo.getFavoriteArtists().first()
+        val result = UserArtistRepositoryImpl(api).getFavoriteArtists().first()
 
         assertTrue(result.isSuccess)
-        assertEquals(1, result.getOrNull()?.size)
-        assertEquals("已关注歌手", result.getOrNull()?.first()?.name)
+        assertEquals(listOf("已关注歌手"), result.getOrNull()?.map { it.name })
     }
 
     @Test
-    fun `已关注歌手为空时回退到热门歌手榜单`() = runBlocking {
+    fun `未关注任何歌手时返回空列表而不是热门歌手`() = runBlocking {
         val api = FakeUserArtistApi(
-            sublist = { ArtistSublistResponse(code = 200, data = emptyList()) },
-            topArtists = { TopArtistsResponse(code = 200, artists = listOf(artist(2, "热门歌手"))) }
+            sublist = { _ -> ArtistSublistResponse(code = 200, data = emptyList()) }
         )
-        val repo = UserArtistRepositoryImpl(api)
 
-        val result = repo.getFavoriteArtists().first()
+        val result = UserArtistRepositoryImpl(api).getFavoriteArtists().first()
 
         assertTrue(result.isSuccess)
-        assertEquals("热门歌手", result.getOrNull()?.first()?.name)
+        assertEquals(emptyList<Any>(), result.getOrNull())
     }
 
     @Test
-    fun `已关注歌手接口异常时静默捕获并回退到热门歌手榜单`() = runBlocking {
-        val api = FakeUserArtistApi(
-            sublist = { throw RuntimeException("网络异常") },
-            topArtists = { TopArtistsResponse(code = 200, artists = listOf(artist(3, "备用歌手"))) }
-        )
-        val repo = UserArtistRepositoryImpl(api)
+    fun `接口异常且无任何数据时返回失败`() = runBlocking {
+        val api = FakeUserArtistApi(sublist = { _ -> throw RuntimeException("网络异常") })
 
-        val result = repo.getFavoriteArtists().first()
-
-        assertTrue(result.isSuccess)
-        assertEquals("备用歌手", result.getOrNull()?.first()?.name)
-    }
-
-    @Test
-    fun `已关注与热门歌手均为空时返回失败结果`() = runBlocking {
-        val api = FakeUserArtistApi(
-            sublist = { ArtistSublistResponse(code = 200, data = emptyList()) },
-            topArtists = { TopArtistsResponse(code = 200, artists = emptyList()) }
-        )
-        val repo = UserArtistRepositoryImpl(api)
-
-        val result = repo.getFavoriteArtists().first()
+        val result = UserArtistRepositoryImpl(api).getFavoriteArtists().first()
 
         assertTrue(result.isFailure)
     }
 
     @Test
-    fun `热门歌手接口返回非成功状态码时返回失败结果`() = runBlocking {
-        val api = FakeUserArtistApi(
-            sublist = { ArtistSublistResponse(code = 200, data = emptyList()) },
-            topArtists = { TopArtistsResponse(code = 400, artists = emptyList()) }
-        )
-        val repo = UserArtistRepositoryImpl(api)
+    fun `业务码非200且无数据时返回失败`() = runBlocking {
+        val api = FakeUserArtistApi(sublist = { _ -> ArtistSublistResponse(code = 301) })
 
-        val result = repo.getFavoriteArtists().first()
+        val result = UserArtistRepositoryImpl(api).getFavoriteArtists().first()
 
         assertTrue(result.isFailure)
     }
@@ -92,16 +63,15 @@ class UserArtistRepositoryImplTest {
     @Test
     fun `优先使用已关注歌手的头像信息(img1v1Url优先于picUrl)`() = runBlocking {
         val api = FakeUserArtistApi(
-            sublist = {
+            sublist = { _ ->
                 ArtistSublistResponse(
                     code = 200,
                     data = listOf(Artist(id = 1, name = "歌手", picUrl = "fallback.jpg", img1v1Url = "primary.jpg"))
                 )
             }
         )
-        val repo = UserArtistRepositoryImpl(api)
 
-        val result = repo.getFavoriteArtists().first()
+        val result = UserArtistRepositoryImpl(api).getFavoriteArtists().first()
 
         assertEquals("primary.jpg", result.getOrNull()?.first()?.avatarUrl)
     }
@@ -109,17 +79,65 @@ class UserArtistRepositoryImplTest {
     @Test
     fun `已关注歌手头像为空时回退使用picUrl`() = runBlocking {
         val api = FakeUserArtistApi(
-            sublist = {
+            sublist = { _ ->
                 ArtistSublistResponse(
                     code = 200,
                     data = listOf(Artist(id = 1, name = "歌手", picUrl = "fallback.jpg", img1v1Url = ""))
                 )
             }
         )
-        val repo = UserArtistRepositoryImpl(api)
 
-        val result = repo.getFavoriteArtists().first()
+        val result = UserArtistRepositoryImpl(api).getFavoriteArtists().first()
 
         assertEquals("fallback.jpg", result.getOrNull()?.first()?.avatarUrl)
+    }
+
+    @Test
+    fun `已关注歌手超过一页时分页拉取全部`() = runBlocking {
+        val total = 250
+        val requests = mutableListOf<ArtistSublistRequest>()
+        val api = FakeUserArtistApi(
+            sublist = { req ->
+                requests += req
+                val page = (req.offset until minOf(req.offset + req.limit, total)).map { artist(it.toLong(), "歌手$it") }
+                ArtistSublistResponse(code = 200, data = page, hasMore = req.offset + req.limit < total)
+            }
+        )
+
+        val result = UserArtistRepositoryImpl(api).getFavoriteArtists().first()
+
+        assertEquals(total, result.getOrNull()?.size)
+        assertEquals(listOf(0, 100, 200), requests.map { it.offset })
+    }
+
+    @Test
+    fun `翻页中途失败时保留已取到的歌手`() = runBlocking {
+        val api = FakeUserArtistApi(
+            sublist = { req ->
+                if (req.offset == 0) {
+                    ArtistSublistResponse(code = 200, data = (1L..100L).map { artist(it, "歌手$it") }, hasMore = true)
+                } else {
+                    throw RuntimeException("第二页失败")
+                }
+            }
+        )
+
+        val result = UserArtistRepositoryImpl(api).getFavoriteArtists().first()
+
+        assertTrue(result.isSuccess)
+        assertEquals(100, result.getOrNull()?.size)
+    }
+
+    @Test
+    fun `服务端忽略offset重复返回同一页时不会死循环`() = runBlocking {
+        val api = FakeUserArtistApi(
+            sublist = { _ ->
+                ArtistSublistResponse(code = 200, data = (1L..100L).map { artist(it, "歌手$it") }, hasMore = true)
+            }
+        )
+
+        val result = UserArtistRepositoryImpl(api).getFavoriteArtists().first()
+
+        assertEquals(100, result.getOrNull()?.size)
     }
 }

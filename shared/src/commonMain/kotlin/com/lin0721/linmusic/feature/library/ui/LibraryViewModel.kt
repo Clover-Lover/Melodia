@@ -210,7 +210,7 @@ class LibraryViewModel(
                 val artistsDeferred = async {
                     val result = userArtistRepository.getFavoriteArtists().firstOrNull()
                     result?.exceptionOrNull()?.let { AppLogger.w(TAG, "获取收藏歌手失败", it) }
-                    result?.getOrNull() ?: emptyList()
+                    result
                 }
 
                 // 3. 并行获取专辑
@@ -228,7 +228,9 @@ class LibraryViewModel(
                 }
 
                 val playlists = playlistsDeferred.await()
-                val artists = artistsDeferred.await()
+                val artistsResult = artistsDeferred.await()
+                val artists = artistsResult?.getOrNull() ?: emptyList()
+                val artistsError = artistsResult?.exceptionOrNull()
                 val albums = albumsDeferred.await()
                 val subcount = subcountDeferred.await()
 
@@ -288,13 +290,24 @@ class LibraryViewModel(
                     )
                 }
 
-                val combinedItems = mappedPlaylists + mappedArtists + mappedAlbums
+                // 歌手请求失败时提示用户；刷新场景下沿用上次已加载的歌手，避免列表被清空
+                val displayArtists = if (artistsError != null && isRefresh) {
+                    (_uiState.value as? LibraryUiState.Success)?.allItems
+                        ?.filter { it.type == LibraryItemType.ARTIST } ?: mappedArtists
+                } else {
+                    mappedArtists
+                }
+                if (artistsError != null) {
+                    _toastEvent.emit(artistsError.toUserMessage(resourceProvider))
+                }
+
+                val combinedItems = mappedPlaylists + displayArtists + mappedAlbums
 
                 _uiState.update { state ->
                     LibraryUiState.Success(
                         allItems = combinedItems,
                         filteredItems = (state as? LibraryUiState.Success)?.filteredItems ?: emptyList(),
-                        artistCount = subcount?.artistCount ?: artists.size,
+                        artistCount = subcount?.artistCount ?: displayArtists.size,
                         playlistCount = subcount?.playlistCount ?: playlists.size,
                         albumCount = albums.size
                     )
