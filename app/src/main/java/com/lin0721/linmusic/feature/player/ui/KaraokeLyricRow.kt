@@ -1,15 +1,18 @@
 package com.lin0721.linmusic.feature.player.ui
 
+import android.os.SystemClock
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
@@ -57,6 +60,30 @@ private class LyricLayoutInfo(
     val wordLayouts: List<WordLayout>,
     val lineLayouts: List<LineLayout>
 )
+
+// 基于高精度系统时钟的进度插值器：播放器进度是 50ms 轮询的粗值，
+// 直接用它驱动逐字扫色会以 20Hz 跳进；这里以「最后一次观察到的轮询值 + 之后经过的实时时间」
+// 外推，把粗进度还原成逐帧连续的平滑进度。外推上限 500ms，避免播放器卡住时无限跑飞。
+private class LyricTimeInterpolator {
+    private var basePositionMs: Long = 0L
+    private var anchorRealtimeNano: Long = 0L
+    private var lastObservedRawPosition: Long = -1L
+
+    fun getSmoothPosition(rawPosition: Long, isPlaying: Boolean): Long {
+        val nowNano = SystemClock.elapsedRealtimeNanos()
+        if (rawPosition != lastObservedRawPosition) {
+            lastObservedRawPosition = rawPosition
+            basePositionMs = rawPosition
+            anchorRealtimeNano = nowNano
+        }
+        return if (isPlaying) {
+            val elapsedMs = (nowNano - anchorRealtimeNano) / 1_000_000L
+            basePositionMs + elapsedMs.coerceIn(0L, 500L)
+        } else {
+            basePositionMs
+        }
+    }
+}
 
 internal data class KaraokeCharacterBox(val lineIndex: Int, val left: Float, val right: Float)
 
@@ -172,15 +199,31 @@ fun KaraokeLyricRow(
     textAlign: TextAlign = TextAlign.Start,
     // 上游的开关：关掉后不做逐字裁剪与羽化，整行按已激活色平铺
     advancedEffect: Boolean = true,
-    // 进度在绘制阶段读取，暂停时函数值不再变化，高亮会自然定格，无需额外处理；
-    // 该参数仅为保持上游调用方签名兼容
-    @Suppress("UNUSED_PARAMETER") isPlaying: Boolean = true,
+    // 进度在绘制阶段读取，暂停时插值器冻结在最后一次观察到的位置上，高亮自然定格
+    isPlaying: Boolean = true,
     fontWeight: FontWeight = FontWeight.ExtraBold,
     isActive: Boolean = true,
     featherWidth: Dp = KaraokeEdgeFeather
 ) {
     var textLayoutResult by remember(line) { mutableStateOf<TextLayoutResult?>(null) }
     val currentPositionProviderState = rememberUpdatedState(currentPositionProvider)
+    val timeInterpolator = remember(line) { LyricTimeInterpolator() }
+    // 裁剪路径复用：裁剪矩形每帧都要重建，Path 背后是原生对象且带 finalizer，
+    // 每帧新建会持续制造 GC 压力，在满帧率下尤其容易造成掉帧毛刺
+    val reusableClipPath = remember { Path() }
+    // 逐帧心跳：写一个每帧都不同的帧时间戳，供绘制阶段读取以换取每帧重绘。
+    // 没有它的话，重绘只能被 50ms 一次的播放器进度轮询触发，逐字扫色会掉到 20Hz。
+    var frameTick by remember(line) { mutableLongStateOf(0L) }
+
+    LaunchedEffect(isPlaying, line, isActive, advancedEffect) {
+        if (isPlaying && isActive && advancedEffect) {
+            // 用 while(true) 而非 kotlinx.coroutines.isActive：后者会被同名参数 isActive 遮蔽。
+            // withFrameNanos 在协程取消时会抛出 CancellationException，循环自然退出。
+            while (true) {
+                withFrameNanos { frameNano -> frameTick = frameNano }
+            }
+        }
+    }
 
     // 在排版结果解析后，仅计算并缓存一次每个字词与行的物理渲染坐标，彻底避免每帧重复调用 getBoundingBox 的 JNI 开销
     val lyricLayoutInfo = remember(line, textLayoutResult) {
@@ -291,10 +334,20 @@ fun KaraokeLyricRow(
                 .drawWithContent {
                     val info = lyricLayoutInfo
                     if (advancedEffect && info != null && isActive) {
+                        // 读取逐帧心跳：这一步是本行能按屏幕刷新率重绘的唯一依据。
+                        // 不读它，绘制阶段只会在 50ms 一次的播放器进度变化时失效，逐字扫色看起来就是掉帧。
+                        @Suppress("UNUSED_VARIABLE")
+                        val frameTickRead = frameTick
                         val featherHalfPx = (featherWidth / 2).toPx()
-                        val relativeProgress = currentPositionProviderState.value() - line.timeMs
+                        // 用实时时钟把 50ms 轮询的粗进度外推成逐帧平滑进度
+                        val smoothPosition = timeInterpolator.getSmoothPosition(
+                            currentPositionProviderState.value(),
+                            isPlaying
+                        )
+                        val relativeProgress = smoothPosition - line.timeMs
                         val spans = computePlayedSpans(info, relativeProgress, featherHalfPx)
-                        val path = Path()
+                        val path = reusableClipPath
+                        path.rewind()
                         info.lineLayouts.forEachIndexed { lineIndex, lineLayout ->
                             val clipRight = spans[lineIndex].clipRight
                             if (clipRight > lineLayout.left) {
