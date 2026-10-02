@@ -174,6 +174,8 @@ fun KaraokeLyricRow(
     textAlign: TextAlign = TextAlign.Start,
     // 关闭流光只移除柔边羽化，仍按逐字时间裁剪并逐帧推进。
     advancedEffect: Boolean = true,
+    // 字词呼吸光晕微光脉冲
+    glowEffect: Boolean = false,
     // 每帧在绘制阶段读播放器时钟；暂停和缓冲时由播放器本身冻结进度。
     isPlaying: Boolean = true,
     fontWeight: FontWeight = FontWeight.ExtraBold,
@@ -189,7 +191,7 @@ fun KaraokeLyricRow(
     // 没有它的话，重绘只能被 50ms 一次的播放器进度轮询触发，逐字扫色会掉到 20Hz。
     var frameTick by remember(line) { mutableLongStateOf(0L) }
 
-    LaunchedEffect(isPlaying, line, isActive, advancedEffect) {
+    LaunchedEffect(isPlaying, line, isActive, advancedEffect, glowEffect) {
         if (isPlaying && isActive) {
             // 用 while(true) 而非 kotlinx.coroutines.isActive：后者会被同名参数 isActive 遮蔽。
             // withFrameNanos 在协程取消时会抛出 CancellationException，循环自然退出。
@@ -328,27 +330,46 @@ fun KaraokeLyricRow(
                         }
                         clipPath(path) {
                             this@drawWithContent.drawContent()
-                            if (featherHalfPx <= 0f) return@clipPath
-                            val featherIndex = spans.indexOfFirst { it.featherCenterX != null }
-                            if (featherIndex != -1) {
-                                val lineLayout = info.lineLayouts[featherIndex]
-                                val centerX = spans[featherIndex].featherCenterX!!
-                                val left = (centerX - featherHalfPx).coerceAtLeast(lineLayout.left)
-                                val right = (centerX + featherHalfPx).coerceAtMost(lineLayout.right)
-                                // 遮罩横向覆盖整行：渐变右侧必须透明，窄矩形 DstIn 会让未覆盖的
-                                // 裁剪区域保留白色细线。纵向仍严格限制在当前行盒内。
-                                if (right > left) {
-                                    drawRect(
-                                        brush = Brush.horizontalGradient(
-                                            0f to Color.Black,
-                                            1f to Color.Transparent,
-                                            startX = left,
-                                            endX = right
-                                        ),
-                                        topLeft = Offset(lineLayout.left, lineLayout.top),
-                                        size = Size(lineLayout.right - lineLayout.left, lineLayout.bottom - lineLayout.top),
-                                        blendMode = BlendMode.DstIn
-                                    )
+                            if (featherHalfPx > 0f) {
+                                val featherIndex = spans.indexOfFirst { it.featherCenterX != null }
+                                if (featherIndex != -1) {
+                                    val lineLayout = info.lineLayouts[featherIndex]
+                                    val centerX = spans[featherIndex].featherCenterX!!
+                                    val left = (centerX - featherHalfPx).coerceAtLeast(lineLayout.left)
+                                    val right = (centerX + featherHalfPx).coerceAtMost(lineLayout.right)
+                                    // 遮罩横向覆盖整行：渐变右侧必须透明，窄矩形 DstIn 会让未覆盖的
+                                    // 裁剪区域保留白色细线。纵向仍严格限制在当前行盒内。
+                                    if (right > left) {
+                                        drawRect(
+                                            brush = Brush.horizontalGradient(
+                                                0f to Color.Black,
+                                                1f to Color.Transparent,
+                                                startX = left,
+                                                endX = right
+                                            ),
+                                            topLeft = Offset(lineLayout.left, lineLayout.top),
+                                            size = Size(lineLayout.right - lineLayout.left, lineLayout.bottom - lineLayout.top),
+                                            blendMode = BlendMode.DstIn
+                                        )
+                                    }
+                                }
+                            }
+                            if (glowEffect) {
+                                // 绘制原版演唱字词的呼吸光晕微光脉冲
+                                info.wordLayouts.forEach { word ->
+                                    if (relativeProgress in word.startMs..word.endMs) {
+                                        val wordDuration = (word.endMs - word.startMs).coerceAtLeast(1)
+                                        val ratio = (relativeProgress - word.startMs).toFloat() / wordDuration
+                                        val pulse = kotlin.math.sin(ratio * kotlin.math.PI).toFloat()
+                                        if (pulse > 0f) {
+                                            drawRect(
+                                                color = Color.White.copy(alpha = 0.22f * pulse),
+                                                topLeft = Offset(word.left, word.top),
+                                                size = Size((word.right - word.left).coerceAtLeast(0f), (word.bottom - word.top).coerceAtLeast(0f)),
+                                                blendMode = BlendMode.Plus
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }

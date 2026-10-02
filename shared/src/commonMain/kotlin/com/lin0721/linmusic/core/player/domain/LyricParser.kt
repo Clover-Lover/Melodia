@@ -71,8 +71,29 @@ object LyricParser {
         }.sortedBy { it.timeMs }
     }
 
-    // 本地歌词：支持增强型 LRC 逐字标签 <mm:ss.xx>，且同时间戳的第二行视为上一行的译文
+    private val qrcCheckRegex = Regex("""\[\d+,\d+][^(]*\(\d+,\d+\)""")
+    private val yrcCheckRegex = Regex("""\[\d+,\d+]\(\d+,\d+,\d+\)""")
+
+    // 本地歌词：自动嗅探 TTML / QRC / YRC / 增强型 LRC，并向下兼容普通 LRC 与同时间戳译文
     fun parseLocal(text: String): List<LyricLine> {
+        val trimmed = text.trim()
+        if (trimmed.isEmpty()) return emptyList()
+
+        if (trimmed.startsWith("<tt") || trimmed.contains("<tt ") || trimmed.contains("<tt\n") || trimmed.contains("<tt\r")) {
+            val ttmlLines = TtmlLyricParser.parse(text)
+            if (ttmlLines.isNotEmpty()) return ttmlLines
+        }
+
+        if (trimmed.contains("<QrcInfos") || trimmed.contains("LyricContent=") || trimmed.contains("<Lyric_") || qrcCheckRegex.containsMatchIn(trimmed)) {
+            val qrcLines = QrcLyricParser.parse(text)
+            if (qrcLines.isNotEmpty()) return qrcLines
+        }
+
+        if (yrcCheckRegex.containsMatchIn(trimmed)) {
+            val yrcLines = parseYrc(text)
+            if (yrcLines.isNotEmpty()) return yrcLines
+        }
+
         val parsed = text.lines().flatMap(::parseLocalRow).sortedBy { it.timeMs }
         val merged = ArrayList<LyricLine>(parsed.size)
         for (line in parsed) {
@@ -90,10 +111,16 @@ object LyricParser {
         val (times, body) = splitLineTimes(rawLine)
         if (times.isEmpty() || body.isEmpty()) return emptyList()
 
-        val tags = wordTimeTag.findAll(body).toList()
-        val words = if (tags.isEmpty()) emptyList() else parseWords(body, tags, times.first())
+        val angleTags = wordTimeTag.findAll(body).toList()
+        val words = if (angleTags.isNotEmpty()) {
+            parseWords(body, angleTags, times.first())
+        } else {
+            val bracketTags = lrcTimeTag.findAll(body).toList()
+            if (bracketTags.isNotEmpty()) parseBracketWords(body, bracketTags, times.first()) else emptyList()
+        }
+
         if (words.isEmpty()) {
-            val plain = body.replace(wordTimeTag, "").trim()
+            val plain = body.replace(wordTimeTag, "").replace(lrcTimeTag, "").trim()
             return if (plain.isEmpty()) emptyList() else times.map { LyricLine(timeMs = it, text = plain) }
         }
 
@@ -101,6 +128,34 @@ object LyricParser {
         if (text.isEmpty()) return emptyList()
         val duration = words.last().let { it.startOffsetMs + it.durationMs }
         return times.map { LyricLine(timeMs = it, durationMs = duration, text = text, words = words) }
+    }
+
+    // ESLyric 方括号逐字：[行起始]词1[词2起始]词2...[结束]
+    private fun parseBracketWords(body: String, tags: List<MatchResult>, lineStartMs: Long): List<WordInfo> {
+        val words = mutableListOf<WordInfo>()
+        var prevTime = lineStartMs
+        var prevTextStart = 0
+
+        for (match in tags) {
+            val tagMs = timeTagMs(match) ?: continue
+            val wordText = body.substring(prevTextStart, match.range.first)
+            if (wordText.isNotEmpty()) {
+                val startOffset = (prevTime - lineStartMs).coerceAtLeast(0)
+                val duration = (tagMs - prevTime).coerceAtLeast(0)
+                words += WordInfo(wordText, startOffset, duration)
+            }
+            prevTime = tagMs
+            prevTextStart = match.range.last + 1
+        }
+
+        if (prevTextStart < body.length) {
+            val trailing = body.substring(prevTextStart)
+            if (trailing.isNotBlank()) {
+                val startOffset = (prevTime - lineStartMs).coerceAtLeast(0)
+                words += WordInfo(trailing, startOffset, 0L)
+            }
+        }
+        return words
     }
 
     // <起始>词<结束/下一词起始>：词的时长取到下一个标签的间隔，仅含空白的片段并入前一个词

@@ -80,6 +80,7 @@ fun FullScreenLyricsView(
     val fullScreenLyricAlignment by settingsPreferences.fullScreenLyricAlignment.collectAsStateWithLifecycle(initialValue = "left")
     val fullScreenLyricSecondaryMode by settingsPreferences.fullScreenLyricSecondaryMode.collectAsStateWithLifecycle(initialValue = "translation")
     val fullScreenKaraokeAdvancedEffect by settingsPreferences.fullScreenKaraokeAdvancedEffect.collectAsStateWithLifecycle(initialValue = true)
+    val fullScreenKaraokeGlowEffect by settingsPreferences.fullScreenKaraokeGlowEffect.collectAsStateWithLifecycle(initialValue = false)
     val amllLyricsEnabled by settingsPreferences.amllLyricsEnabled.collectAsStateWithLifecycle(initialValue = true)
     val fullScreenLyricLineSpacing by settingsPreferences.fullScreenLyricLineSpacing.collectAsStateWithLifecycle(initialValue = 24)
     val fullScreenLyricSecondarySpacing by settingsPreferences.fullScreenLyricSecondarySpacing.collectAsStateWithLifecycle(initialValue = 6)
@@ -246,6 +247,7 @@ fun FullScreenLyricsView(
                 lineSpacing = fullScreenLyricLineSpacing,
                 secondarySpacing = fullScreenLyricSecondarySpacing,
                 advancedKaraokeEffect = fullScreenKaraokeAdvancedEffect,
+                karaokeGlowEffect = fullScreenKaraokeGlowEffect,
                 isPlaying = isPlaying,
                 onSeek = handleSeek,
                 onLyricClick = { line ->
@@ -301,6 +303,10 @@ fun FullScreenLyricsView(
                 advancedKaraokeEffect = fullScreenKaraokeAdvancedEffect,
                 onAdvancedKaraokeEffectChange = { enabled ->
                     scope.launch { settingsPreferences.saveFullScreenKaraokeAdvancedEffect(enabled) }
+                },
+                karaokeGlowEffect = fullScreenKaraokeGlowEffect,
+                onKaraokeGlowEffectChange = { enabled ->
+                    scope.launch { settingsPreferences.saveFullScreenKaraokeGlowEffect(enabled) }
                 },
                 amllLyricsEnabled = amllLyricsEnabled,
                 onAmllLyricsEnabledChange = { enabled ->

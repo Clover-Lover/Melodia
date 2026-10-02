@@ -155,7 +155,7 @@ dependencies {
     implementation(libs.bouncycastle)
 
     testImplementation(libs.junit)
-    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
+    testImplementation(libs.okhttp.mockwebserver)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.org.json)
     androidTestImplementation(libs.androidx.junit)

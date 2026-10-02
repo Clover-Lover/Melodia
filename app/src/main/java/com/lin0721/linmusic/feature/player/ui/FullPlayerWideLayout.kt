@@ -182,6 +182,7 @@ private fun WideRightColumn(
     val lyricAlignment by settingsPreferences.fullScreenLyricAlignment.collectAsStateWithLifecycle(initialValue = "left")
     val lyricSecondaryMode by settingsPreferences.fullScreenLyricSecondaryMode.collectAsStateWithLifecycle(initialValue = "translation")
     val karaokeAdvancedEffect by settingsPreferences.fullScreenKaraokeAdvancedEffect.collectAsStateWithLifecycle(initialValue = true)
+    val karaokeGlowEffect by settingsPreferences.fullScreenKaraokeGlowEffect.collectAsStateWithLifecycle(initialValue = false)
     val lyricLineSpacing by settingsPreferences.fullScreenLyricLineSpacing.collectAsStateWithLifecycle(initialValue = 24)
     val lyricSecondarySpacing by settingsPreferences.fullScreenLyricSecondarySpacing.collectAsStateWithLifecycle(initialValue = 6)
 
@@ -290,6 +291,7 @@ private fun WideRightColumn(
                             lineSpacing = lyricLineSpacing,
                             secondarySpacing = lyricSecondarySpacing,
                             advancedKaraokeEffect = karaokeAdvancedEffect,
+                            karaokeGlowEffect = karaokeGlowEffect,
                             isPlaying = isPlaying,
                             showSeekGuide = false,
                             userScrollEnabled = false,

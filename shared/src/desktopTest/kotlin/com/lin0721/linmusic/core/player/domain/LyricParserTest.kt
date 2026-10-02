@@ -196,4 +196,93 @@ class LyricParserTest {
     fun `本地歌词空字符串返回空列表`() {
         assertTrue(LyricParser.parseLocal("").isEmpty())
     }
+
+    // ======================= QRC 逐字与多格式自动嗅探 =======================
+
+    @Test
+    fun `QRC逐字解析纯文本行`() {
+        val qrc = "[1000,3000]你好(1000,1000)世界(2000,2000)"
+        val lines = QrcLyricParser.parse(qrc)
+        assertEquals(1, lines.size)
+        val line = lines[0]
+        assertEquals(1000L, line.timeMs)
+        assertEquals(3000L, line.durationMs)
+        assertEquals("你好世界", line.text)
+        assertEquals(2, line.words.size)
+        assertEquals("你好", line.words[0].text)
+        assertEquals(0L, line.words[0].startOffsetMs)
+        assertEquals(1000L, line.words[0].durationMs)
+        assertEquals("世界", line.words[1].text)
+        assertEquals(1000L, line.words[1].startOffsetMs)
+        assertEquals(2000L, line.words[1].durationMs)
+    }
+
+    @Test
+    fun `QRC解析XML包裹内容与实体反转义`() {
+        val xml = """
+            <?xml version="1.0" encoding="utf-8"?>
+            <QrcInfos>
+                <LyricInfo>
+                    <Lyric_1 LyricType="1" LyricContent="[0,4000]Rock &amp; Roll(0,2000)&apos;s(2000,2000)"/>
+                </LyricInfo>
+            </QrcInfos>
+        """.trimIndent()
+        val lines = QrcLyricParser.parse(xml)
+        assertEquals(1, lines.size)
+        val line = lines[0]
+        assertEquals("Rock & Roll's", line.text)
+        assertEquals(0L, line.timeMs)
+        assertEquals(4000L, line.durationMs)
+        assertEquals(2, line.words.size)
+        assertEquals("Rock & Roll", line.words[0].text)
+        assertEquals("'", line.words[1].text.take(1))
+    }
+
+    @Test
+    fun `parseLocal自动嗅探QRC格式`() {
+        val qrc = "[0,2000]测试(0,1000)歌词(1000,1000)"
+        val lines = LyricParser.parseLocal(qrc)
+        assertEquals(1, lines.size)
+        assertEquals(2, lines[0].words.size)
+        assertEquals("测试歌词", lines[0].text)
+    }
+
+    @Test
+    fun `parseLocal自动嗅探YRC格式`() {
+        val yrc = "[0,2000](0,1000,0)网易(1000,1000,0)逐字"
+        val lines = LyricParser.parseLocal(yrc)
+        assertEquals(1, lines.size)
+        assertEquals(2, lines[0].words.size)
+        assertEquals("网易逐字", lines[0].text)
+    }
+
+    @Test
+    fun `parseLocal自动嗅探TTML格式`() {
+        val ttml = """
+            <tt xmlns="http://www.w3.org/ns/ttml">
+                <body>
+                    <div>
+                        <p begin="00:01.000" end="00:03.000"><span begin="00:01.000" end="00:02.000">Apple </span><span begin="00:02.000" end="00:03.000">Music</span></p>
+                    </div>
+                </body>
+            </tt>
+        """.trimIndent()
+        val lines = LyricParser.parseLocal(ttml)
+        assertEquals(1, lines.size)
+        assertEquals(1000L, lines[0].timeMs)
+        assertEquals(2000L, lines[0].durationMs)
+        assertEquals("Apple Music", lines[0].text)
+        assertEquals(2, lines[0].words.size)
+    }
+
+    @Test
+    fun `本地歌词解析ESLyric方括号逐字标签`() {
+        val lineStr = "[00:33.095]我[00:33.348]跟[00:33.652]你[00:34.864]本[00:35.271]应[00:35.576]该[00:36.082]"
+        val line = LyricParser.parseLocal(lineStr).single()
+        assertEquals(33095L, line.timeMs)
+        assertEquals("我跟你本应该", line.text)
+        assertEquals(listOf("我", "跟", "你", "本", "应", "该"), line.words.map { it.text })
+        assertEquals(listOf(0L, 253L, 557L, 1769L, 2176L, 2481L), line.words.map { it.startOffsetMs })
+        assertEquals(listOf(253L, 304L, 1212L, 407L, 305L, 506L), line.words.map { it.durationMs })
+    }
 }

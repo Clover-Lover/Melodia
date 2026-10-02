@@ -35,14 +35,6 @@ import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 
-private const val RESERVED_LYRIC_SCALE = 1.15f
-private const val NEARBY_LYRIC_ALPHA = 0.65f
-
-// 为当前行的放大与弹簧回弹预留宽度。graphicsLayer 的缩放发生在布局之后、且不参与父级测量，
-// 所以必须在布局阶段预留空间，长行才会在放大后仍落在视口内。
-// 少了这层预留，放大后的左右两端会直接顶出屏幕。
-private const val SCALED_LYRIC_WIDTH_FRACTION = 1f / RESERVED_LYRIC_SCALE
-
 // 歌词单行：按距当前行的远近做缩放与透明度递减，当前行走逐字流光，可附带译文/罗马音与背景和声
 // 缩放/透明度动画值只在 graphicsLayer 块内读取，变化时仅刷新绘制阶段
 @Composable
@@ -59,6 +51,7 @@ fun FullScreenLyricsRow(
     secondaryMode: String = "translation",
     secondarySpacing: Int = 6,
     advancedKaraokeEffect: Boolean = true,
+    karaokeGlowEffect: Boolean = false,
     isPlaying: Boolean = true,
     // 宽屏按下点命中判定用：上报本行文字实际占据的范围（根坐标），离开组合时上报 Rect.Zero
     onTextBoundsInRoot: ((Rect) -> Unit)? = null,
@@ -113,9 +106,10 @@ fun FullScreenLyricsRow(
     }
 
     val mainFontSize = fontSize.sp
+    val translationFontSize = (fontSize - 5).coerceAtLeast(12).sp
     val mainLineHeight = (fontSize * 1.35f).sp
+    val translationLineHeight = (translationFontSize.value * 1.35f).sp
     val spacingBetween = secondarySpacing.coerceAtLeast(0).dp
-    val secondaryFontSize = (fontSize - 5).coerceAtLeast(12).sp
     val backgroundFontSize = (fontSize - 5).coerceAtLeast(12).sp
     val backgroundLineHeight = (backgroundFontSize.value * 1.4f).sp
 
@@ -123,9 +117,7 @@ fun FullScreenLyricsRow(
         isCurrent -> 1.12f
         isCenterTarget -> 1.04f
         else -> when (distance) {
-            // 间奏时锚点仍在已结束的行，但高亮集合已清空；距离 0 也属于邻近行，
-            // 不能像上游单行高亮模式那样假设它必然是 isCurrent，否则会缩到最小。
-            0, 1 -> 0.98f
+            1 -> 0.98f
             2 -> 0.94f
             else -> 0.90f
         }
@@ -140,7 +132,7 @@ fun FullScreenLyricsRow(
         isCurrent -> 1f
         isCenterTarget -> 0.95f
         else -> when (distance) {
-            0, 1 -> NEARBY_LYRIC_ALPHA
+            1 -> 0.65f
             2 -> 0.45f
             else -> 0.28f
         }
@@ -151,15 +143,26 @@ fun FullScreenLyricsRow(
         label = "fs_lyric_alpha_$index"
     )
 
+    val widthFraction = if (effectiveAlignment == "center") 0.9f else 0.85f
+    val paddingStart = when (effectiveAlignment) {
+        "center" -> 24.dp
+        "left" -> MelodiaSpacing.md
+        else -> 0.dp
+    }
+    val paddingEnd = when (effectiveAlignment) {
+        "center" -> 24.dp
+        "right" -> MelodiaSpacing.md
+        else -> 0.dp
+    }
+
     Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = MelodiaSpacing.lg),
+        modifier = Modifier.fillMaxWidth(),
         contentAlignment = contentAlignment
     ) {
         Column(
             modifier = Modifier
-                .fillMaxWidth(SCALED_LYRIC_WIDTH_FRACTION)
+                .fillMaxWidth(widthFraction)
+                .padding(start = paddingStart, end = paddingEnd)
                 .graphicsLayer {
                     scaleX = animatedScale
                     scaleY = animatedScale
@@ -178,13 +181,13 @@ fun FullScreenLyricsRow(
                     KaraokeLyricRow(
                         line = line,
                         currentPositionProvider = currentPositionProvider,
-                        // 当前行未唱部分与相邻非高亮行使用同一亮度基准。
-                        inactiveColor = highlightColor.copy(alpha = highlightColor.alpha * NEARBY_LYRIC_ALPHA),
+                        inactiveColor = highlightColor.copy(alpha = 0.5f),
                         activeColor = Color.White,
                         fontSize = mainFontSize,
                         lineHeight = mainLineHeight,
                         textAlign = textAlign,
                         advancedEffect = advancedKaraokeEffect,
+                        glowEffect = karaokeGlowEffect,
                         isPlaying = isPlaying,
                         isActive = isCurrent
                     )
@@ -213,10 +216,9 @@ fun FullScreenLyricsRow(
                 Spacer(modifier = Modifier.height(spacingBetween))
                 Text(
                     text = secondaryText,
-                    fontSize = secondaryFontSize,
-                    // 只随整行 animatedAlpha 淡出。结束时切到不透明的 highlightColor
-                    // 会在整行透明度动画尚未下降前先提亮一次，让翻译看起来闪了一下。
-                    color = Color.White.copy(alpha = 0.65f),
+                    fontSize = translationFontSize,
+                    lineHeight = translationLineHeight,
+                    color = if (isCurrent) Color.White else highlightColor,
                     textAlign = textAlign,
                     onTextLayout = { textBounds?.secondaryLayout = it },
                     modifier = Modifier
@@ -253,6 +255,7 @@ fun FullScreenLyricsRow(
                             lineHeight = backgroundLineHeight,
                             textAlign = backgroundTextAlign,
                             advancedEffect = advancedKaraokeEffect,
+                            glowEffect = karaokeGlowEffect,
                             isPlaying = isPlaying,
                             fontWeight = FontWeight.Bold,
                             isActive = isCurrent
@@ -273,7 +276,7 @@ fun FullScreenLyricsRow(
                         Text(
                             text = it,
                             fontSize = (fontSize - 8).coerceAtLeast(11).sp,
-                            color = Color.White.copy(alpha = 0.55f),
+                            color = if (isCurrent) backgroundActiveColor else backgroundInactiveColor,
                             textAlign = backgroundTextAlign,
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -283,7 +286,7 @@ fun FullScreenLyricsRow(
                         Text(
                             text = it,
                             fontSize = (fontSize - 9).coerceAtLeast(11).sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                            color = if (isCurrent) backgroundActiveColor else backgroundInactiveColor,
                             textAlign = backgroundTextAlign,
                             modifier = Modifier.fillMaxWidth()
                         )

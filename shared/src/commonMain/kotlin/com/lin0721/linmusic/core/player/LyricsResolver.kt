@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.withTimeoutOrNull
 
 // 已匹配网易的歌优先网易歌词（逐字与翻译更全），拿不到再读本地。
@@ -63,6 +64,7 @@ class LyricsResolver(
         emit(Result.success(ResolvedLyrics(LyricTimeline.prepareLines(lines), LyricsSource.LOCAL)))
     }.flowOn(processingDispatcher)
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     private fun onlineLyricsFor(songId: Long): Flow<Result<ResolvedLyrics>> = flow {
         if (!isAmllEnabled()) {
             emit(chooseWithSource(emptyList(), fetchNeteaseResult(songId)))
@@ -72,15 +74,15 @@ class LyricsResolver(
             val amll = async { fetchAmllLines(songId) }
             val netease = async { fetchNeteaseResult(songId) }
             try {
-                // 只承诺一次：窗口内 AMLL 若已带逐字时序就直接定型，不让慢镜像在播放中途替换歌词
-                withTimeoutOrNull(SELECTION_WINDOW_MS) { amll.await() }
-                if (amll.takeIf { it.isCompleted }?.getCompleted().orEmpty().any { it.words.isNotEmpty() }) {
-                    emit(Result.success(ResolvedLyrics(amll.getCompleted(), LyricsSource.AMLL)))
+                // 窗口内优先等待 AMLL：若已带逐字时序直接定型，避免慢镜像在播放中途替换歌词
+                val amllWindowLines = withTimeoutOrNull(SELECTION_WINDOW_MS) { amll.await() }
+                if (amllWindowLines?.any { it.words.isNotEmpty() } == true) {
+                    emit(Result.success(ResolvedLyrics(amllWindowLines, LyricsSource.AMLL)))
                     return@coroutineScope
                 }
                 val neteaseResult = netease.await()
-                // 网易已到齐，此时再给 AMLL 一次机会；仍没回来就是确实拿不到
-                val amllLines = amll.takeIf { it.isCompleted }?.getCompleted().orEmpty()
+                // 网易已就绪，若此时 AMLL 已返回（包括窗口外刚好完成）则参与择优，否则视作未命中
+                val amllLines = if (amll.isCompleted) amll.getCompleted() else emptyList()
                 emit(chooseWithSource(amllLines, neteaseResult))
             } finally {
                 amll.cancel()

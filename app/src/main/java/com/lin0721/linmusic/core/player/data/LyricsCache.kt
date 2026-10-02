@@ -17,6 +17,7 @@ class LyricsCache(
     private val maxDiskBytes: Long = MAX_DISK_BYTES
 ) {
     private val directory = File(cacheRoot, "lyrics/amll")
+    private var writesSinceTrim = 0
 
     @Synchronized
     fun getRaw(songId: Long): String? {
@@ -41,7 +42,10 @@ class LyricsCache(
             check(temporary.renameTo(target))
             target.setLastModified(now())
             negativeFile(songId).delete()
-            trimDisk()
+            if (++writesSinceTrim >= TRIM_INTERVAL) {
+                writesSinceTrim = 0
+                trimDisk()
+            }
         }.onFailure { temporary.delete() }
     }
 
@@ -99,5 +103,6 @@ class LyricsCache(
         const val RAW_TTL_MS = 7L * 24 * 60 * 60 * 1000
         const val NEGATIVE_TTL_MS = 12L * 60 * 60 * 1000
         const val MAX_DISK_BYTES = 75L * 1024 * 1024
+        private const val TRIM_INTERVAL = 10
     }
 }
