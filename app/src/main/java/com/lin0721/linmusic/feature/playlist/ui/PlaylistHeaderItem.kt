@@ -52,6 +52,7 @@ import com.lin0721.linmusic.core.ui.theme.RadiusCompact
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.darken
 import com.lin0721.linmusic.core.ui.theme.extractBaseColorFromUrl
+import com.lin0721.linmusic.core.ui.theme.smoothVerticalGradient
 import com.lin0721.linmusic.core.model.PlaylistDetail
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -115,11 +116,12 @@ fun PlaylistHeaderItem(
         label = "playlist_header_color"
     )
     val gradientTop = remember(animatedDominant) { animatedDominant.darken(0.35f) }
+    val bgDark = MaterialTheme.colorScheme.background
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            // 使用从封面提取的主色调渐变到背景黑
-            .background(Brush.verticalGradient(listOf(gradientTop, MaterialTheme.colorScheme.background)))
+            // 封面主色余弦平滑过渡到背景色，消除暗阶断层
+            .background(Brush.smoothVerticalGradient(from = gradientTop, to = bgDark))
     ) {
         // 封面：与操作区的返回键水平对齐
         Box(

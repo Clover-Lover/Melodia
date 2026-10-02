@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.SubcomposeAsyncImage
 import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.ui.components.CoverPlaceholder
+import com.lin0721.linmusic.core.ui.theme.smoothVerticalGradient
 import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
@@ -115,7 +116,7 @@ fun MusicStyleHero(head: StyleHead?, fallbackName: String, accent: Color) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Brush.verticalGradient(listOf(accent, accent.copy(alpha = 0.55f))))
+            .background(Brush.smoothVerticalGradient(from = accent, to = accent.copy(alpha = 0.55f)))
     ) {
         head?.coverUrl?.let {
             SubcomposeAsyncImage(

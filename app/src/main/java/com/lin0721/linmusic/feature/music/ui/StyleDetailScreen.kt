@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lin0721.linmusic.LocalBottomOverlayInset
+import com.lin0721.linmusic.core.ui.theme.smoothVerticalGradient
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
 import com.lin0721.linmusic.core.ui.components.ToastManager
 import com.lin0721.linmusic.core.ui.interaction.pressable
@@ -156,7 +157,7 @@ private fun StyleDetailList(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Brush.verticalGradient(listOf(accent.copy(alpha = 0.32f), Color.Transparent)))
+                    .background(Brush.smoothVerticalGradient(from = accent.copy(alpha = 0.32f), to = Color.Transparent))
                     .padding(top = 16.dp, bottom = 4.dp)
             ) {
                 ActionRow(
