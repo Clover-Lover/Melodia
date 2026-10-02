@@ -34,14 +34,13 @@ sealed interface CommentFloorState {
     data class Error(val message: String) : CommentFloorState
 }
 
-// 评论区共享逻辑：Player/Playlist/ArtistMvPlayer 三个 ViewModel 各自持有一个实例并转发状态，
 private data class TabCacheEntry(
     val state: CommentsState.Success,
     val pageNo: Int
 )
 
-// 评论区共享逻辑：Player/Playlist/ArtistMvPlayer 三个 ViewModel 各自持有一个实例并转发状态，
-// 避免加载/分页/排序/点赞/发表/回复/删除/楼层这些逻辑在三处重复实现
+// 评论区共享逻辑：Player/Playlist 两个 ViewModel 各自持有一个实例并转发状态，
+// 避免加载/分页/排序/点赞/发表/回复/删除/楼层这些逻辑在两处重复实现
 class CommentsSectionController(
     private val scope: CoroutineScope,
     private val repository: CommentRepository,

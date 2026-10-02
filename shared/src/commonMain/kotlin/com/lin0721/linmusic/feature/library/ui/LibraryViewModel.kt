@@ -33,7 +33,7 @@ private const val TAG = "LibraryViewModel"
 private val zhCollator: Collator = Collator.getInstance(Locale.CHINA)
 
 enum class LibraryItemType {
-    PLAYLIST, ARTIST, ALBUM, MV
+    PLAYLIST, ARTIST, ALBUM
 }
 
 data class LibraryItem(
@@ -51,7 +51,7 @@ data class LibraryItem(
 )
 
 enum class LibraryFilter {
-    PLAYLIST, ALBUM, ARTIST, MV
+    PLAYLIST, ALBUM, ARTIST
 }
 
 // 歌单二级筛选：仅在 LibraryFilter.PLAYLIST 生效，区分自建歌单与收藏他人歌单
@@ -337,7 +337,6 @@ class LibraryViewModel(
             LibraryFilter.PLAYLIST -> list.filter { it.type == LibraryItemType.PLAYLIST }
             LibraryFilter.ALBUM -> list.filter { it.type == LibraryItemType.ALBUM }
             LibraryFilter.ARTIST -> list.filter { it.type == LibraryItemType.ARTIST }
-            LibraryFilter.MV -> list.filter { it.type == LibraryItemType.MV }
         }
 
         // 歌单二级筛选：我创建的 / 他人创建的（"我喜欢的音乐"与"听歌排行"视为我的）

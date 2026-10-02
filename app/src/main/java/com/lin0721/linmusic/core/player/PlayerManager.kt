@@ -438,9 +438,6 @@ class PlayerManager(
         saveState()
     }
 
-    // 供非音频播放场景（如 MV 播放页）复用同一套"仅 Wi-Fi 播放"策略，保持与主播放器一致的移动网络提醒
-    override suspend fun shouldBlockPlaybackOnMobile(): Boolean = networkGuard.blockPlaybackOnMobile()
-
     override fun resume() {
         _playWhenReady.value = true
         controllerHolder.play()

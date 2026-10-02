@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.feature.playlist.ui
 
+import com.lin0721.linmusic.core.ui.components.PlayPauseIcon
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -15,8 +16,6 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material3.*
@@ -330,11 +329,11 @@ fun PlaylistHeaderItem(
                                     }
                                     .alpha(0f)
                             ) {
-                                Icon(
-                                    imageVector = if (isCurrentlyPlayingThis) Icons.Default.Pause else Icons.Default.PlayArrow,
-                                    contentDescription = if (isCurrentlyPlayingThis) "暂停" else "播放",
+                                PlayPauseIcon(
+                                    isPlaying = isCurrentlyPlayingThis,
                                     tint = MaterialTheme.colorScheme.onPrimary,
-                                    modifier = Modifier.size(32.dp)
+                                    size = 32.dp,
+                                    contentDescription = if (isCurrentlyPlayingThis) "暂停" else "播放"
                                 )
                             }
                         }

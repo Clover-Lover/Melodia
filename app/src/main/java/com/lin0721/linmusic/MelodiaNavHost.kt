@@ -42,9 +42,6 @@ fun MelodiaNavHost(
     onNavigateToPlaylist: (id: Long, isAlbum: Boolean) -> Unit,
     onNavigateToArtist: (Long) -> Unit,
     onNavigateToRadio: (Long) -> Unit,
-    onNavigateToMv: (Long, String) -> Unit,
-    onMvFullscreenChanged: (Boolean) -> Unit,
-    onMvCommentsVisibilityChanged: (Boolean) -> Unit = {},
     onNavigateToPlaylistCategory: (String) -> Unit,
     onNavigateToProfile: (Long) -> Unit,
     onNavigateToFollowList: (Long, FollowListMode) -> Unit,
@@ -109,7 +106,6 @@ fun MelodiaNavHost(
                     onPlaylistClick = onNavigateToPlaylist,
                     onArtistClick = onNavigateToArtist,
                     onRadioClick = onNavigateToRadio,
-                    onMvClick = onNavigateToMv,
                     onStyleClick = { id, name -> onNavigateToScreen(Screen.Style(id, name)) },
                     onSearchClick = onNavigateToSearch,
                     onOpenSidebar = onOpenSidebar,
@@ -188,20 +184,7 @@ fun MelodiaNavHost(
                     onBack = onBack,
                     onArtistClick = onNavigateToArtist,
                     onPlaylistClick = { playlistId -> onNavigateToPlaylist(playlistId, false) },
-                    onAlbumClick = { albumId -> onNavigateToPlaylist(albumId, true) },
-                    onMvClick = onNavigateToMv
-                )
-            }
-            is Screen.MvPlayer -> {
-                com.lin0721.linmusic.feature.artist.ui.ArtistMvPlayerScreen(
-                    mvId = screen.id,
-                    mvName = screen.name,
-                    onBack = onBack,
-                    onArtistClick = onNavigateToArtist,
-                    onMvClick = onNavigateToMv,
-                    onFullscreenChanged = onMvFullscreenChanged,
-                    onCommentsVisibilityChanged = onMvCommentsVisibilityChanged,
-                    onNavigateToProfile = onNavigateToProfile
+                    onAlbumClick = { albumId -> onNavigateToPlaylist(albumId, true) }
                 )
             }
             is Screen.RecentPlay -> {

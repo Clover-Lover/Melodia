@@ -43,7 +43,7 @@
 - **安装包下载**：前往 [GitHub Releases](https://github.com/rinchao0721/Melodia/releases) 获取最新预编译 APK
 - **蓝奏云**：https://wware.lanzn.com/b01gic8ioj 密码:cem2
 - **缺陷与建议**：[GitHub Issues](https://github.com/rinchao0721/Melodia/issues)
-- **交流 QQ 群**：`331832966`
+- **交流 QQ 群也可以下载**：`331832966`
 
 ---
 ## 项目架构

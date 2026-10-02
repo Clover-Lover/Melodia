@@ -28,7 +28,6 @@ private const val TAG = "ArtistViewModel"
 
 // 分页区块每页拉取数量
 private const val ALBUMS_PAGE_SIZE = 20
-private const val MVS_PAGE_SIZE = 20
 private const val ALL_SONGS_PAGE_SIZE = 50
 
 class ArtistViewModel(
@@ -76,7 +75,6 @@ class ArtistViewModel(
     // 各分页区块当前已加载的偏移量，随 loadArtistData 重新加载而重置
     private var currentArtistId: Long = 0
     private var albumOffset = 0
-    private var mvOffset = 0
     private var allSongsOffset = 0
 
     init {
@@ -92,7 +90,6 @@ class ArtistViewModel(
     fun loadArtistData(artistId: Long) {
         currentArtistId = artistId
         albumOffset = 0
-        mvOffset = 0
         allSongsOffset = 0
         _uiState.value = ArtistUiState.Loading
         viewModelScope.launch {
@@ -104,7 +101,6 @@ class ArtistViewModel(
                 val topSongsDeferred = async { artistRepository.getArtistTopSongs(artistId).first() }
                 val albumsDeferred = async { artistRepository.getArtistAlbums(artistId, limit = ALBUMS_PAGE_SIZE, offset = 0).first() }
                 val similarDeferred = async { artistRepository.getSimilarArtists(artistId).first() }
-                val mvsDeferred = async { artistRepository.getArtistMvs(artistId, limit = MVS_PAGE_SIZE, offset = 0).first() }
 
                 val detailResult = detailDeferred.await()
                 val fansResult = fansDeferred.await()
@@ -112,7 +108,6 @@ class ArtistViewModel(
                 val topSongsResult = topSongsDeferred.await()
                 val albumsResult = albumsDeferred.await()
                 val similarResult = similarDeferred.await()
-                val mvsResult = mvsDeferred.await()
 
                 if (detailResult.isSuccess && topSongsResult.isSuccess) {
                     val detail = detailResult.getOrThrow()
@@ -121,10 +116,8 @@ class ArtistViewModel(
                     val topSongs = topSongsResult.getOrThrow()
                     val albumsPage = albumsResult.getOrNull()
                     val similar = similarResult.getOrDefault(emptyList())
-                    val mvsPage = mvsResult.getOrNull()
 
                     albumOffset = albumsPage?.albums?.size ?: 0
-                    mvOffset = mvsPage?.mvs?.size ?: 0
 
                     _uiState.value = ArtistUiState.Success(
                         artist = detail,
@@ -133,9 +126,7 @@ class ArtistViewModel(
                         topSongs = topSongs,
                         albums = albumsPage?.albums ?: emptyList(),
                         albumsHasMore = albumsPage?.hasMore ?: false,
-                        similarArtists = similar,
-                        mvs = mvsPage?.mvs ?: emptyList(),
-                        mvsHasMore = mvsPage?.hasMore ?: false
+                        similarArtists = similar
                     )
                 } else {
                     val err = (detailResult.exceptionOrNull() ?: topSongsResult.exceptionOrNull())
@@ -171,31 +162,6 @@ class ArtistViewModel(
                     AppLogger.w(TAG, "加载更多专辑失败 artistId=$currentArtistId", e)
                     val latest = _uiState.value as? ArtistUiState.Success ?: return@onFailure
                     _uiState.value = latest.copy(albumsLoadingMore = false)
-                }
-        }
-    }
-
-    // MV Tab 滚动到底追加下一页
-    fun loadMoreMvs() {
-        val state = _uiState.value as? ArtistUiState.Success ?: return
-        if (!state.mvsHasMore || state.mvsLoadingMore) return
-        _uiState.value = state.copy(mvsLoadingMore = true)
-        viewModelScope.launch {
-            artistRepository.getArtistMvs(currentArtistId, limit = MVS_PAGE_SIZE, offset = mvOffset)
-                .first()
-                .onSuccess { page ->
-                    mvOffset += page.mvs.size
-                    val latest = _uiState.value as? ArtistUiState.Success ?: return@onSuccess
-                    _uiState.value = latest.copy(
-                        mvs = latest.mvs + page.mvs,
-                        mvsHasMore = page.hasMore,
-                        mvsLoadingMore = false
-                    )
-                }
-                .onFailure { e ->
-                    AppLogger.w(TAG, "加载更多 MV 失败 artistId=$currentArtistId", e)
-                    val latest = _uiState.value as? ArtistUiState.Success ?: return@onFailure
-                    _uiState.value = latest.copy(mvsLoadingMore = false)
                 }
         }
     }

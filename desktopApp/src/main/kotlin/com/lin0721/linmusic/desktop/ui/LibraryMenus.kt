@@ -76,7 +76,7 @@ import com.lin0721.linmusic.feature.library.ui.LibraryViewModel
 
 private const val TOOLTIP_DELAY_MS = 400
 private const val PLAYLIST_NAME_MAX_LENGTH = 40
-private const val EMPTY_NAME_MESSAGE = "名字不能为空哦！"
+internal const val EMPTY_NAME_MESSAGE = "名字不能为空哦！"
 
 private val SortMenuWidth = 232.dp
 private val CreateMenuWidth = 176.dp
@@ -290,7 +290,7 @@ internal fun LibraryCreateButton(viewModel: LibraryViewModel, pill: Boolean) {
 }
 
 @Composable
-private fun CreatePlaylistDialog(onDismiss: () -> Unit, onCreate: (String) -> Unit, onEmptyName: () -> Unit) {
+internal fun CreatePlaylistDialog(onDismiss: () -> Unit, onCreate: (String) -> Unit, onEmptyName: () -> Unit) {
     var name by remember { mutableStateOf("") }
     val focusRequester = remember { FocusRequester() }
     LaunchedEffect(Unit) { runCatching { focusRequester.requestFocus() } }

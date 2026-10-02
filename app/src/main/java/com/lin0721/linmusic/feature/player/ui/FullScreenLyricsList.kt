@@ -96,7 +96,7 @@ fun ColumnScope.FullScreenLyricsList(
         topSafetyPaddingPx + ((viewportHeightPx - topSafetyPaddingPx).coerceAtLeast(0f) * FullScreenLyricsAnchorFraction)
     }
 
-    LaunchedEffect(currentIndex, isUserScrolling, viewportHeightPx, fontSize, lineSpacing, secondarySpacing) {
+    LaunchedEffect(currentIndex, isUserScrolling, viewportHeightPx, fontSize, secondaryMode, lineSpacing, secondarySpacing) {
         if (!isUserScrolling && currentIndex in lyrics.indices && viewportHeightPx > 0f) {
             // 估算值以默认间距（行距 24dp、副文本距 6dp）为基准，按用户设置的差值修正
             val itemStridePx = with(density) { (66 + lineSpacing - 24).coerceAtLeast(1).dp.toPx() }
@@ -115,9 +115,11 @@ fun ColumnScope.FullScreenLyricsList(
             }
 
             val current = lyrics[currentIndex]
-            val hasSecondary = current.translation != null ||
-                current.roma != null ||
-                current.backgroundLine != null
+            val hasSecondary = current.backgroundLine != null || when (secondaryMode) {
+                "translation" -> current.translation != null
+                "roma" -> current.roma != null
+                else -> false
+            }
             val itemHeightPx = with(density) {
                 (if (hasSecondary) 96 + secondarySpacing - 6 else 54).coerceAtLeast(1).dp.toPx()
             }

@@ -97,7 +97,7 @@ fun rememberTrackActions(
 }
 
 @Composable
-private fun CollectToPlaylistDialog(
+internal fun CollectToPlaylistDialog(
     songId: Long,
     state: PlaylistCollectState,
     onSave: (List<PlaylistCollectItem>) -> Unit,

@@ -37,7 +37,6 @@ interface PlaybackController {
     val nextQueueItem: StateFlow<QueueItem?>
 
     suspend fun initController()
-    suspend fun shouldBlockPlaybackOnMobile(): Boolean
 
     fun playQueue(items: List<QueueItem>, startIndex: Int, playContext: String? = null, source: PlaySource? = null)
     fun playAudio(

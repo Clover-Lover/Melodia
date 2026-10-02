@@ -35,8 +35,6 @@ sealed class Screen {
     @Serializable
     data class Radio(val id: Long) : Screen()
     @Serializable
-    data class MvPlayer(val id: Long, val name: String) : Screen()
-    @Serializable
     data class PlaylistCategory(val category: String) : Screen()
     // 「音乐」tab 的曲风详情
     @Serializable
@@ -215,10 +213,6 @@ class MelodiaNavigationState(
 
     fun openRadio(id: Long) {
         navigateTo(Screen.Radio(id))
-    }
-
-    fun openMvPlayer(id: Long, name: String) {
-        navigateTo(Screen.MvPlayer(id, name))
     }
 
     fun openPlaylistCategory(category: String) {

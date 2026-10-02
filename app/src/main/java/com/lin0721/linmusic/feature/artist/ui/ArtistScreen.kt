@@ -35,8 +35,7 @@ fun ArtistScreen(
     onBack: () -> Unit,
     onArtistClick: (Long) -> Unit,
     onPlaylistClick: (Long) -> Unit,
-    onAlbumClick: (Long) -> Unit,
-    onMvClick: (Long, String) -> Unit
+    onAlbumClick: (Long) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val likedSongIds by viewModel.likedSongIds.collectAsStateWithLifecycle()
@@ -89,8 +88,6 @@ fun ArtistScreen(
                     albums = state.albums,
                     albumsHasMore = state.albumsHasMore,
                     albumsLoadingMore = state.albumsLoadingMore,
-                    mvs = state.mvs,
-                    mvsLoadingMore = state.mvsLoadingMore,
                     allSongs = state.allSongs,
                     allSongsLoadingMore = state.allSongsLoadingMore,
                     similarArtists = state.similarArtists,
@@ -104,7 +101,6 @@ fun ArtistScreen(
                     onArtistClick = onArtistClick,
                     onPlaylistClick = onPlaylistClick,
                     onAlbumClick = onAlbumClick,
-                    onMvClick = onMvClick,
                     onFollowClick = { viewModel.toggleFollow(artistId) },
                     onBlockClick = { viewModel.toggleBlockArtist(artistId) },
                     onPlaySong = { track, queue ->
@@ -129,7 +125,6 @@ fun ArtistScreen(
                         showLoginSheet = true
                     },
                     onLoadMoreAlbums = { viewModel.loadMoreAlbums() },
-                    onLoadMoreMvs = { viewModel.loadMoreMvs() },
                     onLoadAllSongsIfNeeded = { viewModel.loadAllSongsIfNeeded() },
                     onLoadMoreAllSongs = { viewModel.loadMoreAllSongs() }
                 )
