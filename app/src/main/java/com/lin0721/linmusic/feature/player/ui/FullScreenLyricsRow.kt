@@ -128,10 +128,19 @@ fun FullScreenLyricsRow(
         label = "fs_lyric_alpha_$index"
     )
 
-    val widthFraction = if (effectiveAlignment == "center") 0.9f else 0.85f
+    // 右对齐行（含 TTML 对唱第二声部）必须占满整宽：这一列是从左侧开始布局的，
+    // 若照搬 0.85 的定宽，即使文字右对齐，右边缘也会距屏幕右侧空出 0.15 屏宽，
+    // 看起来就是"没贴右"。0.85 的留白本来是为了给缩放扩张预留空间，右侧由 padding 承担。
+    val widthFraction = when (effectiveAlignment) {
+        "center" -> 0.9f
+        "right" -> 1f
+        else -> 0.85f
+    }
     val paddingStart = when (effectiveAlignment) {
         "center" -> 24.dp
         "left" -> MelodiaSpacing.md
+        // 右对齐同样要左侧留白：缩放以右边缘为原点向左扩张，没有留白会把长行推出屏幕
+        "right" -> MelodiaSpacing.md
         else -> 0.dp
     }
     val paddingEnd = when (effectiveAlignment) {
