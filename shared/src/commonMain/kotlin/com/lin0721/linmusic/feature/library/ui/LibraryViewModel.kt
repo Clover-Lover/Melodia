@@ -15,11 +15,13 @@ import com.lin0721.linmusic.feature.create.data.CreateRepository
 import com.lin0721.linmusic.core.userplaylist.UserPlaylistRepository
 import com.lin0721.linmusic.feature.library.data.LibraryRepository
 import com.lin0721.linmusic.core.player.PlaybackController
+import com.lin0721.linmusic.core.player.data.PlaybackRepository
 import com.lin0721.linmusic.core.playlistmutation.PlaylistMutationBus
 import com.lin0721.linmusic.core.playlistmutation.PlaylistMutationEvent
 import com.lin0721.linmusic.core.network.ResourceProvider
 import com.lin0721.linmusic.core.network.toUserMessage
 import com.lin0721.linmusic.feature.playlist.data.PlaylistRepository
+import com.lin0721.linmusic.feature.recent.data.RecentRepository
 import com.lin0721.linmusic.feature.artist.data.ArtistRepository
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.*
@@ -47,7 +49,8 @@ data class LibraryItem(
     val trackCount: Int = 0,
     val playCount: Long = 0,
     val isLikedSongs: Boolean = false,
-    val isOwnedByMe: Boolean = false
+    val isOwnedByMe: Boolean = false,
+    val lastPlayTime: Long = 0
 )
 
 enum class LibraryFilter {
@@ -76,7 +79,9 @@ class LibraryViewModel(
     private val libraryPreferences: LibraryPreferences,
     private val resourceProvider: ResourceProvider,
     private val playlistMutationBus: PlaylistMutationBus,
-    private val songDownloadManager: SongDownloader
+    private val songDownloadManager: SongDownloader,
+    private val recentRepository: RecentRepository,
+    private val playbackRepository: PlaybackRepository
 ) : ViewModel() {
 
     private val _pinnedIds = MutableStateFlow<Set<String>>(getPinnedIdsFromPrefs())
@@ -159,6 +164,12 @@ class LibraryViewModel(
                 }
             }
         }
+
+        viewModelScope.launch {
+            playbackRepository.playlistRecorded.collect {
+                refreshRecentPlaylists()
+            }
+        }
     }
 
     private fun getPinnedIdsFromPrefs(): Set<String> = libraryPreferences.pinnedIds()
@@ -227,17 +238,27 @@ class LibraryViewModel(
                     result?.getOrNull()
                 }
 
+                // 5. 并行获取最近播放歌单
+                val recentPlaylistsDeferred = async {
+                    runCatching { recentRepository.getRecentPlaylists().first() }
+                        .getOrDefault(Result.success(emptyList()))
+                        .getOrDefault(emptyList())
+                }
+
                 val playlists = playlistsDeferred.await()
                 val artistsResult = artistsDeferred.await()
                 val artists = artistsResult?.getOrNull() ?: emptyList()
                 val artistsError = artistsResult?.exceptionOrNull()
                 val albums = albumsDeferred.await()
                 val subcount = subcountDeferred.await()
+                val recentPlaylists = recentPlaylistsDeferred.await()
+                val recentPlayTimes = recentPlaylists.associate { it.id.toString() to it.playTime }
 
                 // 数据归一化 (Mapping)
                 val mappedPlaylists = playlists.mapIndexed { index, playlist ->
+                    val playlistIdStr = playlist.id.toString()
                     LibraryItem(
-                        id = playlist.id.toString(),
+                        id = playlistIdStr,
                         title = playlist.name,
                         subtitle = "歌单 · ${playlist.creator?.nickname ?: ""}",
                         coverUrl = playlist.coverImgUrl,
@@ -246,7 +267,8 @@ class LibraryViewModel(
                         trackCount = playlist.trackCount,
                         playCount = playlist.playCount,
                         isLikedSongs = index == 0 && playlist.creator?.userId == profile.uid,
-                        isOwnedByMe = playlist.creator?.userId == profile.uid
+                        isOwnedByMe = playlist.creator?.userId == profile.uid,
+                        lastPlayTime = recentPlayTimes[playlistIdStr] ?: 0L
                     )
                 }.toMutableList()
 
@@ -256,11 +278,12 @@ class LibraryViewModel(
                     subtitle = "歌单 · 听歌排行统计",
                     coverUrl = "",
                     type = LibraryItemType.PLAYLIST,
-                    updateTime = System.currentTimeMillis(),
+                    updateTime = 0L,
                     trackCount = 0,
                     playCount = 0,
                     isLikedSongs = false,
-                    isOwnedByMe = true
+                    isOwnedByMe = true,
+                    lastPlayTime = recentPlayTimes["-2"] ?: 0L
                 )
                 if (mappedPlaylists.isNotEmpty()) {
                     mappedPlaylists.add(1, recordPlaylist)
@@ -368,7 +391,10 @@ class LibraryViewModel(
 
         val sortedUnpinned = when (sort) {
             LibrarySortOrder.RECENTLY_PLAYED -> {
-                unpinnedItems.sortedByDescending { it.updateTime }
+                unpinnedItems.sortedWith(
+                    compareByDescending<LibraryItem> { it.lastPlayTime }
+                        .thenByDescending { it.updateTime }
+                )
             }
             LibrarySortOrder.NAME -> {
                 unpinnedItems.sortedWith(compareBy(zhCollator) { it.title })
@@ -390,6 +416,25 @@ class LibraryViewModel(
         _uiState.update { current ->
             if (current is LibraryUiState.Success) current.copy(filteredItems = finalList) else current
         }
+    }
+
+    // 监听歌单播放事件后刷新最近播放时间，并触发列表重排
+    private suspend fun refreshRecentPlaylists() {
+        val latestRecent = runCatching { recentRepository.getRecentPlaylists().first() }
+            .getOrNull()?.getOrNull() ?: return
+        val current = _uiState.value as? LibraryUiState.Success ?: return
+
+        val recentPlayTimes = latestRecent.associate { it.id.toString() to it.playTime }
+        val updatedAll = current.allItems.map { item ->
+            val playTime = recentPlayTimes[item.id]
+            if (playTime != null && playTime != item.lastPlayTime) {
+                item.copy(lastPlayTime = playTime)
+            } else {
+                item
+            }
+        }
+        _uiState.value = current.copy(allItems = updatedAll)
+        applyFilterAndSort()
     }
 
     fun togglePin(itemId: String) {
