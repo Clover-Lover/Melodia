@@ -601,6 +601,7 @@ fun FullPlayerScreen(
                 lyrics = songDetailState.lyrics,
                 isLyricsLoading = songDetailState.isLyricsLoading,
                 currentLyricIndex = currentLyricIndex,
+                activeLyricIndices = activeLyricIndices,
                 highlightColor = colors.textHighlight,
                 currentPositionProvider = currentPositionProvider,
                 isPlaying = isPlaying,

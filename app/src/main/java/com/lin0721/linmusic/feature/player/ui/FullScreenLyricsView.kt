@@ -28,6 +28,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.lin0721.linmusic.core.player.PlayMode
+import com.lin0721.linmusic.core.player.domain.LyricAlignment
 import com.lin0721.linmusic.core.player.domain.LyricLine
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.HazeStyle
@@ -84,6 +85,11 @@ fun FullScreenLyricsView(
 
     val hasTranslation = remember(lyrics) { lyrics.any { it.translation != null } }
     val hasRoma = remember(lyrics) { lyrics.any { it.roma != null } }
+    // 歌词带 AMLL TTML 的逐行左右对齐信息（对唱第二声部，或背景和声行）时，
+    // 全局"右对齐"设置对这些行不生效只会在其余行上造成不一致，故禁用该选项。
+    val rightAlignmentLocked = remember(lyrics) {
+        lyrics.any { it.alignment == LyricAlignment.END || it.backgroundLine != null }
+    }
     var showSettingsSheet by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
@@ -300,6 +306,7 @@ fun FullScreenLyricsView(
                 onAdvancedKaraokeEffectChange = { enabled ->
                     scope.launch { settingsPreferences.saveFullScreenKaraokeAdvancedEffect(enabled) }
                 },
+                rightAlignmentLocked = rightAlignmentLocked,
                 onDismiss = { showSettingsSheet = false }
             )
         }

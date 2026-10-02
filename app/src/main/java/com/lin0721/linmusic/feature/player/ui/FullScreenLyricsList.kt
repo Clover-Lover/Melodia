@@ -1,13 +1,9 @@
 package com.lin0721.linmusic.feature.player.ui
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -19,6 +15,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -37,8 +34,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.snapshotFlow
-import kotlinx.coroutines.flow.first
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -58,13 +53,15 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.PillRadius
 
-// 全屏歌词列表区：加载态/空态、当前行自动居中定位、居中行推导与拖动定位覆盖层
+private val FullScreenLyricsTopSafetyPadding = 32.dp
+private const val FullScreenLyricsAnchorFraction = 0.25f
+
+// 全屏歌词列表区：加载态/空态、当前行自动定位到视口 1/4 处、目标行推导与拖动定位覆盖层
 @Composable
 fun ColumnScope.FullScreenLyricsList(
     lyrics: List<LyricLine>,
     currentIndex: Int,
-    // 同时需要高亮的行（对唱/背景和声的重叠区间）。留空时退回只高亮 currentIndex，
-    // 这样平板/宽屏等暂未接入的调用方行为不变。
+    // 同时需要高亮的行（对唱/背景和声的重叠区间）；留空时退回只高亮 currentIndex
     activeIndices: Set<Int> = emptySet(),
     isLoading: Boolean,
     isUserScrolling: Boolean,
@@ -81,7 +78,7 @@ fun ColumnScope.FullScreenLyricsList(
     secondarySpacing: Int = 6,
     advancedKaraokeEffect: Boolean = true,
     isPlaying: Boolean = true,
-    // 以下为宽屏播放器用：关掉居中线与播放胶囊、关掉列表自带拖动（由外层按命中规则接管）、上报每行文字范围
+    // 以下为宽屏播放器用：关掉基准线与播放胶囊、关掉列表自带拖动（由外层按命中规则接管）、上报每行文字范围
     showSeekGuide: Boolean = true,
     userScrollEnabled: Boolean = true,
     onLineTextBounds: ((index: Int, bounds: Rect) -> Unit)? = null,
@@ -89,61 +86,52 @@ fun ColumnScope.FullScreenLyricsList(
     onLyricClick: (LyricLine) -> Unit
 ) {
     val density = LocalDensity.current
-    // 顶部留白让首句可拖到视口中心；静止时仍通过滚动抵消，保持首句贴顶
-    val topPaddingPx = (viewportHeightPx / 2f).toInt()
+    val topSafetyPaddingPx = with(density) { FullScreenLyricsTopSafetyPadding.toPx() }
+    // 当前行锚定在视口 1/4 处（屏幕上半部分），顶部留出安全边距避免贴到状态栏
+    val targetLinePx = remember(viewportHeightPx, topSafetyPaddingPx) {
+        topSafetyPaddingPx + ((viewportHeightPx - topSafetyPaddingPx).coerceAtLeast(0f) * FullScreenLyricsAnchorFraction)
+    }
 
-    LaunchedEffect(currentIndex, isUserScrolling, viewportHeightPx, secondaryMode, lineSpacing, secondarySpacing) {
-        // 未唱到首句时 currentIndex 为 -1，同样需要把列表摆回贴顶位置
-        if (!isUserScrolling && lyrics.isNotEmpty() && currentIndex < lyrics.size && viewportHeightPx > 0f) {
-            // 等布局应用新的顶部内边距后再计算偏移，否则读到的是旧布局
-            snapshotFlow { lazyListState.layoutInfo.beforeContentPadding }.first { it == topPaddingPx }
+    LaunchedEffect(currentIndex, isUserScrolling, viewportHeightPx, fontSize, lineSpacing, secondarySpacing) {
+        if (!isUserScrolling && currentIndex in lyrics.indices && viewportHeightPx > 0f) {
             // 估算值以默认间距（行距 24dp、副文本距 6dp）为基准，按用户设置的差值修正
             val itemStridePx = with(density) { (66 + lineSpacing - 24).coerceAtLeast(1).dp.toPx() }
-            val linesAboveCentre = (viewportHeightPx / 2 / itemStridePx).toInt()
+            val linesAboveTarget = (targetLinePx / itemStridePx).toInt()
 
-            if (currentIndex < linesAboveCentre) {
-                // 首句还没法滚到视口中心，此时把首句钉在视口顶部保持不动。
-                // 偏移必须传 0：内容顶部内边距等于半个视口，Compose 里 item 的落点是 offset = -scrollOffset，
-                // 传 ±topPaddingPx 会在此基础上再多推半个视口，把首句顶到屏幕外，
-                // 表现为前几行播放时列表整体乱跳（AMLL 行带译文/罗马音更高，触发得更明显）。
-                lazyListState.springScrollToCentre(
-                    targetIndex = 0,
-                    desiredOffsetPx = 0,
-                    fallbackScrollOffsetPx = 0
-                )
+            if (currentIndex < linesAboveTarget) {
+                // 还滚不到基准线（首句附近没有足够内容可用），把首句钉在顶部保持不动。
+                // 偏移必须是 0：内容顶部内边距是安全边距，item 落点为 offset = -scrollOffset，
+                // 传任何非 0 值都会把首句往上多推一段，表现为前几行播放时列表乱跳。
+                lazyListState.animateScrollToItem(index = 0, scrollOffset = 0)
                 return@LaunchedEffect
             }
 
-            val currentLine = lyrics[currentIndex]
-            val hasSecondary = when (secondaryMode) {
-                "translation" -> currentLine.translation != null
-                "roma" -> currentLine.roma != null
-                else -> false
-            }
+            val current = lyrics[currentIndex]
+            val hasSecondary = current.translation != null ||
+                current.roma != null ||
+                current.backgroundLine != null
             val itemHeightPx = with(density) {
-                if (hasSecondary) (96 + secondarySpacing - 6).dp.toPx() else 54.dp.toPx()
+                (if (hasSecondary) 96 + secondarySpacing - 6 else 54).coerceAtLeast(1).dp.toPx()
             }
-            val desiredOffsetPx = ((viewportHeightPx - itemHeightPx) / 2f).toInt()
-            val centreOffsetPx = topPaddingPx - desiredOffsetPx
-            lazyListState.springScrollToCentre(
-                targetIndex = currentIndex,
-                desiredOffsetPx = desiredOffsetPx - topPaddingPx,
-                fallbackScrollOffsetPx = centreOffsetPx
+            // 让当前行中心落在基准线上
+            val targetOffsetPx = (targetLinePx - itemHeightPx / 2f).toInt()
+            lazyListState.animateScrollToItem(
+                index = currentIndex,
+                scrollOffset = -targetOffsetPx
             )
         }
     }
 
-    val centerLineIndex by remember {
+    val centerLineIndex by remember(targetLinePx) {
         derivedStateOf {
             val layoutInfo = lazyListState.layoutInfo
             val visibleItems = layoutInfo.visibleItemsInfo
             if (visibleItems.isEmpty()) return@derivedStateOf -1
-            val viewportCenter = (layoutInfo.viewportStartOffset + layoutInfo.viewportEndOffset) / 2f
             var minDistance = Float.MAX_VALUE
             var closestIndex = -1
             for (item in visibleItems) {
                 val itemCenter = item.offset + item.size / 2f
-                val distance = kotlin.math.abs(itemCenter - viewportCenter)
+                val distance = kotlin.math.abs(itemCenter - targetLinePx)
                 if (distance < minDistance) {
                     minDistance = distance
                     closestIndex = item.index
@@ -171,12 +159,14 @@ fun ColumnScope.FullScreenLyricsList(
                 modifier = Modifier.align(Alignment.Center)
             )
         } else {
+            val targetLineOffsetDp = with(density) { targetLinePx.toDp() }
             CenterTargetLine(
                 visible = isUserScrolling && showSeekGuide,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(1.dp)
-                    .align(Alignment.Center)
+                    .align(Alignment.TopCenter)
+                    .offset(y = targetLineOffsetDp)
             )
 
             LazyColumn(
@@ -188,14 +178,11 @@ fun ColumnScope.FullScreenLyricsList(
                     .onSizeChanged { onViewportHeightChange(it.height.toFloat()) },
                 verticalArrangement = Arrangement.spacedBy(lineSpacing.coerceAtLeast(0).dp),
                 contentPadding = PaddingValues(
-                    top = with(density) { topPaddingPx.toDp() },
-                    bottom = with(density) { (viewportHeightPx / 2f).toDp() }
+                    top = FullScreenLyricsTopSafetyPadding,
+                    // 底部留出锚点以下的可视区域，才能让最后一行滚到锚点
+                    bottom = with(density) { (viewportHeightPx - targetLinePx).coerceAtLeast(0f).toDp() }
                 ),
-                horizontalAlignment = when (alignment) {
-                    "center" -> Alignment.CenterHorizontally
-                    "right" -> Alignment.End
-                    else -> Alignment.Start
-                }
+                horizontalAlignment = Alignment.Start
             ) {
                 itemsIndexed(items = lyrics, key = ::lyricLineKey) { index, line ->
                     val isCurrent = if (activeIndices.isEmpty()) {
@@ -231,20 +218,22 @@ fun ColumnScope.FullScreenLyricsList(
                 targetLine = lyrics.getOrNull(centerLineIndex),
                 onSeek = onSeek,
                 modifier = Modifier
-                    .align(Alignment.CenterEnd)
+                    .align(Alignment.TopEnd)
+                    // 胶囊中心对齐到 1/4 基准线（胶囊约 36dp 高，上移一半）
+                    .offset(y = targetLineOffsetDp - 18.dp)
                     .padding(end = MelodiaSpacing.md)
             )
         }
     }
 }
 
-// 用户滚动时出现的居中虚线基准，标示"松手即跳转"的目标位置
+// 用户滚动时出现的 1/4 处虚线基准，标示"松手即跳转"的目标位置
 @Composable
 private fun CenterTargetLine(visible: Boolean, modifier: Modifier = Modifier) {
     AnimatedVisibility(
         visible = visible,
-        enter = fadeIn(spring(dampingRatio = 0.85f, stiffness = 300f)),
-        exit = fadeOut(tween(180)),
+        enter = fadeIn(tween(200)),
+        exit = fadeOut(tween(200)),
         modifier = modifier
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
@@ -259,7 +248,7 @@ private fun CenterTargetLine(visible: Boolean, modifier: Modifier = Modifier) {
     }
 }
 
-// 居中虚线右侧的跳转胶囊，显示目标行时间并点击定位播放
+// 1/4 虚线右侧的跳转胶囊，显示目标行时间并点击定位播放
 @Composable
 private fun PlayCapsule(
     visible: Boolean,
@@ -269,16 +258,8 @@ private fun PlayCapsule(
 ) {
     AnimatedVisibility(
         visible = visible,
-        enter = fadeIn(spring(dampingRatio = 0.82f, stiffness = 380f)) +
-                scaleIn(
-                    initialScale = 0.82f,
-                    animationSpec = spring(dampingRatio = 0.75f, stiffness = 400f)
-                ),
-        exit = fadeOut(tween(160)) +
-               scaleOut(
-                   targetScale = 0.85f,
-                   animationSpec = tween(160)
-               ),
+        enter = fadeIn(tween(200)),
+        exit = fadeOut(tween(200)),
         modifier = modifier
     ) {
         if (targetLine != null) {
@@ -306,43 +287,4 @@ private fun PlayCapsule(
             }
         }
     }
-}
-
-// 物理弹簧阻尼居中平滑滚动
-private suspend fun LazyListState.springScrollToCentre(
-    targetIndex: Int,
-    desiredOffsetPx: Int,
-    fallbackScrollOffsetPx: Int,
-    dampingRatio: Float = 0.82f,
-    stiffness: Float = 360f
-) {
-    val layoutInfo = this.layoutInfo
-    val visibleItem = layoutInfo.visibleItemsInfo.find { it.index == targetIndex }
-
-    if (visibleItem != null) {
-        val currentOffset = visibleItem.offset
-        val deltaToScroll = (currentOffset - desiredOffsetPx).toFloat()
-
-        if (kotlin.math.abs(deltaToScroll) > 1f) {
-            var previousValue = 0f
-            val anim = Animatable(0f)
-            val springSpec = spring<Float>(
-                dampingRatio = dampingRatio,
-                stiffness = stiffness
-            )
-            this.scroll {
-                anim.animateTo(
-                    targetValue = deltaToScroll,
-                    animationSpec = springSpec
-                ) {
-                    val delta = this.value - previousValue
-                    scrollBy(delta)
-                    previousValue = this.value
-                }
-            }
-            return
-        }
-    }
-
-    this.animateScrollToItem(index = targetIndex, scrollOffset = fallbackScrollOffsetPx)
 }
