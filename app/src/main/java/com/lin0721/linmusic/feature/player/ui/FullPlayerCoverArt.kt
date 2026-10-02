@@ -86,7 +86,7 @@ fun FullPlayerCoverArt(
             contentPadding = MelodiaSpacing.lg + coverExtraInset,
             contentScale = ContentScale.Crop,
             shape = RoundedCornerShape(RadiusCompact),
-            elevation = 24.dp,
+            elevation = 6.dp,
             modifier = Modifier.fillMaxWidth(),
             onCancelPending = onCancelSwipe
         )
