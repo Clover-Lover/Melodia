@@ -112,6 +112,7 @@ fun FullPlayerScreen(
     // 歌词区/顶栏/队列等其他地方仍按严格的 isPlaying 判断，不受影响
     val playWhenReady by viewModel.playerManager.playWhenReady.collectAsStateWithLifecycle()
     val currentLyricIndex by viewModel.currentLyricIndex.collectAsStateWithLifecycle()
+    val activeLyricIndices by viewModel.activeLyricIndices.collectAsStateWithLifecycle()
     val playContext by viewModel.playerManager.playContext.collectAsStateWithLifecycle()
     val sleepTimerRemaining by viewModel.sleepTimerRemaining.collectAsStateWithLifecycle()
     val commentsState by viewModel.commentsState.collectAsStateWithLifecycle()
@@ -640,6 +641,7 @@ fun FullPlayerScreen(
             songState = songDetailState,
             colors = colors,
             currentLyricIndex = currentLyricIndex,
+            activeLyricIndices = activeLyricIndices,
             title = title,
             artist = artist,
             hazeState = hazeState,

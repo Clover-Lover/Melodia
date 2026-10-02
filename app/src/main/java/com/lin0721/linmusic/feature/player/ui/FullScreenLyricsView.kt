@@ -48,6 +48,8 @@ import org.koin.compose.koinInject
 fun FullScreenLyricsView(
     lyrics: List<LyricLine>,
     currentIndex: Int,
+    // 同时需要高亮的行（对唱/背景和声的重叠区间）；留空时退回只高亮 currentIndex
+    activeIndices: Set<Int> = emptySet(),
     isLoading: Boolean,
     title: String,
     artist: String,
@@ -227,6 +229,7 @@ fun FullScreenLyricsView(
             FullScreenLyricsList(
                 lyrics = lyrics,
                 currentIndex = currentIndex,
+                activeIndices = activeIndices,
                 isLoading = isLoading,
                 isUserScrolling = isUserScrolling,
                 highlightColor = highlightColor,

@@ -63,6 +63,9 @@ import com.lin0721.linmusic.core.ui.theme.PillRadius
 fun ColumnScope.FullScreenLyricsList(
     lyrics: List<LyricLine>,
     currentIndex: Int,
+    // 同时需要高亮的行（对唱/背景和声的重叠区间）。留空时退回只高亮 currentIndex，
+    // 这样平板/宽屏等暂未接入的调用方行为不变。
+    activeIndices: Set<Int> = emptySet(),
     isLoading: Boolean,
     isUserScrolling: Boolean,
     highlightColor: Color,
@@ -195,7 +198,11 @@ fun ColumnScope.FullScreenLyricsList(
                 }
             ) {
                 itemsIndexed(items = lyrics, key = ::lyricLineKey) { index, line ->
-                    val isCurrent = index == currentIndex
+                    val isCurrent = if (activeIndices.isEmpty()) {
+                        index == currentIndex
+                    } else {
+                        index in activeIndices
+                    }
                     val isCenterTarget = index == centerLineIndex && isUserScrolling && showSeekGuide
                     val distance = kotlin.math.abs(index - currentIndex).coerceAtMost(5)
 

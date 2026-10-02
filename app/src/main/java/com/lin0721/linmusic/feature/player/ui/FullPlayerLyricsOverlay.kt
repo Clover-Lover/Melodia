@@ -25,6 +25,7 @@ fun FullPlayerLyricsOverlay(
     songState: PlayerSongDetailState,
     colors: PlayerBackdropPalette,
     currentLyricIndex: Int,
+    activeLyricIndices: Set<Int> = emptySet(),
     title: String,
     artist: String,
     hazeState: HazeState,
@@ -74,6 +75,7 @@ fun FullPlayerLyricsOverlay(
         FullScreenLyricsView(
             lyrics = songState.lyrics,
             currentIndex = currentLyricIndex,
+            activeIndices = activeLyricIndices,
             isLoading = songState.isLyricsLoading,
             title = title,
             artist = artist,

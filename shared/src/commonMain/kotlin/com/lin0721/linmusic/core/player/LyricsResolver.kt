@@ -3,6 +3,7 @@ package com.lin0721.linmusic.core.player
 import com.lin0721.linmusic.core.player.data.PlaybackRepository
 import com.lin0721.linmusic.core.player.domain.LyricLine
 import com.lin0721.linmusic.core.player.domain.LyricParser
+import com.lin0721.linmusic.core.player.domain.LyricTimeline
 import com.lin0721.linmusic.core.player.domain.TtmlLyricParser
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
@@ -46,7 +47,7 @@ class LyricsResolver(
             }
         }
         val lines = readLocalLyrics(localUri)?.let(LyricParser::parseLocal).orEmpty()
-        emit(Result.success(lines))
+        emit(Result.success(LyricTimeline.prepareLines(lines)))
     }
 
     private fun onlineLyricsFor(songId: Long): Flow<Result<List<LyricLine>>> = flow {
@@ -101,7 +102,9 @@ class LyricsResolver(
             // 两边都没内容：保留网易原结果，是失败就继续向上抛
             else -> return netease
         }
-        return Result.success(lines)
+        // 载入时统一做一次时间轴整理：补全行时长、把背景和声并入同组、裁掉标注误差级重叠，
+        // 但保留有意为之的重叠行（对唱），这样上层才能识别出同时需要高亮的多行。
+        return Result.success(LyricTimeline.prepareLines(lines))
     }
 }
 

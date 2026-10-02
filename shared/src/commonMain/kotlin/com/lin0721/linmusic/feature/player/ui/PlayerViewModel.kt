@@ -15,6 +15,7 @@ import com.lin0721.linmusic.core.model.ArtistDetailInfo
 import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.model.ArtistInfo
 import com.lin0721.linmusic.core.player.domain.LyricLine
+import com.lin0721.linmusic.core.player.domain.LyricTimeline
 import com.lin0721.linmusic.feature.artist.data.ArtistRepository
 import com.lin0721.linmusic.core.comment.data.CommentRepository
 import com.lin0721.linmusic.core.songlike.LoadLikedSongIdsUseCase
@@ -190,6 +191,11 @@ class PlayerViewModel(
     private val _currentLyricIndex = MutableStateFlow(-1)
     val currentLyricIndex: StateFlow<Int> = _currentLyricIndex.asStateFlow()
 
+    // 需要同时高亮的行集合。对唱与背景和声的时间区间会重叠，单个 index 表达不了，
+    // 供全屏歌词与播放页歌词卡按 index in activeLyricIndices 判定。
+    private val _activeLyricIndices = MutableStateFlow<Set<Int>>(emptySet())
+    val activeLyricIndices: StateFlow<Set<Int>> = _activeLyricIndices.asStateFlow()
+
     private val _songDetailState = MutableStateFlow(PlayerSongDetailState())
     val songDetailState: StateFlow<PlayerSongDetailState> = _songDetailState.asStateFlow()
 
@@ -319,6 +325,7 @@ class PlayerViewModel(
     private fun clearState(isLiked: Boolean = false, isLocalOnly: Boolean = false) {
         _songDetailState.value = PlayerSongDetailState(isLiked = isLiked, isLocalOnly = isLocalOnly)
         _currentLyricIndex.value = -1
+        _activeLyricIndices.value = emptySet()
     }
 
     private fun observePosition() {
@@ -327,6 +334,8 @@ class PlayerViewModel(
                 val lines = _songDetailState.value.lyrics
                 if (lines.isEmpty()) return@collectLatest
                 _currentLyricIndex.value = findLyricIndex(lines, positionMs)
+                // 对唱、背景和声这类重叠行允许同时高亮；当前行（滚动锚点）仍用 currentLyricIndex
+                _activeLyricIndices.value = LyricTimeline.activeIndices(lines, positionMs)
             }
         }
     }
