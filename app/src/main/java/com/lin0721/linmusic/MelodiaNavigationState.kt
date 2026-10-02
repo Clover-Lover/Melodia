@@ -111,6 +111,10 @@ class MelodiaNavigationState(
     // 当前 tab 内栈深大于 1 时才有上一级可回退
     val canNavigateBack: Boolean get() = activeStack.size > 1
 
+    // 是否还有可回退的页面层级（包括二级页面、非主页 tab、主页非「全部」分类或展开的最新药丸）
+    val canGoBackToHomeAll: Boolean
+        get() = canNavigateBack || activeTab != Screen.Home || homeTab != TAB_ALL || showMusicNewWorks
+
     // 主页三个 tab 的选中项。存在导航状态里而非 HomeScreen 内部——
     // 页面切走时 HomeScreen 会离开 composition，记在里面的话从电台详情页退回来会跳回「全部」
     var homeTab by mutableStateOf(initialHomeTab)
@@ -174,12 +178,27 @@ class MelodiaNavigationState(
             if (willExitPlayerNav) {
                 resetPlayerNavigation()
             }
+            if (activeTab == Screen.Home && activeStack.size == 1) {
+                homeTab = TAB_ALL
+                showMusicNewWorks = false
+            }
             return willExitPlayerNav
         }
         // 已在当前 tab 的根页面
         if (activeTab != Screen.Home) {
             resetStackToRoot(Screen.Home)
             activeTab = Screen.Home
+            homeTab = TAB_ALL
+            showMusicNewWorks = false
+            return false
+        }
+        if (showMusicNewWorks) {
+            showMusicNewWorks = false
+            return false
+        }
+        if (homeTab != TAB_ALL) {
+            homeTab = TAB_ALL
+            return false
         }
         return false
     }

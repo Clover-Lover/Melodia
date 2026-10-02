@@ -229,11 +229,10 @@ fun MelodiaApp() {
     }
 
     // 系统返回键与侧滑返回拦截：按优先级关闭浮层或返回上一级。
-    // activeTab != Home 时即使当前 tab 栈深为 1，也需要交给 handleBack() 退回主页 tab，而不是转给系统。
+    // 当存在浮层、处于非主页 tab、当前栈深大于 1、或主页未处于「全部」默认分类时均由 handleBack() 逐级处理。
     // 平板播放面板展开时，返回键先收起面板，再处理内容导航
     val isAnyOverlayOpen = playerSheet.isOpen || navigation.isNavigatingFromPlayer || sidebar.isOpen ||
-            showCreateSheet || navigation.showMusicNewWorks || isPanelVisible || navigation.canNavigateBack ||
-            navigation.activeTab != Screen.Home
+            showCreateSheet || isPanelVisible || navigation.canGoBackToHomeAll
 
     BackHandler(enabled = isAnyOverlayOpen) {
         when {
@@ -244,9 +243,8 @@ fun MelodiaApp() {
             navigation.isNavigatingFromPlayer -> handleBack()
             sidebar.isOpen -> sidebar.close()
             showCreateSheet -> showCreateSheet = false
-            navigation.showMusicNewWorks -> navigation.updateShowMusicNewWorks(false)
             isPanelVisible -> isPanelExpanded = false
-            navigation.canNavigateBack || navigation.activeTab != Screen.Home -> handleBack()
+            navigation.canGoBackToHomeAll -> handleBack()
         }
     }
 
