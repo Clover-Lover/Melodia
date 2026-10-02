@@ -4,8 +4,10 @@ import android.content.Intent
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animate
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -165,6 +167,7 @@ fun FullPlayerScreen(
         }
     }
     val cardLayout by viewModel.fullPlayerCardLayout.collectAsStateWithLifecycle()
+    val showMiniLyric by viewModel.showMiniLyric.collectAsStateWithLifecycle()
     val connectedDevice = rememberCurrentOutputDevice()
 
     LaunchedEffect(viewModel) {
@@ -302,8 +305,18 @@ fun FullPlayerScreen(
         listState = listState,
         enabled = allCardsHidden,
         gapCount = FullPlayerFillGapCount,
-        contentKeys = FullPlayerPlaybackItemKeys,
+        contentKeys = if (showMiniLyric) FullPlayerPlaybackItemKeys else FullPlayerPlaybackItemKeysWithoutMiniLyric,
         bottomReserve = fillTail
+    )
+    val animatedCoverPadding by animateDpAsState(
+        targetValue = if (showMiniLyric) MelodiaSpacing.lg else 13.dp,
+        animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing),
+        label = "cover_padding"
+    )
+    val animatedItemGap by animateDpAsState(
+        targetValue = if (showMiniLyric) 0.dp else 3.dp,
+        animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing),
+        label = "item_gap"
     )
 
     val isLandscape = rememberMelodiaOrientationClass() == MelodiaOrientationClass.Landscape
@@ -490,6 +503,9 @@ fun FullPlayerScreen(
                         onQueueClick = { showQueueSheet = true },
                         onShareClick = { shareCurrentSong() },
                         connectedDevice = connectedDevice,
+                        showMiniLyric = showMiniLyric,
+                        baseCoverPadding = animatedCoverPadding,
+                        itemGap = animatedItemGap,
                         fillGap = if (allCardsHidden) fillGap else null,
                         fillTail = fillTail
                     )
@@ -695,6 +711,8 @@ fun FullPlayerScreen(
             coverUrl = coverUrl,
             sleepTimerRemaining = sleepTimerRemaining,
             activeQuality = activeQuality,
+            showMiniLyric = showMiniLyric,
+            onToggleMiniLyric = viewModel::toggleMiniLyric,
             onPlayAtIndex = { viewModel.playerManager.playAtIndex(it) },
             onRemoveAtIndex = { viewModel.playerManager.removeFromQueue(it) },
             onMoveQueueItem = { from, to -> viewModel.playerManager.moveInQueue(from, to) },

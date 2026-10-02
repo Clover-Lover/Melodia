@@ -179,6 +179,19 @@ class PlayerViewModel(
         }
     }
 
+    // 播放页小歌词显隐
+    val showMiniLyric: StateFlow<Boolean> = settingsPreferences.showMiniLyric.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = true
+    )
+
+    fun toggleMiniLyric(show: Boolean) {
+        viewModelScope.launch {
+            settingsPreferences.saveShowMiniLyric(show)
+        }
+    }
+
     // 更新当前环境的音质设置并重新加载当前歌曲播放
     fun updateQuality(quality: String) {
         viewModelScope.launch {

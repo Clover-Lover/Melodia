@@ -107,6 +107,8 @@ class SettingsPreferences(private val dataStore: DataStore<Preferences>) {
         private val KEY_LYRICON_ENABLED = booleanPreferencesKey("lyricon_enabled")
         // 启用状态栏歌词胶囊 (Android 16 实时更新通知)，默认 false
         private val KEY_FLUID_CLOUD_LYRIC_ENABLED = booleanPreferencesKey("fluid_cloud_lyric_enabled")
+        // 播放页小歌词显隐，默认 true
+        private val KEY_SHOW_MINI_LYRIC = booleanPreferencesKey("show_mini_lyric")
     }
 
     // Wi-Fi 音质设置 Flow
@@ -589,6 +591,17 @@ class SettingsPreferences(private val dataStore: DataStore<Preferences>) {
     suspend fun saveFluidCloudLyricEnabled(enabled: Boolean) {
         dataStore.edit { prefs ->
             prefs[KEY_FLUID_CLOUD_LYRIC_ENABLED] = enabled
+        }
+    }
+
+    // 播放页小歌词显隐 Flow
+    val showMiniLyric: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_SHOW_MINI_LYRIC] ?: true
+    }
+
+    suspend fun saveShowMiniLyric(show: Boolean) {
+        dataStore.edit { prefs ->
+            prefs[KEY_SHOW_MINI_LYRIC] = show
         }
     }
 }

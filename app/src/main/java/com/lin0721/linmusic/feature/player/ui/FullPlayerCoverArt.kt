@@ -50,6 +50,8 @@ fun FullPlayerCoverArt(
     nextKey: Any? = null,
     // 在默认左右留白之外再内缩的距离，封面随之居中缩小
     coverExtraInset: Dp = 0.dp,
+    // 封面默认基础水平边距，默认 MelodiaSpacing.lg (24dp)，关闭小歌词时可自适应缩窄以放大封面
+    baseCoverPadding: Dp = MelodiaSpacing.lg,
     // 平板常驻面板用：侧栏与全屏互切，为 null 时不显示该按钮
     onToggleSidebarFullscreen: (() -> Unit)? = null,
     isSidebarFullscreen: Boolean = false,
@@ -83,7 +85,7 @@ fun FullPlayerCoverArt(
             currentKey = currentKey,
             previousKey = previousKey,
             nextKey = nextKey,
-            contentPadding = MelodiaSpacing.lg + coverExtraInset,
+            contentPadding = baseCoverPadding + coverExtraInset,
             contentScale = ContentScale.Crop,
             shape = RoundedCornerShape(RadiusCompact),
             elevation = 6.dp,
