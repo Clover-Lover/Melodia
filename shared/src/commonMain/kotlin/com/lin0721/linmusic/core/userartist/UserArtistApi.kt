@@ -5,7 +5,7 @@ import kotlinx.serialization.Serializable
 import retrofit2.http.Body
 import retrofit2.http.POST
 
-// 关注歌手列表（含未登录时的热门歌手兜底）的网易云 Retrofit 接口定义。
+// 关注歌手列表的网易云 Retrofit 接口定义。
 interface UserArtistApi {
 
     // 获取已关注歌手 (需登录)
@@ -13,27 +13,6 @@ interface UserArtistApi {
     suspend fun getArtistSublist(
         @Body body: ArtistSublistRequest = ArtistSublistRequest()
     ): ArtistSublistResponse
-
-    // 获取热门歌手
-    @POST("/eapi/artist/top")
-    suspend fun getTopArtists(
-        @Body body: TopArtistsRequest = TopArtistsRequest()
-    ): TopArtistsResponse
-}
-
-@Serializable
-data class TopArtistsRequest(
-    val offset: Int = 0,
-    val limit: Int = 30,
-    val total: Boolean = true
-)
-
-@Serializable
-data class TopArtistsResponse(
-    val code: Int = 0,
-    val artists: List<Artist> = emptyList(),
-) {
-    val isSuccess: Boolean get() = code == 200
 }
 
 // 关注歌手每页条数。服务端默认仅返回 25 条，必须显式翻页才能取全
