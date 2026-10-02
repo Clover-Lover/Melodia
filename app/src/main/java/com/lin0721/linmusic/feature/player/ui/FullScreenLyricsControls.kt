@@ -287,8 +287,8 @@ fun FullScreenLyricsSettingsSheet(
     hasRoma: Boolean,
     advancedKaraokeEffect: Boolean = true,
     onAdvancedKaraokeEffectChange: (Boolean) -> Unit = {},
-    // 当前歌词带 AMLL 逐行左右对齐时为 true，此时"右对齐"选项被禁用
-    rightAlignmentLocked: Boolean = false,
+    amllLyricsEnabled: Boolean = true,
+    onAmllLyricsEnabledChange: (Boolean) -> Unit = {},
     onDismiss: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -372,15 +372,12 @@ fun FullScreenLyricsSettingsSheet(
                 "right" to "右对齐"
             )
             alignments.forEach { (key, label) ->
-                // AMLL TTML 的对唱行自带逐行左右对齐，全局"右对齐"对它们不生效，只会在
-                // 非对唱行上产生不一致的观感，因此当前歌词带逐行对齐信息时禁用该选项。
-                val isLocked = rightAlignmentLocked && key == "right"
-                val isSelected = alignment == key && !isLocked
+                val isSelected = alignment == key
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(8.dp))
-                        .clickable(enabled = !isLocked) { onAlignmentChange(key) }
+                        .clickable { onAlignmentChange(key) }
                         .padding(vertical = 12.dp, horizontal = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
@@ -388,7 +385,6 @@ fun FullScreenLyricsSettingsSheet(
                     Text(
                         text = label,
                         color = when {
-                            isLocked -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
                             isSelected -> MaterialTheme.colorScheme.primary
                             else -> MaterialTheme.colorScheme.onSurface
                         },
@@ -398,14 +394,6 @@ fun FullScreenLyricsSettingsSheet(
                         Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                     }
                 }
-            }
-            if (rightAlignmentLocked) {
-                Text(
-                    text = "当前歌词自带逐行左右对齐（AMLL 对唱），全局右对齐已禁用",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 12.sp,
-                    modifier = Modifier.padding(top = 2.dp, bottom = 4.dp)
-                )
             }
 
             Spacer(modifier = Modifier.height(MelodiaSpacing.sm))
@@ -450,6 +438,32 @@ fun FullScreenLyricsSettingsSheet(
             }
 
             Spacer(modifier = Modifier.height(MelodiaSpacing.sm))
+
+            // AMLL 歌词源
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable { onAmllLyricsEnabledChange(!amllLyricsEnabled) }
+                    .padding(vertical = 8.dp, horizontal = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = "启用 AMLL 歌词源",
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontSize = 15.sp,
+                    modifier = Modifier.weight(1f)
+                )
+                Switch(
+                    checked = amllLyricsEnabled,
+                    onCheckedChange = onAmllLyricsEnabledChange,
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = MaterialTheme.colorScheme.primary,
+                        checkedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                    )
+                )
+            }
 
             // 逐字歌词流光动效
             Row(

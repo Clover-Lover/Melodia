@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import com.lin0721.linmusic.core.comment.ui.CommentsPreviewCard
 import com.lin0721.linmusic.core.comment.ui.CommentsState
 import com.lin0721.linmusic.core.preferences.FullPlayerCard
+import com.lin0721.linmusic.core.player.LyricsSource
 import com.lin0721.linmusic.core.preferences.FullPlayerCardSetting
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.PlayerBackdropPalette
@@ -206,6 +207,7 @@ private fun FullPlayerInfoCard(
             currentIndex = currentLyricIndex,
             isLoading = false,
             base = colors.base,
+            isAmll = songState.lyricsSource == LyricsSource.AMLL,
             onOpenFullScreen = onOpenFullScreenLyrics
         )
         FullPlayerCard.COMMENTS_PREVIEW -> CommentsPreviewCard(

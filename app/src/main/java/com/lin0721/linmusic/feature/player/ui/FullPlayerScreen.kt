@@ -106,6 +106,12 @@ fun FullPlayerScreen(
     val viewModel: PlayerViewModel = koinViewModel()
     // 输出设备切换为 Android 专属能力，不在跨平台接口里
     val playerManager: PlayerManager = koinInject()
+    val lyricPositionProvider: () -> Long = {
+        // 保留采样状态的读取依赖，让暂停时的手动跳转也触发重绘；
+        // 扫色进度使用共用的绘制时钟，只在 PlayerManager 中平滑推进和校正。
+        currentPositionProvider()
+        playerManager.currentPositionNow()
+    }
     val songDetailState by viewModel.songDetailState.collectAsStateWithLifecycle()
     val songDetail = songDetailState.songDetail
     // 大播放按钮专用：弱网缓冲期间也要立刻显示"暂停中"图标，不能等音频真正流出的 isPlaying；
@@ -472,7 +478,7 @@ fun FullPlayerScreen(
                         onMoreClick = { showMoreOptionsSheet = true },
                         onToggleLike = viewModel::toggleLike,
                         onArtistClick = openSongArtist,
-                        onSeek = onSeek,
+                        onSeek = viewModel::seekToTime,
                         onTogglePlay = onTogglePlay,
                         onPlayNext = viewModel.playerManager::playNext,
                         onPlayPrevious = viewModel.playerManager::playPrevious,
@@ -575,7 +581,7 @@ fun FullPlayerScreen(
                     ProgressSection(
                         currentPositionProvider = currentPositionProvider,
                         duration = if (duration > 0L) duration else (songDetail?.dt ?: 0L),
-                        onSeek = onSeek,
+                        onSeek = viewModel::seekToTime,
                         chorusStartMs = songDetailState.chorusStartMs
                     )
                     PlaybackControls(
@@ -603,7 +609,7 @@ fun FullPlayerScreen(
                 currentLyricIndex = currentLyricIndex,
                 activeLyricIndices = activeLyricIndices,
                 highlightColor = colors.textHighlight,
-                currentPositionProvider = currentPositionProvider,
+                currentPositionProvider = lyricPositionProvider,
                 isPlaying = isPlaying,
                 onLyricClick = { line -> viewModel.seekToTime(line.timeMs) },
                 onLyricsVisibleChange = { isWideLyricsVisible = it },
@@ -648,6 +654,7 @@ fun FullPlayerScreen(
             hazeState = hazeState,
             isPlaying = isPlaying,
             currentPositionProvider = currentPositionProvider,
+            lyricPositionProvider = lyricPositionProvider,
             duration = duration,
             playMode = playMode,
             onSeek = { timeMs ->

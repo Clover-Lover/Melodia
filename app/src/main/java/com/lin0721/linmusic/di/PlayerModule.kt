@@ -7,6 +7,8 @@ import com.lin0721.linmusic.core.player.PlayerManager
 import com.lin0721.linmusic.core.player.ExternalInterruptionResumeController
 import com.lin0721.linmusic.core.player.data.AmllLyricsClient
 import com.lin0721.linmusic.core.player.data.LyricsCache
+import com.lin0721.linmusic.core.preferences.SettingsPreferences
+import kotlinx.coroutines.flow.first
 import com.lin0721.linmusic.core.player.external.ExternalLyricCoordinator
 import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
@@ -20,11 +22,13 @@ val playerModule = module {
         val playerManager = get<PlayerManager>()
         val localMusicApi = get<LocalMusicApi>()
         val amllLyricsClient = get<AmllLyricsClient>()
+        val settingsPreferences = get<SettingsPreferences>()
         LyricsResolver(
             playbackRepository = get(),
             readLocalLyrics = localMusicApi::readLyrics,
             localUriOf = { songId -> playerManager.queue.value.firstOrNull { it.songId == songId }?.localUri },
-            readAmllLyrics = { songId -> amllLyricsClient.fetch(songId) }
+            readAmllLyrics = { songId -> amllLyricsClient.fetch(songId) },
+            isAmllEnabled = { settingsPreferences.amllLyricsEnabled.first() }
         )
     }
     single { ExternalLyricCoordinator(androidContext(), get(), get(), get()) }

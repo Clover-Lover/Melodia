@@ -28,7 +28,6 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.lin0721.linmusic.core.player.PlayMode
-import com.lin0721.linmusic.core.player.domain.LyricAlignment
 import com.lin0721.linmusic.core.player.domain.LyricLine
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.HazeStyle
@@ -62,6 +61,7 @@ fun FullScreenLyricsView(
     onDragClose: () -> Unit = onClose,
     isPlaying: Boolean,
     currentPositionProvider: () -> Long,
+    lyricPositionProvider: () -> Long = currentPositionProvider,
     duration: Long,
     onTogglePlay: () -> Unit,
     onPlayNext: () -> Unit,
@@ -80,16 +80,12 @@ fun FullScreenLyricsView(
     val fullScreenLyricAlignment by settingsPreferences.fullScreenLyricAlignment.collectAsStateWithLifecycle(initialValue = "left")
     val fullScreenLyricSecondaryMode by settingsPreferences.fullScreenLyricSecondaryMode.collectAsStateWithLifecycle(initialValue = "translation")
     val fullScreenKaraokeAdvancedEffect by settingsPreferences.fullScreenKaraokeAdvancedEffect.collectAsStateWithLifecycle(initialValue = true)
+    val amllLyricsEnabled by settingsPreferences.amllLyricsEnabled.collectAsStateWithLifecycle(initialValue = true)
     val fullScreenLyricLineSpacing by settingsPreferences.fullScreenLyricLineSpacing.collectAsStateWithLifecycle(initialValue = 24)
     val fullScreenLyricSecondarySpacing by settingsPreferences.fullScreenLyricSecondarySpacing.collectAsStateWithLifecycle(initialValue = 6)
 
     val hasTranslation = remember(lyrics) { lyrics.any { it.translation != null } }
     val hasRoma = remember(lyrics) { lyrics.any { it.roma != null } }
-    // 歌词带 AMLL TTML 的逐行左右对齐信息（对唱第二声部，或背景和声行）时，
-    // 全局"右对齐"设置对这些行不生效只会在其余行上造成不一致，故禁用该选项。
-    val rightAlignmentLocked = remember(lyrics) {
-        lyrics.any { it.alignment == LyricAlignment.END || it.backgroundLine != null }
-    }
     var showSettingsSheet by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
@@ -239,7 +235,7 @@ fun FullScreenLyricsView(
                 isLoading = isLoading,
                 isUserScrolling = isUserScrolling,
                 highlightColor = highlightColor,
-                currentPositionProvider = currentPositionProvider,
+                currentPositionProvider = lyricPositionProvider,
                 lazyListState = lazyListState,
                 viewportHeightPx = dragState.viewportHeightPx,
                 onViewportHeightChange = { height -> dragState.onViewportHeightChange(height) },
@@ -306,7 +302,10 @@ fun FullScreenLyricsView(
                 onAdvancedKaraokeEffectChange = { enabled ->
                     scope.launch { settingsPreferences.saveFullScreenKaraokeAdvancedEffect(enabled) }
                 },
-                rightAlignmentLocked = rightAlignmentLocked,
+                amllLyricsEnabled = amllLyricsEnabled,
+                onAmllLyricsEnabledChange = { enabled ->
+                    scope.launch { settingsPreferences.saveAmllLyricsEnabled(enabled) }
+                },
                 onDismiss = { showSettingsSheet = false }
             )
         }

@@ -73,6 +73,38 @@ class LyricTimelineTest {
         assertTrue(LyricTimeline.advance(lines, 5000, afterFirstEnd).displayIndices.isEmpty())
     }
 
+    @Test fun newLineDropsExpiredBufferedLinesAndMovesAnchor() {
+        val lines = listOf(
+            LyricLine(1000, 3000, "first"),
+            LyricLine(2500, 3500, "second"),
+            LyricLine(4500, 2500, "third")
+        )
+        val overlap = LyricTimeline.advance(lines, 3000, LyricPlaybackState())
+        val buffered = LyricTimeline.advance(lines, 4000, overlap)
+        assertEquals(setOf(1), buffered.hotIndices)
+        assertEquals(setOf(0, 1), buffered.displayIndices)
+        assertEquals(0, buffered.primaryIndex)
+
+        val next = LyricTimeline.advance(lines, 4500, buffered)
+        assertEquals(setOf(1, 2), next.hotIndices)
+        assertEquals(setOf(1, 2), next.displayIndices)
+        assertEquals(1, next.primaryIndex)
+    }
+
+    @Test fun manualSeekResetsBufferedLinesInBothDirectionsEvenForSmallJumps() {
+        val lines = listOf(LyricLine(1000, 3000, "first"), LyricLine(2500, 2500, "second"))
+        val overlap = LyricTimeline.advance(lines, 3900, LyricPlaybackState())
+        val forward = LyricTimeline.advance(lines, 4100, overlap, isSeek = true)
+        assertEquals(setOf(1), forward.hotIndices)
+        assertEquals(setOf(1), forward.displayIndices)
+        assertEquals(1, forward.primaryIndex)
+
+        val backward = LyricTimeline.advance(lines, 3900, forward, isSeek = true)
+        assertEquals(setOf(0, 1), backward.hotIndices)
+        assertEquals(setOf(0, 1), backward.displayIndices)
+        assertEquals(0, backward.primaryIndex)
+    }
+
     @Test fun seekingIntoIntroKeepsMiniLyricEmptyUntilFirstLineStarts() {
         val lines = LyricTimeline.prepareLines(listOf(
             LyricLine(10_000, 2000, "first", words = listOf(WordInfo("first", 0, 2000)))

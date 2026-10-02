@@ -1,6 +1,5 @@
 package com.lin0721.linmusic.feature.player.ui
 
-import android.os.SystemClock
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Text
@@ -60,30 +59,6 @@ private class LyricLayoutInfo(
     val wordLayouts: List<WordLayout>,
     val lineLayouts: List<LineLayout>
 )
-
-// 基于高精度系统时钟的进度插值器：播放器进度是 50ms 轮询的粗值，
-// 直接用它驱动逐字扫色会以 20Hz 跳进；这里以「最后一次观察到的轮询值 + 之后经过的实时时间」
-// 外推，把粗进度还原成逐帧连续的平滑进度。外推上限 500ms，避免播放器卡住时无限跑飞。
-private class LyricTimeInterpolator {
-    private var basePositionMs: Long = 0L
-    private var anchorRealtimeNano: Long = 0L
-    private var lastObservedRawPosition: Long = -1L
-
-    fun getSmoothPosition(rawPosition: Long, isPlaying: Boolean): Long {
-        val nowNano = SystemClock.elapsedRealtimeNanos()
-        if (rawPosition != lastObservedRawPosition) {
-            lastObservedRawPosition = rawPosition
-            basePositionMs = rawPosition
-            anchorRealtimeNano = nowNano
-        }
-        return if (isPlaying) {
-            val elapsedMs = (nowNano - anchorRealtimeNano) / 1_000_000L
-            basePositionMs + elapsedMs.coerceIn(0L, 500L)
-        } else {
-            basePositionMs
-        }
-    }
-}
 
 internal data class KaraokeCharacterBox(val lineIndex: Int, val left: Float, val right: Float)
 
@@ -197,9 +172,9 @@ fun KaraokeLyricRow(
     // 羽化带会擦掉已播行降部，且矩形裁剪无法在重叠像素上同时满足两行，只能从源头避开
     lineHeight: TextUnit = (fontSize.value * 1.35f).sp,
     textAlign: TextAlign = TextAlign.Start,
-    // 上游的开关：关掉后不做逐字裁剪与羽化，整行按已激活色平铺
+    // 关闭流光只移除柔边羽化，仍按逐字时间裁剪并逐帧推进。
     advancedEffect: Boolean = true,
-    // 进度在绘制阶段读取，暂停时插值器冻结在最后一次观察到的位置上，高亮自然定格
+    // 每帧在绘制阶段读播放器时钟；暂停和缓冲时由播放器本身冻结进度。
     isPlaying: Boolean = true,
     fontWeight: FontWeight = FontWeight.ExtraBold,
     isActive: Boolean = true,
@@ -207,7 +182,6 @@ fun KaraokeLyricRow(
 ) {
     var textLayoutResult by remember(line) { mutableStateOf<TextLayoutResult?>(null) }
     val currentPositionProviderState = rememberUpdatedState(currentPositionProvider)
-    val timeInterpolator = remember(line) { LyricTimeInterpolator() }
     // 裁剪路径复用：裁剪矩形每帧都要重建，Path 背后是原生对象且带 finalizer，
     // 每帧新建会持续制造 GC 压力，在满帧率下尤其容易造成掉帧毛刺
     val reusableClipPath = remember { Path() }
@@ -216,7 +190,7 @@ fun KaraokeLyricRow(
     var frameTick by remember(line) { mutableLongStateOf(0L) }
 
     LaunchedEffect(isPlaying, line, isActive, advancedEffect) {
-        if (isPlaying && isActive && advancedEffect) {
+        if (isPlaying && isActive) {
             // 用 while(true) 而非 kotlinx.coroutines.isActive：后者会被同名参数 isActive 遮蔽。
             // withFrameNanos 在协程取消时会抛出 CancellationException，循环自然退出。
             while (true) {
@@ -323,28 +297,19 @@ fun KaraokeLyricRow(
                 .fillMaxWidth()
                 .graphicsLayer {
                     // 走逐字裁剪时，排版结果出来之前先不显示，避免闪一帧整行高亮
-                    alpha = if (advancedEffect) {
-                        if (lyricLayoutInfo != null && isActive) 1f else 0f
-                    } else {
-                        if (isActive) 1f else 0f
-                    }
+                    alpha = if (lyricLayoutInfo != null && isActive) 1f else 0f
                     // DstIn 只混合本层文字像素，不擦除底层灰色歌词与背景。
                     compositingStrategy = CompositingStrategy.Offscreen
                 }
                 .drawWithContent {
                     val info = lyricLayoutInfo
-                    if (advancedEffect && info != null && isActive) {
+                    if (info != null && isActive) {
                         // 读取逐帧心跳：这一步是本行能按屏幕刷新率重绘的唯一依据。
                         // 不读它，绘制阶段只会在 50ms 一次的播放器进度变化时失效，逐字扫色看起来就是掉帧。
                         @Suppress("UNUSED_VARIABLE")
                         val frameTickRead = frameTick
-                        val featherHalfPx = (featherWidth / 2).toPx()
-                        // 用实时时钟把 50ms 轮询的粗进度外推成逐帧平滑进度
-                        val smoothPosition = timeInterpolator.getSmoothPosition(
-                            currentPositionProviderState.value(),
-                            isPlaying
-                        )
-                        val relativeProgress = smoothPosition - line.timeMs
+                        val featherHalfPx = if (advancedEffect) (featherWidth / 2).toPx() else 0f
+                        val relativeProgress = currentPositionProviderState.value() - line.timeMs
                         val spans = computePlayedSpans(info, relativeProgress, featherHalfPx)
                         val path = reusableClipPath
                         path.rewind()

@@ -2,7 +2,6 @@ package com.lin0721.linmusic.feature.player.ui
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -36,12 +35,13 @@ import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 
-private const val MAX_LYRIC_SCALE = 1.15f
+private const val RESERVED_LYRIC_SCALE = 1.15f
+private const val NEARBY_LYRIC_ALPHA = 0.65f
 
-// 当前行会被放大到 MAX_LYRIC_SCALE。graphicsLayer 的缩放发生在布局之后、且不参与父级测量，
-// 所以必须在布局阶段就把放大空间预留出来：列宽取其倒数，长行就会在放大后仍落在视口内。
+// 为当前行的放大与弹簧回弹预留宽度。graphicsLayer 的缩放发生在布局之后、且不参与父级测量，
+// 所以必须在布局阶段预留空间，长行才会在放大后仍落在视口内。
 // 少了这层预留，放大后的左右两端会直接顶出屏幕。
-private const val SCALED_LYRIC_WIDTH_FRACTION = 1f / MAX_LYRIC_SCALE
+private const val SCALED_LYRIC_WIDTH_FRACTION = 1f / RESERVED_LYRIC_SCALE
 
 // 歌词单行：按距当前行的远近做缩放与透明度递减，当前行走逐字流光，可附带译文/罗马音与背景和声
 // 缩放/透明度动画值只在 graphicsLayer 块内读取，变化时仅刷新绘制阶段
@@ -83,9 +83,13 @@ fun FullScreenLyricsRow(
         }
     } else Modifier
 
-    // AMLL TTML 的对唱行自带左右对齐（END 为第二声部，固定靠右）；
-    // 其余行继续沿用全局对齐设置，不改变原有观感。
-    val effectiveAlignment = if (line.alignment == LyricAlignment.END) "right" else alignment
+    // 右对齐时交换主声部和对唱声部的位置；居中时两者都居中。
+    val effectiveAlignment = when {
+        alignment == "center" -> "center"
+        alignment == "right" && line.alignment == LyricAlignment.END -> "left"
+        line.alignment == LyricAlignment.END -> "right"
+        else -> alignment
+    }
     val textAlign = when (effectiveAlignment) {
         "center" -> TextAlign.Center
         "right" -> TextAlign.End
@@ -115,21 +119,35 @@ fun FullScreenLyricsRow(
     val backgroundFontSize = (fontSize - 5).coerceAtLeast(12).sp
     val backgroundLineHeight = (backgroundFontSize.value * 1.4f).sp
 
-    val targetScale = if (isCurrent) MAX_LYRIC_SCALE
-                      else if (isCenterTarget) 1.05f
-                      else (1f - distance * 0.05f).coerceAtLeast(0.82f)
+    val targetScale = when {
+        isCurrent -> 1.12f
+        isCenterTarget -> 1.04f
+        else -> when (distance) {
+            // 间奏时锚点仍在已结束的行，但高亮集合已清空；距离 0 也属于邻近行，
+            // 不能像上游单行高亮模式那样假设它必然是 isCurrent，否则会缩到最小。
+            0, 1 -> 0.98f
+            2 -> 0.94f
+            else -> 0.90f
+        }
+    }
     val animatedScale by animateFloatAsState(
         targetValue = targetScale,
-        animationSpec = spring(dampingRatio = 0.8f, stiffness = 300f),
+        animationSpec = spring(dampingRatio = 0.76f, stiffness = 320f),
         label = "fs_lyric_scale_$index"
     )
 
-    val targetAlpha = if (isCurrent) 1f
-                      else if (isCenterTarget) 0.85f
-                      else (0.65f - distance * 0.08f).coerceAtLeast(0.2f)
+    val targetAlpha = when {
+        isCurrent -> 1f
+        isCenterTarget -> 0.95f
+        else -> when (distance) {
+            0, 1 -> NEARBY_LYRIC_ALPHA
+            2 -> 0.45f
+            else -> 0.28f
+        }
+    }
     val animatedAlpha by animateFloatAsState(
         targetValue = targetAlpha,
-        animationSpec = tween(250),
+        animationSpec = spring(dampingRatio = 0.85f, stiffness = 300f),
         label = "fs_lyric_alpha_$index"
     )
 
@@ -160,7 +178,8 @@ fun FullScreenLyricsRow(
                     KaraokeLyricRow(
                         line = line,
                         currentPositionProvider = currentPositionProvider,
-                        inactiveColor = highlightColor.copy(alpha = 0.5f),
+                        // 当前行未唱部分与相邻非高亮行使用同一亮度基准。
+                        inactiveColor = highlightColor.copy(alpha = highlightColor.alpha * NEARBY_LYRIC_ALPHA),
                         activeColor = Color.White,
                         fontSize = mainFontSize,
                         lineHeight = mainLineHeight,
@@ -195,7 +214,9 @@ fun FullScreenLyricsRow(
                 Text(
                     text = secondaryText,
                     fontSize = secondaryFontSize,
-                    color = if (isCurrent) Color.White.copy(alpha = 0.65f) else highlightColor,
+                    // 只随整行 animatedAlpha 淡出。结束时切到不透明的 highlightColor
+                    // 会在整行透明度动画尚未下降前先提亮一次，让翻译看起来闪了一下。
+                    color = Color.White.copy(alpha = 0.65f),
                     textAlign = textAlign,
                     onTextLayout = { textBounds?.secondaryLayout = it },
                     modifier = Modifier
@@ -209,19 +230,25 @@ fun FullScreenLyricsRow(
             // AMLL TTML 的背景和声行（m:role="x-bg"）：字号更小、颜色更淡，
             // 整体缩进到 90% 宽并按自身对齐方式摆放，避免和主声部抢视觉重心。
             line.backgroundLine?.let { background ->
-                val backgroundEnd = background.alignment == LyricAlignment.END
-                val backgroundTextAlign = if (backgroundEnd) TextAlign.End else TextAlign.Start
+                // 未激活和本行激活但和声尚未开唱时使用同一底色，避免状态切换变色。
+                val backgroundInactiveColor = Color.White.copy(alpha = 0.22f)
+                val backgroundActiveColor = Color.White.copy(alpha = 0.82f)
+                val backgroundTextAlign = textAlign
                 Spacer(modifier = Modifier.height(8.dp))
                 Column(
                     modifier = Modifier.fillMaxWidth(0.9f),
-                    horizontalAlignment = if (backgroundEnd) Alignment.End else Alignment.Start
+                    horizontalAlignment = when (backgroundTextAlign) {
+                        TextAlign.Center -> Alignment.CenterHorizontally
+                        TextAlign.End -> Alignment.End
+                        else -> Alignment.Start
+                    }
                 ) {
-                    if (isCurrent && background.words.isNotEmpty()) {
+                    if (background.words.isNotEmpty()) {
                         KaraokeLyricRow(
                             line = background,
                             currentPositionProvider = currentPositionProvider,
-                            inactiveColor = Color.White.copy(alpha = 0.22f),
-                            activeColor = Color.White.copy(alpha = 0.82f),
+                            inactiveColor = backgroundInactiveColor,
+                            activeColor = backgroundActiveColor,
                             fontSize = backgroundFontSize,
                             lineHeight = backgroundLineHeight,
                             textAlign = backgroundTextAlign,
@@ -235,7 +262,7 @@ fun FullScreenLyricsRow(
                             text = background.text,
                             fontSize = backgroundFontSize,
                             lineHeight = backgroundLineHeight,
-                            color = if (isCurrent) Color.White.copy(alpha = 0.82f) else highlightColor.copy(alpha = 0.72f),
+                            color = if (isCurrent) backgroundActiveColor else backgroundInactiveColor,
                             fontWeight = FontWeight.Bold,
                             textAlign = backgroundTextAlign,
                             modifier = Modifier.fillMaxWidth()

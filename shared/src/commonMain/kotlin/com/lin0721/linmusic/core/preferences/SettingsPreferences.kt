@@ -88,6 +88,7 @@ class SettingsPreferences(private val dataStore: DataStore<Preferences>) {
         private val KEY_FULL_SCREEN_LYRIC_SECONDARY_MODE = stringPreferencesKey("full_screen_lyric_secondary_mode")
         // 逐字歌词流光动效，默认 true
         private val KEY_FULL_SCREEN_KARAOKE_ADVANCED_EFFECT = booleanPreferencesKey("full_screen_karaoke_advanced_effect")
+        private val KEY_AMLL_LYRICS_ENABLED = booleanPreferencesKey("amll_lyrics_enabled")
         // 全屏歌词行与行间距 (dp)，默认 24
         private val KEY_FULL_SCREEN_LYRIC_LINE_SPACING = intPreferencesKey("full_screen_lyric_line_spacing")
         // 全屏歌词原文与翻译/罗马音间距 (dp)，默认 6
@@ -468,6 +469,15 @@ class SettingsPreferences(private val dataStore: DataStore<Preferences>) {
             prefs[KEY_FULL_SCREEN_LYRIC_SECONDARY_MODE] = mode
             prefs[KEY_FULL_SCREEN_LYRIC_SHOW_TRANSLATION] = mode != "none"
         }
+    }
+
+    // AMLL 歌词源开关，默认启用。
+    val amllLyricsEnabled: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_AMLL_LYRICS_ENABLED] ?: true
+    }
+
+    suspend fun saveAmllLyricsEnabled(enabled: Boolean) {
+        dataStore.edit { prefs -> prefs[KEY_AMLL_LYRICS_ENABLED] = enabled }
     }
 
     // 逐字歌词流光动效 Flow

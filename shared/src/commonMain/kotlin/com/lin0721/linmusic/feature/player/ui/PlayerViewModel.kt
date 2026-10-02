@@ -1,6 +1,7 @@
 package com.lin0721.linmusic.feature.player.ui
 
 import com.lin0721.linmusic.core.player.LyricsResolver
+import com.lin0721.linmusic.core.player.LyricsSource
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lin0721.linmusic.core.preferences.FullPlayerCardLayout
@@ -71,6 +72,7 @@ data class ArtistCardItem(
 data class PlayerSongDetailState(
     val songDetail: Track? = null,
     val lyrics: List<LyricLine> = emptyList(),
+    val lyricsSource: LyricsSource? = null,
     val isLyricsLoading: Boolean = false,
     val songWiki: SongWikiData? = null,
     val isSongWikiLoading: Boolean = false,
@@ -189,8 +191,9 @@ class PlayerViewModel(
         }
     }
 
-    private val _currentLyricIndex = MutableStateFlow(-1)
-    val currentLyricIndex: StateFlow<Int> = _currentLyricIndex.asStateFlow()
+    private val _primaryLyricIndex = MutableStateFlow(-1)
+    val primaryLyricIndex: StateFlow<Int> = _primaryLyricIndex.asStateFlow()
+    val currentLyricIndex: StateFlow<Int> = primaryLyricIndex
 
     // 需要同时高亮的行集合。对唱与背景和声的时间区间会重叠，单个 index 表达不了，
     // 供全屏歌词与播放页歌词卡按 index in activeLyricIndices 判定。
@@ -340,7 +343,7 @@ class PlayerViewModel(
     private fun resetLyricPlayback() {
         lyricPlaybackState = LyricPlaybackState()
         lastLyricPositionMs = null
-        _currentLyricIndex.value = -1
+        _primaryLyricIndex.value = -1
         _activeLyricIndices.value = emptySet()
     }
 
@@ -364,10 +367,9 @@ class PlayerViewModel(
         )
         lastLyricPositionMs = positionMs
         _activeLyricIndices.value = lyricPlaybackState.displayIndices
-        // 滚动锚点仍取「当前进度所在行」。不用 advance 的 primaryIndex：它是为
-        // 「重叠组保持稳定」设计的，会把锚点停在组内首行，底栏迷你歌词与桌面歌词
-        // 按它取词时，重叠组首行唱完后仍会显示这首已唱完的行
-        _currentLyricIndex.value = findLyricIndex(lines, positionMs)
+        // 与原版一致：锚点跟随过渡显示状态，重叠旧行暂留时不跳到后面的行；
+        // 手动跳转由 advance(isSeek = true) 立即重置高亮集合与锚点。
+        _primaryLyricIndex.value = lyricPlaybackState.primaryIndex
     }
 
     private fun observePosition() {
@@ -379,16 +381,22 @@ class PlayerViewModel(
     }
 
     private suspend fun loadLyrics(songId: Long) {
+        settingsPreferences.amllLyricsEnabled.distinctUntilChanged().collectLatest {
+            reloadLyrics(songId)
+        }
+    }
+
+    private suspend fun reloadLyrics(songId: Long) {
         _songDetailState.update { it.copy(isLyricsLoading = true) }
-        lyricsResolver.lyricsFor(songId).collect { result ->
-            result.onSuccess { lines ->
-                _songDetailState.update { it.copy(lyrics = lines) }
+        lyricsResolver.lyricsWithSourceFor(songId).collect { result ->
+            result.onSuccess { resolved ->
+                _songDetailState.update { it.copy(lyrics = resolved.lines, lyricsSource = resolved.source) }
                 // 换了一套歌词，上一套累积的暂留行必须作废；并按当前位置立即对齐一次，
                 // 不等下一次进度回调，否则进入播放页时会短暂停留在上一首的残留行
                 resetLyricPlayback()
                 updateLyricPlayback(playerManager.currentPosition.value, isSeek = true)
             }.onFailure {
-                _songDetailState.update { it.copy(lyrics = emptyList()) }
+                _songDetailState.update { it.copy(lyrics = emptyList(), lyricsSource = null) }
                 resetLyricPlayback()
             }
         }
@@ -515,22 +523,6 @@ class PlayerViewModel(
             }
         }
         _songDetailState.update { it.copy(isArtistAlbumsLoading = false) }
-    }
-
-    private fun findLyricIndex(lines: List<LyricLine>, positionMs: Long): Int {
-        var lo = 0
-        var hi = lines.size - 1
-        var result = -1
-        while (lo <= hi) {
-            val mid = (lo + hi) / 2
-            if (lines[mid].timeMs <= positionMs) {
-                result = mid
-                lo = mid + 1
-            } else {
-                hi = mid - 1
-            }
-        }
-        return result
     }
 
     fun retryComments() {

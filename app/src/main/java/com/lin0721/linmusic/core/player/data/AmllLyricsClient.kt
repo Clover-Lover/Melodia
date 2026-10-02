@@ -4,11 +4,13 @@ import com.lin0721.linmusic.core.player.domain.TtmlLyricParser
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.CookieJar
@@ -39,13 +41,14 @@ class AmllLyricsClient(private val cache: LyricsCache? = null) {
         ))
     }
 
-    internal suspend fun fetchFor(songId: Long, urls: List<String>): String? {
-        cached(songId)?.let { return it }
-        if (cache?.isNegative(songId) == true) return null
+    // 缓存命中同样有磁盘读取、XML 校验；不可继承界面调用方的主线程。
+    internal suspend fun fetchFor(songId: Long, urls: List<String>): String? = withContext(Dispatchers.IO) {
+        cached(songId)?.let { return@withContext it }
+        if (cache?.isNegative(songId) == true) return@withContext null
         val result = fetchFromDetailed(urls)
         result.xml?.let { cache?.putRaw(songId, it) }
         if (result.allNotFound) cache?.putNegative(songId)
-        return result.xml
+        result.xml
     }
 
     internal fun cached(songId: Long): String? {

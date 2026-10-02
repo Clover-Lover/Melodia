@@ -1,9 +1,13 @@
 package com.lin0721.linmusic.feature.player.ui
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -61,8 +65,8 @@ private const val FullScreenLyricsAnchorFraction = 0.25f
 fun ColumnScope.FullScreenLyricsList(
     lyrics: List<LyricLine>,
     currentIndex: Int,
-    // 同时需要高亮的行（对唱/背景和声的重叠区间）；留空时退回只高亮 currentIndex
-    activeIndices: Set<Int> = emptySet(),
+    // 未传集合时沿用单行高亮；显式传空集合表示当前没有需要高亮的行。
+    activeIndices: Set<Int>? = null,
     isLoading: Boolean,
     isUserScrolling: Boolean,
     highlightColor: Color,
@@ -102,7 +106,11 @@ fun ColumnScope.FullScreenLyricsList(
                 // 还滚不到基准线（首句附近没有足够内容可用），把首句钉在顶部保持不动。
                 // 偏移必须是 0：内容顶部内边距是安全边距，item 落点为 offset = -scrollOffset，
                 // 传任何非 0 值都会把首句往上多推一段，表现为前几行播放时列表乱跳。
-                lazyListState.animateScrollToItem(index = 0, scrollOffset = 0)
+                lazyListState.springScrollToAnchor(
+                    targetIndex = 0,
+                    desiredOffsetPx = 0,
+                    fallbackScrollOffsetPx = 0
+                )
                 return@LaunchedEffect
             }
 
@@ -115,9 +123,10 @@ fun ColumnScope.FullScreenLyricsList(
             }
             // 让当前行中心落在基准线上
             val targetOffsetPx = (targetLinePx - itemHeightPx / 2f).toInt()
-            lazyListState.animateScrollToItem(
-                index = currentIndex,
-                scrollOffset = -targetOffsetPx
+            lazyListState.springScrollToAnchor(
+                targetIndex = currentIndex,
+                desiredOffsetPx = targetOffsetPx,
+                fallbackScrollOffsetPx = -targetOffsetPx
             )
         }
     }
@@ -146,7 +155,8 @@ fun ColumnScope.FullScreenLyricsList(
             .fillMaxWidth()
             .weight(1f)
     ) {
-        if (isLoading) {
+        // 切换歌词源时保留当前列表，后台完成后再替换，避免移除列表后重新排版。
+        if (isLoading && lyrics.isEmpty()) {
             CircularProgressIndicator(
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(32.dp).align(Alignment.Center)
@@ -185,11 +195,7 @@ fun ColumnScope.FullScreenLyricsList(
                 horizontalAlignment = Alignment.Start
             ) {
                 itemsIndexed(items = lyrics, key = ::lyricLineKey) { index, line ->
-                    val isCurrent = if (activeIndices.isEmpty()) {
-                        index == currentIndex
-                    } else {
-                        index in activeIndices
-                    }
+                    val isCurrent = activeIndices?.contains(index) ?: (index == currentIndex)
                     val isCenterTarget = index == centerLineIndex && isUserScrolling && showSeekGuide
                     val distance = kotlin.math.abs(index - currentIndex).coerceAtMost(5)
 
@@ -232,8 +238,8 @@ fun ColumnScope.FullScreenLyricsList(
 private fun CenterTargetLine(visible: Boolean, modifier: Modifier = Modifier) {
     AnimatedVisibility(
         visible = visible,
-        enter = fadeIn(tween(200)),
-        exit = fadeOut(tween(200)),
+        enter = fadeIn(spring(dampingRatio = 0.85f, stiffness = 300f)),
+        exit = fadeOut(tween(180)),
         modifier = modifier
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
@@ -258,8 +264,16 @@ private fun PlayCapsule(
 ) {
     AnimatedVisibility(
         visible = visible,
-        enter = fadeIn(tween(200)),
-        exit = fadeOut(tween(200)),
+        enter = fadeIn(spring(dampingRatio = 0.82f, stiffness = 380f)) +
+                scaleIn(
+                    initialScale = 0.82f,
+                    animationSpec = spring(dampingRatio = 0.75f, stiffness = 400f)
+                ),
+        exit = fadeOut(tween(160)) +
+                scaleOut(
+                    targetScale = 0.85f,
+                    animationSpec = tween(160)
+                ),
         modifier = modifier
     ) {
         if (targetLine != null) {
@@ -287,4 +301,43 @@ private fun PlayCapsule(
             }
         }
     }
+}
+
+// 沿用上游弹簧滚动曲线，目标位置由本列表的 1/4 锚点计算。
+private suspend fun LazyListState.springScrollToAnchor(
+    targetIndex: Int,
+    desiredOffsetPx: Int,
+    fallbackScrollOffsetPx: Int,
+    dampingRatio: Float = 0.82f,
+    stiffness: Float = 360f
+) {
+    val layoutInfo = this.layoutInfo
+    val visibleItem = layoutInfo.visibleItemsInfo.find { it.index == targetIndex }
+
+    if (visibleItem != null) {
+        val currentOffset = visibleItem.offset
+        val deltaToScroll = (currentOffset - desiredOffsetPx).toFloat()
+
+        if (kotlin.math.abs(deltaToScroll) > 1f) {
+            var previousValue = 0f
+            val anim = Animatable(0f)
+            val springSpec = spring<Float>(
+                dampingRatio = dampingRatio,
+                stiffness = stiffness
+            )
+            this.scroll {
+                anim.animateTo(
+                    targetValue = deltaToScroll,
+                    animationSpec = springSpec
+                ) {
+                    val delta = this.value - previousValue
+                    scrollBy(delta)
+                    previousValue = this.value
+                }
+            }
+            return
+        }
+    }
+
+    this.animateScrollToItem(index = targetIndex, scrollOffset = fallbackScrollOffsetPx)
 }
