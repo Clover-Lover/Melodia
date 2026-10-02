@@ -14,7 +14,8 @@ import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
 
 val playerModule = module {
-    single { PlayerManager(androidContext(), get(), get(), get(), get(), get(), get()) }
+    single { ExternalInterruptionResumeController(androidContext(), get()) }
+    single { PlayerManager(androidContext(), get(), get(), get(), get(), get(), get(), get()) }
     single<PlaybackController> { get<PlayerManager>() }
     // AMLL 歌词源：TTML 原文按原始 XML 缓存在 cacheDir 下，解析统一由 shared 的 TtmlLyricParser 负责
     single { AmllLyricsClient(LyricsCache(androidContext().cacheDir)) }
@@ -32,6 +33,5 @@ val playerModule = module {
         )
     }
     single { ExternalLyricCoordinator(androidContext(), get(), get(), get()) }
-    single { ExternalInterruptionResumeController(androidContext(), get()) }
 }
 

@@ -59,7 +59,8 @@ class PlayerManager(
     private val settingsPreferences: SettingsPreferences,
     private val downloadPreferences: DownloadPreferences,
     private val localMusicApi: LocalMusicApi,
-    private val songDownloadManager: SongDownloadManager
+    private val songDownloadManager: SongDownloadManager,
+    private val externalInterruptionResumeController: ExternalInterruptionResumeController
 ) : Player.Listener, PlaybackController {
 
     companion object {
@@ -323,6 +324,7 @@ class PlayerManager(
         consecutiveErrors = 0
         pendingStartPosition = startPosition
 
+        externalInterruptionResumeController.onExplicitUserPlay()
         controllerHolder.playItem(item.toMediaItem(url, playContext), playbackQueue.playMode.value, startPosition)
     }
 
@@ -434,12 +436,14 @@ class PlayerManager(
 
     override fun pause() {
         _playWhenReady.value = false
+        externalInterruptionResumeController.onExplicitUserPause()
         controllerHolder.pause()
         saveState()
     }
 
     override fun resume() {
         _playWhenReady.value = true
+        externalInterruptionResumeController.onExplicitUserPlay()
         controllerHolder.play()
     }
 
@@ -564,6 +568,9 @@ class PlayerManager(
         pendingStartPosition = startPosition
 
         val fromIndex = playbackQueue.currentIndex.value
+        if (playWhenReady) {
+            externalInterruptionResumeController.onExplicitUserPlay()
+        }
 
         activePlayJob = scope.launch {
             // 本地外部音频直接播放
@@ -931,11 +938,15 @@ class PlayerManager(
         _playWhenReady.value = playWhenReady
     }
 
-    override fun onIsPlayingChanged(isPlaying: Boolean) {
-        // 在暂停/缓冲边界同步一次，排除两次绘制之间的暂停时长。
+    // 状态切换前后各采样一次：切换前结算旧状态进度，切换后确立新状态时钟基准
+    private fun updatePlaybackStateAndSyncClock(isPlaying: Boolean) {
         currentPositionNow()
         _isPlaying.value = isPlaying
         currentPositionNow()
+    }
+
+    override fun onIsPlayingChanged(isPlaying: Boolean) {
+        updatePlaybackStateAndSyncClock(isPlaying)
         if (isPlaying) {
             consecutiveErrors = 0
             streamErrorRecoverySongId = null

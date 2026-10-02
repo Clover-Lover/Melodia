@@ -224,8 +224,14 @@ class MelodiaPlaybackService : MediaSessionService() {
 
         // 监听歌曲切换以更新控制栏上的红心图标及通知封面状态，并监听焦点变化
         sessionPlayer.addListener(object : Player.Listener {
+            override fun onIsPlayingChanged(isPlaying: Boolean) {
+                super.onIsPlayingChanged(isPlaying)
+                externalInterruptionResumeController.onIsPlayingChanged(isPlaying)
+            }
+
             override fun onMediaItemTransition(mediaItem: androidx.media3.common.MediaItem?, reason: Int) {
                 super.onMediaItemTransition(mediaItem, reason)
+                externalInterruptionResumeController.onTrackTransition(mediaItem?.mediaId?.toLongOrNull())
                 loadCoverBitmap(mediaItem?.mediaMetadata?.artworkUri)
                 mediaItem?.mediaId?.toLongOrNull()?.let { songId ->
                     checkAndFetchLikedStatus(songId)
@@ -236,9 +242,12 @@ class MelodiaPlaybackService : MediaSessionService() {
                 super.onPlayWhenReadyChanged(playWhenReady, reason)
                 if (!playWhenReady) {
                     if (reason == Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_LOSS) {
-                        externalInterruptionResumeController.onAudioFocusLoss()
+                        externalInterruptionResumeController.onAudioFocusLoss(
+                            playbackState = sessionPlayer.playbackState,
+                            currentSongId = sessionPlayer.currentMediaItem?.mediaId?.toLongOrNull()
+                        )
                     } else {
-                        externalInterruptionResumeController.onUserOrSystemPause()
+                        externalInterruptionResumeController.onExplicitUserPause()
                     }
                 } else {
                     externalInterruptionResumeController.onPlaybackStarted()
@@ -394,13 +403,23 @@ class MelodiaPlaybackService : MediaSessionService() {
             when (playerCommand) {
                 Player.COMMAND_SEEK_TO_NEXT,
                 Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM -> {
+                    externalInterruptionResumeController.onTrackTransition(null)
                     playerManager.playNext()
                     return SessionResult.RESULT_SUCCESS
                 }
                 Player.COMMAND_SEEK_TO_PREVIOUS,
                 Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM -> {
+                    externalInterruptionResumeController.onTrackTransition(null)
                     playerManager.playPrevious()
                     return SessionResult.RESULT_SUCCESS
+                }
+                Player.COMMAND_PLAY_PAUSE -> {
+                    if (externalInterruptionResumeController.isAwaitingResumeActive() && player?.playWhenReady == false) {
+                        externalInterruptionResumeController.onExplicitUserPause()
+                    }
+                }
+                Player.COMMAND_STOP -> {
+                    externalInterruptionResumeController.onExplicitUserPause()
                 }
             }
             return super.onPlayerCommandRequest(session, controller, playerCommand)
