@@ -62,7 +62,7 @@ class SettingsViewModel(
 
     val downloadFolderUri = settingsPreferences.downloadFolderUri.asState(null)
 
-    val downloadLyricsEnabled = settingsPreferences.downloadLyricsEnabled.asState(false)
+    val downloadLyricsEnabled = settingsPreferences.downloadLyricsEnabled.asState(true)
 
     val autoPlayNext = settingsPreferences.autoPlayNext.asState(true)
 

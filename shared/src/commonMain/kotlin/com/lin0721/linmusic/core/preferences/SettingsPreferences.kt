@@ -178,7 +178,7 @@ class SettingsPreferences(private val dataStore: DataStore<Preferences>) {
 
     // 下载歌词配置 Flow
     val downloadLyricsEnabled: Flow<Boolean> = dataStore.data.map { prefs ->
-        prefs[KEY_DOWNLOAD_LYRICS_ENABLED] ?: false
+        prefs[KEY_DOWNLOAD_LYRICS_ENABLED] ?: true
     }
 
     suspend fun saveDownloadLyricsEnabled(enabled: Boolean) {

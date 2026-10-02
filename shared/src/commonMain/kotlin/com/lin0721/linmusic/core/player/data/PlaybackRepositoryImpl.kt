@@ -108,6 +108,32 @@ class PlaybackRepositoryImpl(
         }
     )
 
+    override fun getRawLyrics(songId: Long): Flow<Result<String>> = apiFlow(
+        request = {
+            apiService.getLyrics(
+                LyricRequest(id = songId, tv = -1, lv = -1, rv = -1, kv = -1, ytv = -1, yrv = -1)
+            )
+        },
+        isSuccess = { it.isSuccess },
+        code = { it.code },
+        transform = { response ->
+            when {
+                response.nolyric -> "纯音乐"
+                response.uncollected -> ""
+                else -> {
+                    val yrc = response.yrc?.lyric?.trim()?.takeIf { it.isNotEmpty() }
+                    val lrc = response.lrc?.lyric?.trim()?.takeIf { it.isNotEmpty() }
+                    val isInstrumental = isInstrumentalLyrics(yrc) || isInstrumentalLyrics(lrc)
+                    if (isInstrumental) {
+                        "纯音乐"
+                    } else {
+                        yrc ?: lrc ?: ""
+                    }
+                }
+            }
+        }
+    )
+
     override fun getSongDetail(songId: Long): Flow<Result<Track>> = apiFlow(
         request = { apiService.getSongDetail(SongDetailRequest(c = """[{"id":$songId}]""")) },
         isSuccess = { it.isSuccess && it.songs.isNotEmpty() },

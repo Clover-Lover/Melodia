@@ -15,6 +15,9 @@ interface PlaybackRepository {
     // 获取歌曲歌词（已解析 LRC 格式）
     fun getLyrics(songId: Long): Flow<Result<List<LyricLine>>>
 
+    // 获取歌曲原始歌词文本（优先原生 YRC 逐字，无 YRC 则回退常规 LRC）
+    fun getRawLyrics(songId: Long): Flow<Result<String>>
+
     // 获取单曲详情
     fun getSongDetail(songId: Long): Flow<Result<Track>>
 

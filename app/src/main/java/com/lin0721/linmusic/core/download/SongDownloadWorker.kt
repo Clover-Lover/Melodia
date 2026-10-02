@@ -142,19 +142,10 @@ class SongDownloadWorker(
                 return Result.failure(workDataOf(KEY_ERROR to "下载中断"))
             }
 
-            // 写入音频元数据与封面
+            // 写入音频元数据、封面与内嵌歌词
             runCatching { writeTags(tempFile, extension) }
                 .onFailure { AppLogger.w(TAG, "写入 ID3/Vorbis 标签失败，跳过 songId=$songId", it) }
             val finalFileSize = tempFile.length()
-
-            // 按需下载歌词
-            val lrcText = if (settingsPreferences.downloadLyricsEnabled.first()) {
-                runCatching { fetchLyricsAsLrc(songId) }
-                    .onFailure { AppLogger.w(TAG, "获取歌词失败，跳过 songId=$songId", it) }
-                    .getOrNull()
-            } else {
-                null
-            }
 
             val customFolderUri = settingsPreferences.downloadFolderUri.first()
             val finalUri: Uri? = if (customFolderUri != null) {
@@ -171,7 +162,6 @@ class SongDownloadWorker(
                 }
                 cleanup = { doc.delete() }
                 if (copyFileToUri(tempFile, doc.uri)) {
-                    if (lrcText != null) writeLrcToDirectory(directory, finalName, lrcText)
                     doc.uri
                 } else {
                     null
@@ -185,7 +175,6 @@ class SongDownloadWorker(
                 cleanup = { applicationContext.contentResolver.delete(uri, null, null) }
                 if (copyFileToUri(tempFile, uri)) {
                     finalizePendingMediaStoreEntry(uri)
-                    if (lrcText != null) writeLrcToMediaStore(displayName, lrcText)
                     uri
                 } else {
                     null
@@ -351,8 +340,18 @@ class SongDownloadWorker(
         else "${displayName}_${System.currentTimeMillis()}"
     }
 
-    // 写入音频元数据与封面
-    private fun writeTags(file: File, extension: String) {
+    // 写入音频元数据、封面与内嵌歌词
+    private suspend fun writeTags(file: File, extension: String) {
+        val shouldEmbedLyrics = settingsPreferences.downloadLyricsEnabled.first()
+        val rawLyrics = if (shouldEmbedLyrics) {
+            runCatching { playbackRepository.getRawLyrics(songId).first().getOrNull() }
+                .onFailure { AppLogger.w(TAG, "获取歌词失败，跳过 songId=$songId", it) }
+                .getOrNull()
+                ?.takeIf { it.isNotBlank() }
+        } else {
+            null
+        }
+
         ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_WRITE).use { pfd ->
             val fd = pfd.dup().detachFd()
             val metadata = TagLib.getMetadata(fd, readPictures = false)
@@ -364,6 +363,9 @@ class SongDownloadWorker(
             }
             if (albumYear > 0) {
                 propertyMap["DATE"] = arrayOf(albumYear.toString())
+            }
+            if (!rawLyrics.isNullOrBlank()) {
+                propertyMap["LYRICS"] = arrayOf(rawLyrics)
             }
             TagLib.savePropertyMap(pfd.dup().detachFd(), propertyMap)
         }
@@ -379,56 +381,6 @@ class SongDownloadWorker(
                 TagLib.savePictures(pfd.dup().detachFd(), arrayOf(picture))
             }
         }
-    }
-
-    // 拉取并转换为标准 LRC 格式
-    private suspend fun fetchLyricsAsLrc(songId: Long): String? {
-        val lines = playbackRepository.getLyrics(songId).first().getOrNull()
-        if (lines.isNullOrEmpty()) return null
-        return lines.sortedBy { it.timeMs }.joinToString("\n") { line ->
-            val totalCentis = line.timeMs / 10
-            val minutes = totalCentis / 6000
-            val seconds = (totalCentis / 100) % 60
-            val centis = totalCentis % 100
-            "[%02d:%02d.%02d]%s".format(minutes, seconds, centis, line.text)
-        }
-    }
-
-    private fun lrcFileNameFor(audioDisplayName: String): String {
-        val dot = audioDisplayName.lastIndexOf('.')
-        return if (dot > 0) "${audioDisplayName.substring(0, dot)}.lrc" else "$audioDisplayName.lrc"
-    }
-
-    // 写入歌词文件到自定义 SAF 目录，使用通用 MIME 避免系统追加 .txt 后缀
-    private fun writeLrcToDirectory(directory: DocumentFile, audioFileName: String, lrcText: String) {
-        runCatching {
-            val lrcName = lrcFileNameFor(audioFileName)
-            val doc = directory.findFile(lrcName) ?: directory.createFile("application/octet-stream", lrcName) ?: return
-            applicationContext.contentResolver.openOutputStream(doc.uri)?.use {
-                it.write(lrcText.toByteArray(Charsets.UTF_8))
-            }
-        }.onFailure { AppLogger.w(TAG, "写入歌词文件失败 songId=$songId", it) }
-    }
-
-    // 写入歌词文件到 MediaStore
-    private fun writeLrcToMediaStore(audioDisplayName: String, lrcText: String) {
-        runCatching {
-            val lrcName = lrcFileNameFor(audioDisplayName)
-            val values = ContentValues().apply {
-                put(MediaStore.Files.FileColumns.DISPLAY_NAME, lrcName)
-                put(MediaStore.Files.FileColumns.MIME_TYPE, "application/octet-stream")
-                put(MediaStore.Files.FileColumns.RELATIVE_PATH, relativePath())
-                put(MediaStore.Files.FileColumns.IS_PENDING, 1)
-            }
-            val uri = applicationContext.contentResolver.insert(
-                MediaStore.Files.getContentUri("external"), values
-            ) ?: return
-            applicationContext.contentResolver.openOutputStream(uri)?.use {
-                it.write(lrcText.toByteArray(Charsets.UTF_8))
-            }
-            val clearPending = ContentValues().apply { put(MediaStore.Files.FileColumns.IS_PENDING, 0) }
-            applicationContext.contentResolver.update(uri, clearPending, null, null)
-        }.onFailure { AppLogger.w(TAG, "写入歌词文件失败 songId=$songId", it) }
     }
 
     // 下载内嵌封面
