@@ -101,7 +101,8 @@ fun FullPlayerScreen(
     // 侧栏→全屏的铺开进度（0 侧栏、1 全屏）与全屏时的卡片宽度。横屏全屏换成宽屏两栏排版，
     // 铺开过程中两套排版各按最终宽度排一次、交叉淡入淡出；竖屏全屏沿用竖排列表，按比例放宽并居中
     sidebarFullscreenProgress: (() -> Float)? = null,
-    fullscreenContentWidth: Dp = Dp.Unspecified
+    fullscreenContentWidth: Dp = Dp.Unspecified,
+    onLyricsFullScreenChange: (Boolean) -> Unit = {}
 ) {
     if (currentTrack == null) return
 
@@ -137,6 +138,15 @@ fun FullPlayerScreen(
     val nextQueueItem by viewModel.playerManager.nextQueueItem.collectAsStateWithLifecycle()
     var showQueueSheet by remember { mutableStateOf(false) }
     var isLyricsFullScreen by remember { mutableStateOf(false) }
+
+    LaunchedEffect(isLyricsFullScreen) {
+        onLyricsFullScreenChange(isLyricsFullScreen)
+    }
+    DisposableEffect(Unit) {
+        onDispose {
+            onLyricsFullScreenChange(false)
+        }
+    }
     var showMoreOptionsSheet by remember { mutableStateOf(false) }
     var showTimerSheet by remember { mutableStateOf(false) }
     var showCommentsSheet by remember { mutableStateOf(false) }
@@ -599,6 +609,19 @@ fun FullPlayerScreen(
 
         // 宽屏两栏：按全屏最终宽度排一次、贴右放置，铺开过程中卡片左边缘逐步露出，同时淡入
         if (showWideLayout) {
+            val wideLayoutModifier = Modifier
+                .align(Alignment.TopEnd)
+                .wrapContentWidth(align = Alignment.End, unbounded = true)
+                .width(fullscreenContentWidth)
+                .padding(
+                    top = melodiaStatusBarTopPadding(),
+                    bottom = melodiaNavigationBarBottomPadding()
+                )
+                .graphicsLayer {
+                    alpha = ((fullscreenProgress() - WideCrossfadeSplit) / (1f - WideCrossfadeSplit))
+                        .coerceIn(0f, 1f)
+                }
+
             FullPlayerWideLayout(
                 sourceBar = { barModifier ->
                     FullPlayerSourceBar(
@@ -607,6 +630,7 @@ fun FullPlayerScreen(
                         onMoreClick = { showMoreOptionsSheet = true },
                         onToggleSidebarFullscreen = onToggleSidebarFullscreen,
                         isSidebarFullscreen = isSidebarFullscreen,
+                        onFullscreenLyricsClick = { isLyricsFullScreen = true },
                         modifier = barModifier
                     )
                 },
@@ -692,18 +716,7 @@ fun FullPlayerScreen(
                         onEditCardsClick = { showCardEditorSheet = true }
                     )
                 },
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .wrapContentWidth(align = Alignment.End, unbounded = true)
-                    .width(fullscreenContentWidth)
-                    .padding(
-                        top = melodiaStatusBarTopPadding(),
-                        bottom = melodiaNavigationBarBottomPadding()
-                    )
-                    .graphicsLayer {
-                        alpha = ((fullscreenProgress() - WideCrossfadeSplit) / (1f - WideCrossfadeSplit))
-                            .coerceIn(0f, 1f)
-                    }
+                modifier = wideLayoutModifier
             )
         }
 

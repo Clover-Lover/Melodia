@@ -1,5 +1,11 @@
 package com.lin0721.linmusic.feature.player.ui
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -84,10 +90,48 @@ fun FullScreenLyricsView(
     val amllLyricsEnabled by settingsPreferences.amllLyricsEnabled.collectAsStateWithLifecycle(initialValue = true)
     val fullScreenLyricLineSpacing by settingsPreferences.fullScreenLyricLineSpacing.collectAsStateWithLifecycle(initialValue = 24)
     val fullScreenLyricSecondarySpacing by settingsPreferences.fullScreenLyricSecondarySpacing.collectAsStateWithLifecycle(initialValue = 6)
+    val fullScreenLyricAutoHideControls by settingsPreferences.fullScreenLyricAutoHideControls.collectAsStateWithLifecycle(initialValue = false)
+    var areControlsVisible by remember { mutableStateOf(true) }
+    var autoHideJob by remember { mutableStateOf<Job?>(null) }
 
     val hasTranslation = remember(lyrics) { lyrics.any { it.translation != null } }
     val hasRoma = remember(lyrics) { lyrics.any { it.roma != null } }
     var showSettingsSheet by remember { mutableStateOf(false) }
+
+    val scheduleAutoHide: () -> Unit = {
+        autoHideJob?.cancel()
+        if (fullScreenLyricAutoHideControls && !showSettingsSheet) {
+            autoHideJob = scope.launch {
+                delay(5000L)
+                areControlsVisible = false
+            }
+        }
+    }
+
+    val revealControls: () -> Unit = {
+        areControlsVisible = true
+        scheduleAutoHide()
+    }
+
+    val toggleControls: () -> Unit = {
+        if (fullScreenLyricAutoHideControls) {
+            if (areControlsVisible) {
+                autoHideJob?.cancel()
+                areControlsVisible = false
+            } else {
+                revealControls()
+            }
+        }
+    }
+
+    LaunchedEffect(fullScreenLyricAutoHideControls, showSettingsSheet) {
+        if (!fullScreenLyricAutoHideControls || showSettingsSheet) {
+            autoHideJob?.cancel()
+            areControlsVisible = true
+        } else {
+            scheduleAutoHide()
+        }
+    }
     val context = LocalContext.current
 
     val handleShareLyrics: () -> Unit = {
@@ -170,22 +214,25 @@ fun FullScreenLyricsView(
         }
     }
 
-    val gestureModifier = Modifier.pointerInput(Unit) {
-        awaitPointerEventScope {
-            while (true) {
-                val event = awaitPointerEvent()
-                if (event.type == PointerEventType.Press) {
-                    timerJob?.cancel()
-                    isUserScrolling = true
-                } else if (event.type == PointerEventType.Release) {
-                    timerJob?.cancel()
-                    if (isPlayingState.value) {
-                        timerJob = scope.launch {
-                            delay(5000)
-                            isUserScrolling = false
-                        }
+    LaunchedEffect(lazyListState.isScrollInProgress) {
+        if (lazyListState.isScrollInProgress) {
+            timerJob?.cancel()
+            isUserScrolling = true
+            if (fullScreenLyricAutoHideControls) {
+                autoHideJob?.cancel()
+            }
+        } else {
+            if (isUserScrolling) {
+                timerJob?.cancel()
+                if (isPlayingState.value) {
+                    timerJob = scope.launch {
+                        delay(5000)
+                        isUserScrolling = false
                     }
                 }
+            }
+            if (fullScreenLyricAutoHideControls && areControlsVisible) {
+                scheduleAutoHide()
             }
         }
     }
@@ -207,9 +254,13 @@ fun FullScreenLyricsView(
                 translationY = dragState.offsetY
             }
             .clip(RoundedCornerShape(topStart = topCornerRadius, topEnd = topCornerRadius))
-            // 拦截全屏歌词页空白处点击，防止手势穿透到底层播放器
-            .pointerInput(Unit) {
-                detectTapGestures { }
+            // 拦截全屏歌词页空白处点击，轻触切换控制组件显隐
+            .pointerInput(fullScreenLyricAutoHideControls) {
+                if (fullScreenLyricAutoHideControls) {
+                    detectTapGestures {
+                        toggleControls()
+                    }
+                }
             }
     ) {
 
@@ -219,15 +270,31 @@ fun FullScreenLyricsView(
                 .hazeChild(state = hazeState, style = HazeStyle(blurRadius = 40.dp, noiseFactor = 0.02f))
                 .statusBarsPadding()
         ) {
-            FullScreenLyricsHeader(
-                title = title,
-                artist = artist,
-                onClose = onClose,
-                onMoreClick = onMoreClick,
-                onDragDelta = { delta -> dragState.onHeaderDrag(delta) },
-                onDragStart = { dragState.onHeaderDragStart() },
-                onDragRelease = { velocity -> dragState.handleDragRelease(velocity = velocity) }
-            )
+            AnimatedVisibility(
+                visible = areControlsVisible,
+                enter = fadeIn(tween(260)) + slideInVertically(tween(260)) { -it / 3 },
+                exit = fadeOut(tween(220)) + slideOutVertically(tween(220)) { -it / 3 },
+                modifier = Modifier.pointerInput(fullScreenLyricAutoHideControls) {
+                    if (fullScreenLyricAutoHideControls) {
+                        awaitPointerEventScope {
+                            while (true) {
+                                awaitPointerEvent()
+                                scheduleAutoHide()
+                            }
+                        }
+                    }
+                }
+            ) {
+                FullScreenLyricsHeader(
+                    title = title,
+                    artist = artist,
+                    onClose = onClose,
+                    onMoreClick = onMoreClick,
+                    onDragDelta = { delta -> dragState.onHeaderDrag(delta) },
+                    onDragStart = { dragState.onHeaderDragStart() },
+                    onDragRelease = { velocity -> dragState.handleDragRelease(velocity = velocity) }
+                )
+            }
 
             FullScreenLyricsList(
                 lyrics = lyrics,
@@ -240,7 +307,7 @@ fun FullScreenLyricsView(
                 lazyListState = lazyListState,
                 viewportHeightPx = dragState.viewportHeightPx,
                 onViewportHeightChange = { height -> dragState.onViewportHeightChange(height) },
-                gestureModifier = gestureModifier,
+                gestureModifier = Modifier,
                 fontSize = fullScreenLyricTextSize,
                 alignment = fullScreenLyricAlignment,
                 secondaryMode = fullScreenLyricSecondaryMode,
@@ -251,29 +318,52 @@ fun FullScreenLyricsView(
                 isPlaying = isPlaying,
                 onSeek = handleSeek,
                 onLyricClick = { line ->
-                    timerJob?.cancel()
-                    handleSeek(line.timeMs)
+                    if (fullScreenLyricAutoHideControls && areControlsVisible) {
+                        // 当控制栏显示时，轻触屏幕任意区域（包括歌词行）均立即隐藏控制栏，且不误触跳转进度
+                        autoHideJob?.cancel()
+                        areControlsVisible = false
+                    } else {
+                        // 控制栏处于隐藏状态（或未开启自动隐藏）时，点击歌词行正常跳转播放进度
+                        timerJob?.cancel()
+                        handleSeek(line.timeMs)
+                    }
                 }
             )
 
-            FullScreenControls(
-                isPlaying = isPlaying,
-                currentPositionProvider = currentPositionProvider,
-                duration = duration,
-                onSeek = handleSeek,
-                onTogglePlay = onTogglePlay,
-                onPlayNext = onPlayNext,
-                onPlayPrevious = onPlayPrevious,
-                playMode = playMode,
-                onToggleShuffle = onToggleShuffle,
-                onToggleRepeat = onToggleRepeat,
-                secondaryMode = fullScreenLyricSecondaryMode,
-                hasTranslation = hasTranslation,
-                hasRoma = hasRoma,
-                onToggleSecondaryMode = handleToggleSecondaryMode,
-                onShareLyrics = handleShareLyrics,
-                onLyricsSettingsClick = { showSettingsSheet = true }
-            )
+            AnimatedVisibility(
+                visible = areControlsVisible,
+                enter = fadeIn(tween(260)) + slideInVertically(tween(260)) { it / 3 },
+                exit = fadeOut(tween(220)) + slideOutVertically(tween(220)) { it / 3 },
+                modifier = Modifier.pointerInput(fullScreenLyricAutoHideControls) {
+                    if (fullScreenLyricAutoHideControls) {
+                        awaitPointerEventScope {
+                            while (true) {
+                                awaitPointerEvent()
+                                scheduleAutoHide()
+                            }
+                        }
+                    }
+                }
+            ) {
+                FullScreenControls(
+                    isPlaying = isPlaying,
+                    currentPositionProvider = currentPositionProvider,
+                    duration = duration,
+                    onSeek = handleSeek,
+                    onTogglePlay = onTogglePlay,
+                    onPlayNext = onPlayNext,
+                    onPlayPrevious = onPlayPrevious,
+                    playMode = playMode,
+                    onToggleShuffle = onToggleShuffle,
+                    onToggleRepeat = onToggleRepeat,
+                    secondaryMode = fullScreenLyricSecondaryMode,
+                    hasTranslation = hasTranslation,
+                    hasRoma = hasRoma,
+                    onToggleSecondaryMode = handleToggleSecondaryMode,
+                    onShareLyrics = handleShareLyrics,
+                    onLyricsSettingsClick = { showSettingsSheet = true }
+                )
+            }
         }
 
         if (showSettingsSheet) {
@@ -311,6 +401,10 @@ fun FullScreenLyricsView(
                 amllLyricsEnabled = amllLyricsEnabled,
                 onAmllLyricsEnabledChange = { enabled ->
                     scope.launch { settingsPreferences.saveAmllLyricsEnabled(enabled) }
+                },
+                autoHideControls = fullScreenLyricAutoHideControls,
+                onAutoHideControlsChange = { enabled ->
+                    scope.launch { settingsPreferences.saveFullScreenLyricAutoHideControls(enabled) }
                 },
                 onDismiss = { showSettingsSheet = false }
             )

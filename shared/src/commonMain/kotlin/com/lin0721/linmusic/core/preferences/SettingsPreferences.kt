@@ -95,6 +95,8 @@ class SettingsPreferences(private val dataStore: DataStore<Preferences>) {
         private val KEY_FULL_SCREEN_LYRIC_LINE_SPACING = intPreferencesKey("full_screen_lyric_line_spacing")
         // 全屏歌词原文与翻译/罗马音间距 (dp)，默认 6
         private val KEY_FULL_SCREEN_LYRIC_SECONDARY_SPACING = intPreferencesKey("full_screen_lyric_secondary_spacing")
+        // 全屏歌词自动隐藏控制组件，默认 false
+        private val KEY_FULL_SCREEN_LYRIC_AUTO_HIDE_CONTROLS = booleanPreferencesKey("full_screen_lyric_auto_hide_controls")
         // 全屏播放页信息卡片顺序与显隐，格式见 FullPlayerCardLayout
         private val KEY_FULL_PLAYER_CARD_LAYOUT = stringPreferencesKey("full_player_card_layout")
         // 启用 SuperLyric 实时歌词，默认 false
@@ -525,6 +527,17 @@ class SettingsPreferences(private val dataStore: DataStore<Preferences>) {
     suspend fun saveFullScreenLyricSecondarySpacing(spacing: Int) {
         dataStore.edit { prefs ->
             prefs[KEY_FULL_SCREEN_LYRIC_SECONDARY_SPACING] = spacing
+        }
+    }
+
+    // 全屏歌词自动隐藏控制组件 Flow
+    val fullScreenLyricAutoHideControls: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_FULL_SCREEN_LYRIC_AUTO_HIDE_CONTROLS] ?: false
+    }
+
+    suspend fun saveFullScreenLyricAutoHideControls(enabled: Boolean) {
+        dataStore.edit { prefs ->
+            prefs[KEY_FULL_SCREEN_LYRIC_AUTO_HIDE_CONTROLS] = enabled
         }
     }
 

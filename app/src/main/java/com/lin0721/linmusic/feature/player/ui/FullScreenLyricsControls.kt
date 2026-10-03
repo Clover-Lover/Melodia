@@ -362,6 +362,8 @@ fun FullScreenLyricsSettingsSheet(
     onKaraokeGlowEffectChange: (Boolean) -> Unit = {},
     amllLyricsEnabled: Boolean = true,
     onAmllLyricsEnabledChange: (Boolean) -> Unit = {},
+    autoHideControls: Boolean = false,
+    onAutoHideControlsChange: (Boolean) -> Unit = {},
     onDismiss: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -536,6 +538,13 @@ fun FullScreenLyricsSettingsSheet(
                 checked = karaokeGlowEffect,
                 onCheckedChange = onKaraokeGlowEffectChange
             )
+
+            LyricCompactSwitchRow(
+                title = "自动隐藏控制组件",
+                subtitle = "无操作 5 秒后自动隐藏顶栏与播放控制，轻触屏幕重新呼出",
+                checked = autoHideControls,
+                onCheckedChange = onAutoHideControlsChange
+            )
         }
     }
 }
@@ -577,9 +586,15 @@ fun FullScreenControls(
             .fillMaxWidth()
             .navigationBarsPadding()
             .padding(horizontal = MelodiaSpacing.lg)
-            .padding(bottom = 20.dp)
+            .padding(bottom = 20.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // 1. 顶部插入操作工具栏（翻译/罗马音多态切换、分享、歌词设置）
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .widthIn(max = 720.dp)
+        ) {
+            // 1. 顶部插入操作工具栏（翻译/罗马音多态切换、分享、歌词设置）
         FullScreenLyricsToolbar(
             secondaryMode = secondaryMode,
             hasTranslation = hasTranslation,
@@ -781,5 +796,6 @@ fun FullScreenControls(
             }
         }
     }
+}
 }
 

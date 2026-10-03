@@ -14,6 +14,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.ViewSidebar
 import androidx.compose.material.icons.outlined.ViewSidebar
+import androidx.compose.material.icons.rounded.Fullscreen
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -95,7 +96,7 @@ fun FullPlayerCoverArt(
     }
 }
 
-// 播放来源标题栏：侧栏/全屏切换、收起、播放来源、更多
+// 播放来源标题栏：侧栏/全屏切换、收起、播放来源、全屏歌词、更多
 @Composable
 fun FullPlayerSourceBar(
     playContext: String?,
@@ -103,6 +104,7 @@ fun FullPlayerSourceBar(
     onMoreClick: () -> Unit,
     onToggleSidebarFullscreen: (() -> Unit)?,
     isSidebarFullscreen: Boolean,
+    onFullscreenLyricsClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     Row(
@@ -110,34 +112,36 @@ fun FullPlayerSourceBar(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        if (onToggleSidebarFullscreen != null) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (onToggleSidebarFullscreen != null) {
+                MelodiaIconButton(
+                    onClick = onToggleSidebarFullscreen,
+                    modifier = Modifier
+                        .size(32.dp)
+                        .offset(x = (-4).dp)
+                ) {
+                    Icon(
+                        if (isSidebarFullscreen) Icons.Filled.ViewSidebar else Icons.Outlined.ViewSidebar,
+                        contentDescription = if (isSidebarFullscreen) "收回侧栏" else "展开全屏",
+                        tint = Color.White,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(SidebarToggleGap))
+            }
             MelodiaIconButton(
-                onClick = onToggleSidebarFullscreen,
+                onClick = onClose,
                 modifier = Modifier
                     .size(32.dp)
                     .offset(x = (-4).dp)
             ) {
                 Icon(
-                    if (isSidebarFullscreen) Icons.Filled.ViewSidebar else Icons.Outlined.ViewSidebar,
-                    contentDescription = if (isSidebarFullscreen) "收回侧栏" else "展开全屏",
+                    Icons.Rounded.KeyboardArrowDown,
+                    contentDescription = null,
                     tint = Color.White,
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(32.dp)
                 )
             }
-            Spacer(modifier = Modifier.width(SidebarToggleGap))
-        }
-        MelodiaIconButton(
-            onClick = onClose,
-            modifier = Modifier
-                .size(32.dp)
-                .offset(x = (-4).dp)
-        ) {
-            Icon(
-                Icons.Rounded.KeyboardArrowDown,
-                contentDescription = null,
-                tint = Color.White,
-                modifier = Modifier.size(32.dp)
-            )
         }
         AnimatedContent(
             targetState = playContext,
@@ -191,22 +195,37 @@ fun FullPlayerSourceBar(
                 }
             }
         }
-        // 左侧多了切换按钮时右侧补等宽留白，播放来源标题保持居中
-        if (onToggleSidebarFullscreen != null) {
-            Spacer(modifier = Modifier.width(32.dp + SidebarToggleGap))
-        }
-        MelodiaIconButton(
-            onClick = onMoreClick,
-            modifier = Modifier
-                .size(32.dp)
-                .offset(x = 4.dp)
-        ) {
-            Icon(
-                Icons.Default.MoreVert,
-                contentDescription = null,
-                tint = Color.White,
-                modifier = Modifier.size(24.dp)
-            )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (onFullscreenLyricsClick != null) {
+                MelodiaIconButton(
+                    onClick = onFullscreenLyricsClick,
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        Icons.Rounded.Fullscreen,
+                        contentDescription = "全屏歌词",
+                        tint = Color.White,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(SidebarToggleGap))
+            } else if (onToggleSidebarFullscreen != null) {
+                // 左侧有切换按钮且右侧无全屏按钮时补等宽留白，播放来源标题保持居中
+                Spacer(modifier = Modifier.width(32.dp + SidebarToggleGap))
+            }
+            MelodiaIconButton(
+                onClick = onMoreClick,
+                modifier = Modifier
+                    .size(32.dp)
+                    .offset(x = 4.dp)
+            ) {
+                Icon(
+                    Icons.Default.MoreVert,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
         }
     }
 }

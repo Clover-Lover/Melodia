@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -23,6 +24,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -146,22 +148,29 @@ fun ColumnScope.FullScreenLyricsList(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .weight(1f)
+            .weight(1f),
+        contentAlignment = Alignment.Center
     ) {
-        // 切换歌词源时保留当前列表，后台完成后再替换，避免移除列表后重新排版。
-        if (isLoading && lyrics.isEmpty()) {
-            CircularProgressIndicator(
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(32.dp).align(Alignment.Center)
-            )
-        } else if (lyrics.isEmpty()) {
-            Text(
-                text = "暂无歌词",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 18.sp,
-                modifier = Modifier.align(Alignment.Center)
-            )
-        } else {
+        Box(
+            modifier = Modifier
+                .fillMaxHeight()
+                .fillMaxWidth()
+                .widthIn(max = 760.dp)
+        ) {
+            // 切换歌词源时保留当前列表，后台完成后再替换，避免移除列表后重新排版。
+            if (isLoading && lyrics.isEmpty()) {
+                CircularProgressIndicator(
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(32.dp).align(Alignment.Center)
+                )
+            } else if (lyrics.isEmpty()) {
+                Text(
+                    text = "暂无歌词",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 18.sp,
+                    modifier = Modifier.align(Alignment.Center)
+                )
+            } else {
             CenterTargetLine(
                 visible = isUserScrolling && showSeekGuide,
                 modifier = Modifier
@@ -224,6 +233,7 @@ fun ColumnScope.FullScreenLyricsList(
             )
         }
     }
+}
 }
 
 // 用户滚动时出现的居中虚线基准，标示"松手即跳转"的目标位置
