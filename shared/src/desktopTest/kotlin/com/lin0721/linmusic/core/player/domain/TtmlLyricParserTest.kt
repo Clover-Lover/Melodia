@@ -92,22 +92,103 @@ class TtmlLyricParserTest {
     }
 
     @Test fun invalidWordTimingFallsBackWithoutLosingText() {
-        for (attributes in listOf("begin=\"2s\" end=\"1s\"", "begin=\"1s\"", "begin=\"0s\" end=\"1s\"", "begin=\"1s\" end=\"5s\"")) {
+        for (attributes in listOf("begin=\"2s\" end=\"1s\"", "begin=\"1s\"", "begin=\"NaNs\" end=\"2s\"", "begin=\"-1s\" end=\"2s\"")) {
             val line = parse("""<t:p begin="1s" end="3s"><t:span $attributes>hello</t:span></t:p>""").single()
             assertEquals("hello", line.text)
             assertTrue(line.words.isEmpty())
         }
     }
 
-    @Test fun tinyPunctuationOverrunKeepsWordTiming() {
+    @Test fun punctuationOverrunExtendsLineWithoutShorteningWordTiming() {
         val line = parse("""<t:p begin="18.630" end="23.060"><t:span begin="18.630" end="19.000">Then</t:span> <t:span begin="19.000" end="19.420">what</t:span> <t:span begin="21.550" end="23.060">fate</t:span><t:span begin="23.060" end="23.065">?</t:span></t:p>""").single()
         assertEquals("Then what fate?", line.text)
         assertEquals(4, line.words.size)
-        assertEquals(0L, line.words.last().durationMs)
-        assertEquals(line.durationMs, line.words.last().startOffsetMs)
+        assertEquals(5L, line.words.last().durationMs)
+        assertEquals(23065L, line.timeMs + line.durationMs)
+        assertEquals(line.durationMs, line.words.last().startOffsetMs + line.words.last().durationMs)
 
         val excessive = parse("""<t:p begin="18.630" end="23.060"><t:span begin="18.630" end="23.060">fate</t:span><t:span begin="23.060" end="23.071">?</t:span></t:p>""").single()
-        assertTrue(excessive.words.isEmpty())
+        assertEquals(2, excessive.words.size)
+        assertEquals(11L, excessive.words.last().durationMs)
+        assertEquals(23071L, excessive.timeMs + excessive.durationMs)
+    }
+
+    @Test fun missingLineTimesAreInferredFromValidWords() {
+        val line = parse("""<t:p><t:span begin="1s" end="2s">hello</t:span> <t:span begin="3s" end="4s">world</t:span></t:p>""").single()
+        assertEquals(1000L, line.timeMs)
+        assertEquals(3000L, line.durationMs)
+        assertEquals(listOf(WordInfo("hello ", 0, 1000), WordInfo("world", 2000, 1000)), line.words)
+    }
+
+    @Test fun eitherMissingLineBoundaryIsFilledWithoutShrinkingTheOther() {
+        val missingStart = parse("""<t:p end="5s"><t:span begin="2s" end="4s">hello</t:span></t:p>""").single()
+        assertEquals(2000L, missingStart.timeMs)
+        assertEquals(3000L, missingStart.durationMs)
+        val missingEnd = parse("""<t:p begin="1s"><t:span begin="2s" end="4s">hello</t:span></t:p>""").single()
+        assertEquals(1000L, missingEnd.timeMs)
+        assertEquals(3000L, missingEnd.durationMs)
+        assertEquals(listOf(WordInfo("hello", 1000, 2000)), missingEnd.words)
+    }
+
+    @Test fun wordsOutsideParentExpandBothBoundariesWithAbsoluteTimingIntact() {
+        val line = parse("""<t:p begin="2s" end="3s"><t:span begin="1s" end="2.5s">hello</t:span> <t:span begin="2.5s" end="5s">world</t:span></t:p>""").single()
+        assertEquals(1000L, line.timeMs)
+        assertEquals(4000L, line.durationMs)
+        assertEquals(listOf(WordInfo("hello ", 0, 1500), WordInfo("world", 1500, 2500)), line.words)
+    }
+
+    @Test fun backgroundWordsInferAndExpandTheirOwnRange() {
+        for (attributes in listOf("", "begin=\"2s\" end=\"3s\"")) {
+            val line = parse("""<t:p begin="2s" end="3s"><t:span begin="2s" end="3s">main</t:span><t:span m:role="x-bg" $attributes><t:span begin="1s" end="2s">(back</t:span> <t:span begin="3s" end="5s">voice)</t:span></t:span></t:p>""").single()
+            val bg = requireNotNull(line.backgroundLine)
+            assertEquals(1000L, bg.timeMs)
+            assertEquals(4000L, bg.durationMs)
+            assertEquals(listOf(WordInfo("back ", 0, 1000), WordInfo("voice", 2000, 2000)), bg.words)
+            assertEquals(1000L, line.timeMs)
+            assertEquals(4000L, line.durationMs)
+            assertEquals(listOf(WordInfo("main", 1000, 1000)), line.words)
+        }
+    }
+
+    @Test fun annotationsAndInvalidWordPairsCannotSupplyMissingTimes() {
+        val lines = parse("""
+            <t:p><t:span begin="5s" end="2s">reversed</t:span></t:p>
+            <t:p><t:span begin="1s">partial</t:span></t:p>
+            <t:p>main<t:span m:role="x-translation" begin="1s" end="4s">translation</t:span></t:p>
+            <t:p>main<t:span m:role="x-roman" begin="1s" end="4s">roman</t:span></t:p>
+        """)
+        assertTrue(lines.isEmpty())
+    }
+
+    @Test fun inferredWordsKeepGapsAndSurviveTimelinePreparation() {
+        val line = parse("""<t:p><t:span begin="10s" end="11s">hello</t:span> <t:span begin="12s" end="14s">world</t:span></t:p>""").single()
+        val prepared = LyricTimeline.prepareLines(listOf(line)).single()
+        assertEquals(listOf(10000L, 12000L), prepared.words.map { prepared.timeMs + it.startOffsetMs })
+        assertEquals(listOf(1000L, 2000L), prepared.words.map { it.durationMs })
+    }
+
+    @Test fun aptZeroPlaceholderDoesNotMoveLateLineBeforeIntro() {
+        val lines = parse("""
+            <t:p begin="00:00.265" end="00:01.854"><t:span begin="00:00.265" end="00:01.854">intro</t:span></t:p>
+            <t:p begin="02:33.146" end="02:35.143"><t:span begin="02:33.146" end="02:33.255">Just</t:span> <t:span begin="02:33.255" end="02:33.630">meet</t:span> <t:span begin="02:33.630" end="02:34.041">me</t:span> <t:span begin="02:34.041" end="02:34.487">at</t:span> <t:span begin="00:00.000" end="00:00.000">the</t:span><t:span m:role="x-bg" begin="02:33.263" end="02:34.895"><t:span begin="02:33.263" end="02:34.895">(Uh, uh huh uh uh)</t:span></t:span></t:p>
+        """)
+        assertEquals(listOf("intro", "Just meet me at the"), lines.map { it.text })
+        assertEquals(153146L, lines.last().timeMs)
+        assertTrue(lines.last().words.isEmpty())
+        val prepared = LyricTimeline.prepareLines(lines)
+        assertEquals("intro", prepared.first().text)
+        assertTrue(prepared.last().timeMs > 150000L)
+        assertTrue(requireNotNull(prepared.last().backgroundLine).timeMs > 150000L)
+    }
+
+    @Test fun zeroPlaceholderCannotInferMissingStartButRealZeroStartCan() {
+        val placeholder = parse("""<t:p end="12s"><t:span begin="0s" end="0s">placeholder</t:span><t:span begin="10s" end="12s">word</t:span></t:p>""").single()
+        assertEquals(10000L, placeholder.timeMs)
+        assertTrue(placeholder.words.isEmpty())
+        val realZero = parse("""<t:p><t:span begin="0s" end="1s">first</t:span></t:p>""").single()
+        assertEquals(0L, realZero.timeMs)
+        assertEquals(listOf(WordInfo("first", 0, 1000)), realZero.words)
+        assertTrue(parse("""<t:p><t:span begin="0s" end="0s">placeholder</t:span></t:p>""").isEmpty())
     }
 
     @Test fun zeroDurationWordsAreSafeAndUntimedTextIsPreserved() {
