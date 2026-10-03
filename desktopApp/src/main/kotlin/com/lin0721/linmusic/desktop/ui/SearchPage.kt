@@ -133,6 +133,7 @@ private fun ResultsContent(
     onOpenPlaylist: (Long, String, Boolean) -> Unit
 ) {
     val selectedPlatform by viewModel.selectedPlatform.collectAsState()
+    val searchPlatforms by viewModel.searchPlatforms.collectAsState()
     val selectedType by viewModel.selectedType.collectAsState()
     val results by viewModel.resultsByType.getValue(selectedType).collectAsState()
     val nowPlaying by controller.nowPlaying.collectAsState()
@@ -149,9 +150,9 @@ private fun ResultsContent(
     )
 
     Column(Modifier.fillMaxSize()) {
-        if (viewModel.searchPlatforms.size > 1) {
+        if (searchPlatforms.size > 1) {
             Row(Modifier.padding(horizontal = 24.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                viewModel.searchPlatforms.forEach { platform ->
+                searchPlatforms.forEach { platform ->
                     FilterChip(
                         selected = selectedPlatform == platform,
                         onClick = { viewModel.selectPlatform(platform) },

@@ -23,6 +23,7 @@ import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.core.source.AudioSourceProvider
 import com.lin0721.linmusic.core.source.ExternalTrack
 import com.lin0721.linmusic.core.source.MusicPlatform
+import com.lin0721.linmusic.core.source.SourcePreferences
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
@@ -34,6 +35,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -48,7 +51,8 @@ class SearchViewModel(
     private val songLikeRepository: SongLikeRepository,
     private val syncProfileAfterLoginUseCase: SyncProfileAfterLoginUseCase,
     private val sourceProviders: List<AudioSourceProvider> = emptyList(),
-    private val settingsPreferences: SettingsPreferences? = null
+    private val settingsPreferences: SettingsPreferences? = null,
+    private val sourcePreferences: SourcePreferences? = null
 ) : ViewModel() {
 
     val userProfile: StateFlow<UserProfile?> = userPreferences.userProfile
@@ -75,16 +79,32 @@ class SearchViewModel(
     private val _featuredTrack = MutableStateFlow<Track?>(null)
     val featuredTrack: StateFlow<Track?> = _featuredTrack.asStateFlow()
 
-    val searchPlatforms: List<MusicPlatform> = listOf(
-        MusicPlatform.NETEASE
-    )
+    val searchPlatforms: StateFlow<List<MusicPlatform>> = (sourcePreferences?.searchAggregationEnabled ?: flowOf(false))
+        .map { enabled ->
+            if (enabled) {
+                listOf(
+                    MusicPlatform.NETEASE,
+                    MusicPlatform.KUGOU,
+                    MusicPlatform.KUWO,
+                    MusicPlatform.QQ
+                )
+            } else {
+                listOf(MusicPlatform.NETEASE)
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, listOf(MusicPlatform.NETEASE))
 
     private val _selectedPlatform = MutableStateFlow(MusicPlatform.NETEASE)
     val selectedPlatform: StateFlow<MusicPlatform> = _selectedPlatform.asStateFlow()
 
+    private val allExternalPlatforms = listOf(
+        MusicPlatform.KUGOU,
+        MusicPlatform.KUWO,
+        MusicPlatform.QQ
+    )
+
     private val _externalResults: Map<MusicPlatform, MutableStateFlow<ExternalSearchUiState>> =
-        searchPlatforms.filter { it != MusicPlatform.NETEASE }
-            .associateWith { MutableStateFlow<ExternalSearchUiState>(ExternalSearchUiState.Idle) }
+        allExternalPlatforms.associateWith { MutableStateFlow<ExternalSearchUiState>(ExternalSearchUiState.Idle) }
     val externalResults: Map<MusicPlatform, StateFlow<ExternalSearchUiState>> = _externalResults
 
     private val externalOffset = mutableMapOf<MusicPlatform, Int>()
@@ -108,6 +128,13 @@ class SearchViewModel(
     init {
         loadDiscoveryData()
         loadLikedSongIds()
+        viewModelScope.launch {
+            searchPlatforms.collect { platforms ->
+                if (_selectedPlatform.value !in platforms) {
+                    _selectedPlatform.value = MusicPlatform.NETEASE
+                }
+            }
+        }
     }
 
     fun loadLikedSongIds() {
@@ -377,14 +404,30 @@ class SearchViewModel(
         viewModelScope.launch {
             _toastEvent.emit("正在解析 ${track.platform.displayName} 音频...")
             val provider = sourceProviders.find { it.platform == track.platform }
-            val result = provider?.resolveUrl(
+            var playUrl = provider?.resolveUrl(
                 songName = track.name,
                 artists = track.artists,
                 albumName = track.albumName,
                 durationMs = track.durationMs,
                 quality = "lossless"
-            )
-            val playUrl = result?.url
+            )?.url
+
+            // 本源未解析到时，通过其他第三方源尝试交叉解析
+            if (playUrl.isNullOrBlank()) {
+                for (otherProvider in sourceProviders) {
+                    if (otherProvider != provider) {
+                        playUrl = otherProvider.resolveUrl(
+                            songName = track.name,
+                            artists = track.artists,
+                            albumName = track.albumName,
+                            durationMs = track.durationMs,
+                            quality = "lossless"
+                        )?.url
+                        if (!playUrl.isNullOrBlank()) break
+                    }
+                }
+            }
+
             if (playUrl.isNullOrBlank()) {
                 _toastEvent.emit("无法获取播放直链")
                 return@launch
@@ -396,7 +439,7 @@ class SearchViewModel(
                 coverUrl = track.coverUrl,
                 localUri = playUrl
             )
-            playerManager.playQueue(listOf(queueItem), 0)
+            playerManager.playQueue(listOf(queueItem), 0, "搜索")
         }
     }
 
@@ -433,19 +476,21 @@ class SearchViewModel(
         }
 
         val offset = if (isLoadMore) offsetByType[type] ?: 0 else 0
+
         repository.search(keyword, type, offset = offset).firstOrNull()?.let { result ->
             result.onSuccess { page ->
                 offsetByType[type] = offset + page.rawFetchedCount
-                val mergedItems = if (isLoadMore) {
+                val currentItems = if (isLoadMore) {
                     (stateFlow.value as? SearchResultsUiState.Success)?.items.orEmpty() + page.items
                 } else {
                     page.items
                 }
-                stateFlow.value = if (mergedItems.isEmpty()) {
+
+                stateFlow.value = if (currentItems.isEmpty()) {
                     SearchResultsUiState.Empty
                 } else {
                     SearchResultsUiState.Success(
-                        items = mergedItems,
+                        items = currentItems,
                         totalCount = page.totalCount,
                         hasMore = page.hasMore,
                         isLoadingMore = false

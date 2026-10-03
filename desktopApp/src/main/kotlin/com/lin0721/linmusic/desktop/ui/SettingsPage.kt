@@ -106,6 +106,7 @@ fun SettingsPage(modifier: Modifier = Modifier) {
 
     val quality by settingsPreferences.wifiQuality.collectAsState(initial = "lossless")
     val fallbackEnabled by sourcePreferences.fallbackEnabled.collectAsState(initial = false)
+    val searchAggregationEnabled by sourcePreferences.searchAggregationEnabled.collectAsState(initial = false)
     val unmServerUrl by sourcePreferences.unmServerUrl.collectAsState(initial = "")
     val unmRemoteFallbackEnabled by sourcePreferences.unmRemoteFallbackEnabled.collectAsState(initial = false)
     val unmAutoMatch by sourcePreferences.unmAutoMatch.collectAsState(initial = true)
@@ -133,6 +134,13 @@ fun SettingsPage(modifier: Modifier = Modifier) {
             }
 
             SettingsCard("音源与换源") {
+                SettingRow(
+                    title = "多平台聚合搜索",
+                    subtitle = "在搜索页展示酷狗、酷我、QQ 音乐等多个平台的独立搜索 Tab"
+                ) {
+                    SettingSwitch(searchAggregationEnabled) { scope.launch { sourcePreferences.saveSearchAggregationEnabled(it) } }
+                }
+
                 SettingRow(
                     title = "无版权/VIP 自动换源",
                     subtitle = "官方网易云音源不可用或仅为试听时，优先通过本地直连音源获取完整播放直链"

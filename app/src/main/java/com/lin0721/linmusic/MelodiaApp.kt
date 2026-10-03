@@ -240,7 +240,7 @@ fun MelodiaApp() {
 
     fun handleBack() {
         val shouldReopenPlayer = navigation.navigateBack()
-        if (shouldReopenPlayer) {
+        if (shouldReopenPlayer && windowSizeClass != MelodiaWindowSizeClass.Expanded) {
             playerSheet.animateTo(true, 0f)
         }
     }
@@ -255,9 +255,9 @@ fun MelodiaApp() {
 
     // 系统返回键与侧滑返回拦截：按优先级关闭浮层或返回上一级。
     // 当存在浮层、处于非主页 tab、当前栈深大于 1、或主页未处于「全部」默认分类时均由 handleBack() 逐级处理。
-    // 平板播放面板展开时，返回键先收起面板，再处理内容导航
+    // 平板播放面板常驻不随返回键收起，直接交由内容导航处理
     val isAnyOverlayOpen = playerSheet.isOpen || navigation.isNavigatingFromPlayer || sidebar.isOpen ||
-            showCreateSheet || isPanelVisible || navigation.canGoBackToHomeAll
+            showCreateSheet || navigation.canGoBackToHomeAll
 
     BackHandler(enabled = isAnyOverlayOpen) {
         when {
@@ -268,7 +268,6 @@ fun MelodiaApp() {
             navigation.isNavigatingFromPlayer -> handleBack()
             sidebar.isOpen -> sidebar.close()
             showCreateSheet -> showCreateSheet = false
-            isPanelVisible -> isPanelExpanded = false
             navigation.canGoBackToHomeAll -> handleBack()
         }
     }

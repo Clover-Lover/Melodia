@@ -40,6 +40,7 @@ fun AudioSourcesSettingsView(viewModel: SettingsViewModel) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
+    val searchAggregationEnabled by viewModel.searchAggregationEnabled.collectAsStateWithLifecycle()
     val fallbackEnabled by viewModel.fallbackEnabled.collectAsStateWithLifecycle()
     val unmServerUrl by viewModel.unmServerUrl.collectAsStateWithLifecycle()
     val unmRemoteFallbackEnabled by viewModel.unmRemoteFallbackEnabled.collectAsStateWithLifecycle()
@@ -95,6 +96,12 @@ fun AudioSourcesSettingsView(viewModel: SettingsViewModel) {
                     checked = fallbackEnabled,
                     onCheckedChange = { viewModel.updateFallbackEnabled(it) }
                 )
+                SettingsSwitchRow(
+                    title = "多平台聚合搜索",
+                    subtitle = "在搜索页面提供多平台切换标签，可检索酷狗、酷我、QQ 音乐等外部曲库",
+                    checked = searchAggregationEnabled,
+                    onCheckedChange = { viewModel.updateSearchAggregationEnabled(it) }
+                )
             }
         }
 
@@ -102,7 +109,7 @@ fun AudioSourcesSettingsView(viewModel: SettingsViewModel) {
         item {
             SettingsGroupCard(SettingsSubMenu.AUDIO_SOURCES.sectionTitles[1]) {
                 Text(
-                    text = "优先在本地设备直接向音源发起请求，响应极速且去中心化。可自由启停各模块及调整检索优先级：",
+                    text = "优先在本地设备直接向音源发起请求，以下都是第三方维护的音源，如果有条件可以给他们一点赞助：",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 12.sp,
                     modifier = Modifier.padding(bottom = MelodiaSpacing.sm)

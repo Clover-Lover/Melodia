@@ -108,7 +108,8 @@ val desktopViewModelModule = module {
             songLikeRepository = get(),
             syncProfileAfterLoginUseCase = get(),
             sourceProviders = getAll<AudioSourceProvider>(),
-            settingsPreferences = getOrNull()
+            settingsPreferences = getOrNull(),
+            sourcePreferences = getOrNull()
         )
     }
     singleOf(::PlaylistCategoryViewModel)

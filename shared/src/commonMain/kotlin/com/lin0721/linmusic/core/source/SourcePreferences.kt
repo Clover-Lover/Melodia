@@ -31,6 +31,18 @@ class SourcePreferences(private val dataStore: DataStore<Preferences>) {
         private val KEY_LX_PLUGIN_AUTHOR = stringPreferencesKey("source_lx_plugin_author")
         private val KEY_LX_PLUGIN_DESC = stringPreferencesKey("source_lx_plugin_desc")
         private val KEY_LX_PLUGIN_SOURCES = stringPreferencesKey("source_lx_plugin_sources")
+
+        // 聚合搜索偏好（默认关闭）
+        private val KEY_SEARCH_AGGREGATION_ENABLED = booleanPreferencesKey("source_search_aggregation_enabled")
+    }
+
+    // 聚合搜索开关
+    val searchAggregationEnabled: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_SEARCH_AGGREGATION_ENABLED] ?: false
+    }
+
+    suspend fun saveSearchAggregationEnabled(enabled: Boolean) {
+        dataStore.edit { prefs -> prefs[KEY_SEARCH_AGGREGATION_ENABLED] = enabled }
     }
 
     // 换源总开关

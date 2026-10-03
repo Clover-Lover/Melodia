@@ -55,7 +55,8 @@ val viewModelModule = module {
             songLikeRepository = get(),
             syncProfileAfterLoginUseCase = get(),
             sourceProviders = getAll<AudioSourceProvider>(),
-            settingsPreferences = getOrNull()
+            settingsPreferences = getOrNull(),
+            sourcePreferences = getOrNull()
         )
     }
     viewModelOf(::PlaylistCategoryViewModel)

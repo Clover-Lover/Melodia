@@ -57,6 +57,7 @@ fun SearchScreen(
     val featuredTrack by viewModel.featuredTrack.collectAsStateWithLifecycle()
     val inputState by viewModel.inputState.collectAsStateWithLifecycle()
     val mode by viewModel.mode.collectAsStateWithLifecycle()
+    val searchPlatforms by viewModel.searchPlatforms.collectAsStateWithLifecycle()
     val selectedPlatform by viewModel.selectedPlatform.collectAsStateWithLifecycle()
     val selectedType by viewModel.selectedType.collectAsStateWithLifecycle()
     val history by viewModel.history.collectAsStateWithLifecycle()
@@ -165,7 +166,7 @@ fun SearchScreen(
                         onClearHistory = viewModel::clearHistory
                     )
                     SearchMode.Results -> SearchResultsContent(
-                        searchPlatforms = viewModel.searchPlatforms,
+                        searchPlatforms = searchPlatforms,
                         selectedPlatform = selectedPlatform,
                         selectedType = selectedType,
                         resultsByType = viewModel.resultsByType,
