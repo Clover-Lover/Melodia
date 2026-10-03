@@ -4,10 +4,10 @@ package com.lin0721.linmusic.core.player.domain
 object TtmlLyricParser {
     const val MAX_LENGTH = 2 * 1024 * 1024
     private const val TTML = "http://www.w3.org/ns/ttml"
-    private const val WORD_END_OVERRUN_TOLERANCE_MS = 10L
     private const val MAX_TIME_MS = 604_800_000L
 
     private data class LocalizedTranslation(val text: String, val priority: Int)
+    private data class TimedWord(val text: String, val begin: Long, val end: Long)
 
     private val doctypeOrEntity = Regex("<!\\s*(DOCTYPE|ENTITY)", RegexOption.IGNORE_CASE)
 
@@ -39,9 +39,8 @@ object TtmlLyricParser {
         translations: Map<String, LocalizedTranslation>,
         romanizations: Map<String, String>
     ): LyricLine? {
-        val start = time(p.attribute("begin")) ?: return null
-        val end = time(p.attribute("end")) ?: return null
-        if (end <= start) return null
+        val start = time(p.attribute("begin"))
+        val end = time(p.attribute("end"))
         val key = p.attribute("key")
         val alignment = alignments[p.attribute("agent")] ?: LyricAlignment.START
         val background = p.childElements().firstOrNull { it.role() == "x-bg" }
@@ -59,18 +58,10 @@ object TtmlLyricParser {
     }
 
     private fun parseBackground(element: XmlElement, alignment: LyricAlignment): LyricLine? {
-        val timedChildren = element.childElements().filter { it.localName == "span" && it.role().isNullOrEmpty() }
-        val start = time(element.attribute("begin"))
-            ?: timedChildren.firstNotNullOfOrNull { time(it.attribute("begin")) }
-            ?: return null
-        val end = time(element.attribute("end"))
-            ?: timedChildren.asReversed().firstNotNullOfOrNull { time(it.attribute("end")) }
-            ?: return null
-        if (end <= start) return null
         return parseTrack(
             element = element,
-            start = start,
-            end = end,
+            start = time(element.attribute("begin")),
+            end = time(element.attribute("end")),
             alignment = alignment,
             translation = element.directTranslation()?.text,
             romanization = element.directAnnotation("x-roman")
@@ -109,17 +100,18 @@ object TtmlLyricParser {
 
     private fun parseTrack(
         element: XmlElement,
-        start: Long,
-        end: Long,
+        start: Long?,
+        end: Long?,
         alignment: LyricAlignment,
         translation: String?,
         romanization: String?,
         backgroundLine: LyricLine? = null
     ): LyricLine? {
-        val parts = mutableListOf<WordInfo>()
+        if (start != null && end != null && end <= start) return null
+        val parts = mutableListOf<TimedWord>()
         val text = StringBuilder()
         var validWords = true
-        var previousStart = start
+        var previousStart = 0L
         fun walk(node: XmlNode, depth: Int) {
             require(depth <= 64) { "TTML nesting is too deep" }
             when (node) {
@@ -143,16 +135,10 @@ object TtmlLyricParser {
                         val wordText = text.substring(before)
                         val begin = time(node.attribute("begin"))
                         val finish = time(node.attribute("end"))
-                        // Some AMLL files let a span end a few milliseconds after its
-                        // parent line (including a trailing punctuation mark). Clamp
-                        // only this rounding-sized overrun.
-                        val boundedFinish = finish?.let {
-                            if (it > end && it - end <= WORD_END_OVERRUN_TOLERANCE_MS) end else it
-                        }
-                        if (begin == null || boundedFinish == null || begin < previousStart || begin < start ||
-                            boundedFinish < begin || boundedFinish > end) validWords = false
+                        if (begin == null || finish == null || finish < begin) validWords = false
                         else if (wordText.isNotBlank()) {
-                            parts += WordInfo(wordText, begin - start, boundedFinish - begin)
+                            if (begin < previousStart) validWords = false
+                            parts += TimedWord(wordText, begin, finish)
                             previousStart = begin
                         }
                         return
@@ -164,13 +150,25 @@ object TtmlLyricParser {
         element.children.forEach { walk(it, 0) }
         val content = text.toString().trim()
         if (content.isEmpty()) return null
-        val words = if (validWords && parts.any { it.durationMs > 0 } &&
+        // 仅使用有效词时间补全或扩展父行范围，保持词的绝对时间不变。
+        // 翻译/罗马音不参与推导；背景和声使用自身已解析的有效范围。
+        // 零时长词可能是编辑器未填写的 0 → 0 占位，不能用于推导父行范围。
+        val timedParts = parts.filter { it.end > it.begin }
+        val resolvedStart = listOfNotNull(start, timedParts.minOfOrNull { it.begin }, backgroundLine?.timeMs)
+            .minOrNull() ?: return null
+        val resolvedEnd = listOfNotNull(end, timedParts.maxOfOrNull { it.end },
+            backgroundLine?.let { it.timeMs + it.durationMs }).maxOrNull() ?: return null
+        if (resolvedEnd <= resolvedStart) return null
+        val words = if (validWords && timedParts.isNotEmpty() &&
+            parts.all { it.begin >= resolvedStart && it.end <= resolvedEnd } &&
             parts.joinToString("") { it.text }.filterNot(Char::isWhitespace) == content.filterNot(Char::isWhitespace)) {
-            attachInterstitialSpaces(content, parts)
+            attachInterstitialSpaces(content, parts.map {
+                WordInfo(it.text, it.begin - resolvedStart, it.end - it.begin)
+            })
         } else emptyList()
         return LyricLine(
-            timeMs = start,
-            durationMs = end - start,
+            timeMs = resolvedStart,
+            durationMs = resolvedEnd - resolvedStart,
             text = content,
             translation = translation?.trim()?.takeIf { it.isNotEmpty() },
             roma = romanization?.trim()?.takeIf { it.isNotEmpty() },
