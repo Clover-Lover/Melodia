@@ -39,6 +39,7 @@ import com.lin0721.linmusic.desktop.ui.tray.isTraySupported
 import com.lin0721.linmusic.desktop.ui.theme.MelodiaDesktopTheme
 import com.lin0721.linmusic.di.networkModule
 import com.lin0721.linmusic.di.repositoryModule
+import com.lin0721.linmusic.di.sourceModule
 import com.lin0721.linmusic.feature.player.ui.PlayerViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
@@ -52,7 +53,7 @@ private const val EXIT_ANIMATION_MS = 250L
 
 fun main() {
     val koin = startKoin {
-        modules(desktopPlatformModule, networkModule, repositoryModule, desktopViewModelModule)
+        modules(desktopPlatformModule, networkModule, repositoryModule, sourceModule, desktopViewModelModule)
     }.koin
     val controller = koin.get<PlaybackController>()
     val mpvController = controller as? MpvPlaybackController

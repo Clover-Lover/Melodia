@@ -69,14 +69,21 @@ data class SongUrlItem(
     val size: Long = 0,
     val md5: String? = null,
     val type: String? = null,
+    val fee: Int = 0,
     // VIP歌曲或者无版权时收费标识，freeTrialInfo 不为空表示可能只能试听
     val freeTrialInfo: FreeTrialInfo? = null,
+    val freeTrialPrivilege: FreeTrialPrivilege? = null,
 )
 
 @Serializable
 data class FreeTrialInfo(
     val start: Long = 0,
     val end: Long = 0,
+)
+
+@Serializable
+data class FreeTrialPrivilege(
+    val cannotListenReason: Int = 0,
 )
 
 // ======================= 歌曲详情 DTO =======================

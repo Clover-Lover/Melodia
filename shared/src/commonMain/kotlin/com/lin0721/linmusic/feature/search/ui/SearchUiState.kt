@@ -30,6 +30,19 @@ sealed interface SearchResultsUiState {
     data class Error(val message: String) : SearchResultsUiState
 }
 
+// 外部第三方音源平台的搜索结果状态
+sealed interface ExternalSearchUiState {
+    data object Idle : ExternalSearchUiState
+    data object Loading : ExternalSearchUiState
+    data class Success(
+        val tracks: List<com.lin0721.linmusic.core.source.ExternalTrack>,
+        val hasMore: Boolean = true,
+        val isLoadingMore: Boolean = false
+    ) : ExternalSearchUiState
+    data object Empty : ExternalSearchUiState
+    data class Error(val message: String) : ExternalSearchUiState
+}
+
 enum class SearchMode { Discovery, Typing, Results }
 
 // suggestionQuery 为联想所属关键词，防止旧联想套在新输入上

@@ -20,6 +20,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import com.lin0721.linmusic.core.source.LxPluginInfo
+import com.lin0721.linmusic.core.source.MusicPlatform
+import com.lin0721.linmusic.core.source.SourcePreferences
+import com.lin0721.linmusic.feature.source.plugin.LxPluginEngine
 import java.io.File
 
 private const val TAG = "SettingsViewModel"
@@ -28,6 +32,8 @@ private const val TAG = "SettingsViewModel"
 class SettingsViewModel(
     private val settingsRepository: SettingsRepository,
     private val settingsPreferences: SettingsPreferences,
+    private val sourcePreferences: SourcePreferences,
+    private val lxPluginEngine: LxPluginEngine,
     private val userPreferences: UserPreferences,
     private val authRepository: AuthRepository,
     private val resourceProvider: ResourceProvider
@@ -46,6 +52,21 @@ class SettingsViewModel(
     }
 
     // ─── 本地偏好设置对外状态流 ───
+    val fallbackEnabled = sourcePreferences.fallbackEnabled.asState(false)
+    val unmServerUrl = sourcePreferences.unmServerUrl.asState("")
+    val unmRemoteFallbackEnabled = sourcePreferences.unmRemoteFallbackEnabled.asState(false)
+    val unmAutoMatch = sourcePreferences.unmAutoMatch.asState(true)
+    val unmEnabledModules = sourcePreferences.unmEnabledModules.asState(com.lin0721.linmusic.core.source.UnmModule.ALL_KEYS.toSet())
+    val unmModuleOrder = sourcePreferences.unmModuleOrder.asState(com.lin0721.linmusic.core.source.UnmModule.ALL_KEYS)
+    val fallbackOrder = sourcePreferences.fallbackOrder.asState(com.lin0721.linmusic.core.source.UnmModule.ALL_KEYS)
+
+    val lxPluginEnabled = sourcePreferences.lxPluginEnabled.asState(false)
+    val lxPluginName = sourcePreferences.lxPluginName.asState("")
+    val lxPluginVersion = sourcePreferences.lxPluginVersion.asState("")
+    val lxPluginAuthor = sourcePreferences.lxPluginAuthor.asState("")
+    val lxPluginDesc = sourcePreferences.lxPluginDesc.asState("")
+    val lxPluginSources = sourcePreferences.lxPluginSources.asState(emptyList())
+
     val wifiQuality = settingsPreferences.wifiQuality.asState("lossless")
 
     val mobileQuality = settingsPreferences.mobileQuality.asState("standard")
@@ -192,6 +213,68 @@ class SettingsViewModel(
     }
 
     // ─── 核心设置修改方法 ───
+
+    fun updateFallbackEnabled(enabled: Boolean) = launchSave { sourcePreferences.saveFallbackEnabled(enabled) }
+
+    fun updateUnmServerUrl(url: String) = launchSave { sourcePreferences.saveUnmServerUrl(url) }
+
+    fun resetUnmServerUrl() = launchSave { sourcePreferences.resetUnmServerUrl() }
+
+    fun updateUnmRemoteFallbackEnabled(enabled: Boolean) = launchSave { sourcePreferences.saveUnmRemoteFallbackEnabled(enabled) }
+
+    fun updateUnmAutoMatch(enabled: Boolean) = launchSave { sourcePreferences.saveUnmAutoMatch(enabled) }
+
+    fun toggleUnmModule(moduleKey: String) = launchSave { sourcePreferences.toggleUnmModule(moduleKey) }
+
+    fun moveUnmModuleUp(moduleKey: String) = launchSave { sourcePreferences.moveUnmModuleUp(moduleKey) }
+
+    fun moveUnmModuleDown(moduleKey: String) = launchSave { sourcePreferences.moveUnmModuleDown(moduleKey) }
+
+    fun moveSourceUp(platformKey: String) = launchSave { sourcePreferences.moveUnmModuleUp(platformKey) }
+
+    fun moveSourceDown(platformKey: String) = launchSave { sourcePreferences.moveUnmModuleDown(platformKey) }
+
+    fun updateLxPluginEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            sourcePreferences.saveLxPluginEnabled(enabled)
+            if (enabled) {
+                val script = sourcePreferences.lxScriptContent.first()
+                if (script.isNotBlank()) {
+                    lxPluginEngine.loadScript(script)
+                }
+            } else {
+                lxPluginEngine.reset()
+            }
+        }
+    }
+
+    suspend fun importLxScript(scriptText: String): Result<LxPluginInfo> {
+        val res = lxPluginEngine.loadScript(scriptText)
+        if (res.isSuccess) {
+            val info = res.getOrThrow()
+            sourcePreferences.saveLxPlugin(
+                name = info.name,
+                version = info.version,
+                author = info.author,
+                desc = info.description,
+                sources = info.sources,
+                script = scriptText
+            )
+            val order = sourcePreferences.fallbackOrder.first().toMutableList()
+            if (MusicPlatform.LX.key !in order) {
+                order.add(0, MusicPlatform.LX.key)
+                sourcePreferences.saveFallbackOrder(order)
+            }
+        }
+        return res
+    }
+
+    fun removeLxPlugin() {
+        viewModelScope.launch {
+            sourcePreferences.clearLxPlugin()
+            lxPluginEngine.reset()
+        }
+    }
 
     fun updateWifiQuality(quality: String) = launchSave { settingsPreferences.saveWifiQuality(quality) }
 

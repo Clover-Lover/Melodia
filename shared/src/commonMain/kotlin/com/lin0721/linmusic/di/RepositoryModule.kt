@@ -107,8 +107,8 @@ val repositoryModule = module {
     // 歌单/专辑数据仓储（feature/playlist）
     singleOf(::PlaylistRepositoryImpl) { bind<PlaylistRepository>() }
 
-    // 播放引擎数据仓储（core/player 共享能力：播放链接/歌词/相似与智能推荐）
-    singleOf(::PlaybackRepositoryImpl) { bind<PlaybackRepository>() }
+    // PlaybackRepositoryImpl 单例（供 SourceModule 中的 AudioSourceRouter 装饰器注入）
+    singleOf(::PlaybackRepositoryImpl)
 
     // 播放器详情页数据仓储（feature/player：歌曲详情/百科）
     singleOf(::PlayerRepositoryImpl) { bind<PlayerRepository>() }

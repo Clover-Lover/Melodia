@@ -15,6 +15,7 @@ import com.lin0721.linmusic.core.player.PlaybackPreferences
 import com.lin0721.linmusic.core.preferences.PreferencesStores
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.core.preferences.get
+import com.lin0721.linmusic.core.source.SourcePreferences
 import com.lin0721.linmusic.feature.cloud.upload.CloudUploadManager
 import com.lin0721.linmusic.feature.search.data.SearchHistoryPreferences
 import org.koin.android.ext.koin.androidContext
@@ -24,6 +25,7 @@ val localModule = module {
     single { PlaybackPreferences(PreferencesStores.get(androidContext(), PreferencesStores.PLAYBACK)) }
     single { UserPreferences(PreferencesStores.get(androidContext(), PreferencesStores.USER)) }
     single { SettingsPreferences(PreferencesStores.get(androidContext(), PreferencesStores.SETTINGS)) }
+    single { SourcePreferences(PreferencesStores.get(androidContext(), PreferencesStores.SOURCE)) }
     single { ContentFilter(get()) }
     single<ResourceProvider> { AndroidResourceProvider(androidContext()) }
     single<NetworkStateProvider> { AndroidNetworkStateProvider(androidContext()) }

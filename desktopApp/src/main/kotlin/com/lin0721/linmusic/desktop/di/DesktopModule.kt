@@ -38,6 +38,8 @@ import com.lin0721.linmusic.feature.player.ui.PlayerViewModel
 import com.lin0721.linmusic.feature.playlist.ui.PlaylistViewModel
 import com.lin0721.linmusic.feature.podcast.ui.PodcastViewModel
 import com.lin0721.linmusic.feature.profile.ui.ProfileViewModel
+import com.lin0721.linmusic.core.source.AudioSourceProvider
+import com.lin0721.linmusic.core.source.SourcePreferences
 import com.lin0721.linmusic.feature.search.data.SearchHistoryPreferences
 import com.lin0721.linmusic.feature.search.ui.PlaylistCategoryViewModel
 import com.lin0721.linmusic.feature.search.ui.SearchViewModel
@@ -66,6 +68,7 @@ private fun store(name: String) = PreferencesStores.get(DesktopPaths.preferences
 val desktopPlatformModule = module {
     single { UserPreferences(store(PreferencesStores.USER)) }
     single { SettingsPreferences(store(PreferencesStores.SETTINGS)) }
+    single { SourcePreferences(store(PreferencesStores.SOURCE)) }
     single { SearchHistoryPreferences(store(PreferencesStores.SEARCH_HISTORY)) }
     single { PlaybackPreferences(store(PreferencesStores.PLAYBACK)) }
     single { DesktopPreferences(store(DesktopPreferences.STORE_NAME)) }
@@ -93,7 +96,21 @@ val desktopViewModelModule = module {
     singleOf(::NewWorksViewModel)
     singleOf(::LibraryViewModel)
     singleOf(::ProfileViewModel)
-    singleOf(::SearchViewModel)
+    single {
+        SearchViewModel(
+            repository = get(),
+            historyPreferences = get(),
+            playerManager = get(),
+            userPreferences = get(),
+            resourceProvider = get(),
+            songCollectDelegate = get(),
+            loadLikedSongIdsUseCase = get(),
+            songLikeRepository = get(),
+            syncProfileAfterLoginUseCase = get(),
+            sourceProviders = getAll<AudioSourceProvider>(),
+            settingsPreferences = getOrNull()
+        )
+    }
     singleOf(::PlaylistCategoryViewModel)
     singleOf(::PlaylistViewModel)
     singleOf(::PlayerViewModel)

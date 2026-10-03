@@ -18,6 +18,7 @@ object PreferencesStores {
     const val XEAPI_KEY = "xeapi_key_prefs"
     const val SEARCH_HISTORY = "search_history_prefs"
     const val PLAYBACK = "playback_prefs"
+    const val SOURCE = "source_prefs"
 
     private val stores = ConcurrentHashMap<String, DataStore<Preferences>>()
 

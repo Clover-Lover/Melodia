@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.map
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
@@ -39,7 +40,7 @@ class PlaybackRepositoryImpl(
     private val json: Json
 ) : PlaybackRepository {
 
-    override fun getSongUrl(songId: Long): Flow<Result<String>> = apiFlow(
+    override fun getSongPlaybackInfo(songId: Long): Flow<Result<SongPlaybackInfo>> = apiFlow(
         request = {
             val quality = if (networkStateProvider.isWifiConnected()) {
                 settingsPreferences.wifiQuality.first()
@@ -51,8 +52,18 @@ class PlaybackRepositoryImpl(
         // 该歌曲可能需要开启 VIP 或版权受限：code=200 但 url 为空，也算失败
         isSuccess = { it.isSuccess && !it.data.firstOrNull()?.url.isNullOrBlank() },
         code = { it.code },
-        transform = { it.data.first().url!! }
+        transform = { response ->
+            val item = response.data.first()
+            val isTrial = item.freeTrialInfo != null || (item.freeTrialPrivilege?.cannotListenReason ?: 0) != 0
+            SongPlaybackInfo(
+                url = item.url.orEmpty(),
+                isFreeTrial = isTrial
+            )
+        }
     )
+
+    override fun getSongUrl(songId: Long): Flow<Result<String>> =
+        getSongPlaybackInfo(songId).map { result -> result.map { it.url } }
 
     override fun getLyrics(songId: Long): Flow<Result<List<LyricLine>>> = apiFlow(
         request = {

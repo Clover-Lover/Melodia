@@ -9,8 +9,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
@@ -18,12 +20,21 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.rounded.ArrowDropDown
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.ButtonDefaults
+import com.lin0721.linmusic.core.source.MusicPlatform
+import com.lin0721.linmusic.core.source.SourcePreferences
+import com.lin0721.linmusic.core.source.UnmModule
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Switch
@@ -87,12 +98,19 @@ private const val WIN_VK_DELETE = 0x2E
 fun SettingsPage(modifier: Modifier = Modifier) {
     val koin = remember { GlobalContext.get() }
     val settingsPreferences = remember { koin.get<SettingsPreferences>() }
+    val sourcePreferences = remember { koin.get<SourcePreferences>() }
     val desktopPreferences = remember { koin.get<DesktopPreferences>() }
     val hotkeys = remember { koin.get<GlobalHotkeys>() }
     val smtc = remember { koin.get<SmtcSession>() }
     val scope = rememberCoroutineScope()
 
     val quality by settingsPreferences.wifiQuality.collectAsState(initial = "lossless")
+    val fallbackEnabled by sourcePreferences.fallbackEnabled.collectAsState(initial = false)
+    val unmServerUrl by sourcePreferences.unmServerUrl.collectAsState(initial = "")
+    val unmRemoteFallbackEnabled by sourcePreferences.unmRemoteFallbackEnabled.collectAsState(initial = false)
+    val unmAutoMatch by sourcePreferences.unmAutoMatch.collectAsState(initial = true)
+    val unmEnabledModules by sourcePreferences.unmEnabledModules.collectAsState(initial = UnmModule.ALL_KEYS.toSet())
+    val unmModuleOrder by sourcePreferences.unmModuleOrder.collectAsState(initial = UnmModule.ALL_KEYS)
     val showDesktopLyric by settingsPreferences.showDesktopLrc.collectAsState(initial = false)
     val closeAction by desktopPreferences.closeAction.collectAsState(initial = CloseAction.TRAY)
     val mediaKeysEnabled by desktopPreferences.mediaKeysEnabled.collectAsState(initial = true)
@@ -111,6 +129,93 @@ fun SettingsPage(modifier: Modifier = Modifier) {
             SettingsCard("播放") {
                 SettingRow("在线播放音质") {
                     QualitySelector(quality) { scope.launch { settingsPreferences.saveWifiQuality(it) } }
+                }
+            }
+
+            SettingsCard("音源与换源") {
+                SettingRow(
+                    title = "无版权/VIP 自动换源",
+                    subtitle = "官方网易云音源不可用或仅为试听时，优先通过本地直连音源获取完整播放直链"
+                ) {
+                    SettingSwitch(fallbackEnabled) { scope.launch { sourcePreferences.saveFallbackEnabled(it) } }
+                }
+
+                Text(
+                    text = "本地直连音源（响应极速、去中心化，按优先级依次尝试）：",
+                    color = DesktopColors.TextGray,
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+
+                unmModuleOrder.forEachIndexed { index, moduleKey ->
+                    val module = UnmModule.fromKey(moduleKey)
+                    val displayName = module?.displayName ?: moduleKey
+                    val description = module?.description ?: ""
+                    val isEnabled = moduleKey in unmEnabledModules
+
+                    Row(
+                        Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "${index + 1}. $displayName ($description)",
+                            color = if (isEnabled) DesktopColors.TextPrimary else DesktopColors.TextGray,
+                            fontSize = 14.sp,
+                            modifier = Modifier.weight(1f)
+                        )
+                        SettingSwitch(isEnabled) {
+                            scope.launch { sourcePreferences.toggleUnmModule(moduleKey) }
+                        }
+                        IconButton(
+                            onClick = { scope.launch { sourcePreferences.moveUnmModuleUp(moduleKey) } },
+                            enabled = index > 0
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.ArrowUpward,
+                                contentDescription = "上移",
+                                tint = if (index > 0) DesktopColors.TextPrimary else DesktopColors.SurfaceLight,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                        IconButton(
+                            onClick = { scope.launch { sourcePreferences.moveUnmModuleDown(moduleKey) } },
+                            enabled = index < unmModuleOrder.size - 1
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.ArrowDownward,
+                                contentDescription = "下移",
+                                tint = if (index < unmModuleOrder.size - 1) DesktopColors.TextPrimary else DesktopColors.SurfaceLight,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+                }
+
+                SettingRow(
+                    title = "启用远程兜底服务",
+                    subtitle = "当本地所有已启用的音源均未解析成功时，向远程 UNM 服务器请求兜底"
+                ) {
+                    SettingSwitch(unmRemoteFallbackEnabled) { scope.launch { sourcePreferences.saveUnmRemoteFallbackEnabled(it) } }
+                }
+
+                if (unmRemoteFallbackEnabled) {
+                    SettingRow(
+                        title = "兜底服务接口 (Base URL)",
+                        subtitle = unmServerUrl.ifBlank { "未配置" }
+                    ) {
+                        DesktopServerUrlInput(
+                            currentUrl = unmServerUrl,
+                            onSave = { scope.launch { sourcePreferences.saveUnmServerUrl(it) } },
+                            onReset = { scope.launch { sourcePreferences.resetUnmServerUrl() } }
+                        )
+                    }
+
+                    SettingRow(
+                        title = "服务端自动选择模式",
+                        subtitle = "由服务端自动轮询最优源，关闭后按本地模块顺序向远程请求"
+                    ) {
+                        SettingSwitch(unmAutoMatch) { scope.launch { sourcePreferences.saveUnmAutoMatch(it) } }
+                    }
                 }
             }
 
@@ -394,6 +499,76 @@ private fun HotkeyRecorder(
                 else -> DesktopColors.TextGray
             },
             fontSize = 14.sp
+        )
+    }
+}
+
+@Composable
+private fun DesktopServerUrlInput(
+    currentUrl: String,
+    onSave: (String) -> Unit,
+    onReset: () -> Unit
+) {
+    var showDialog by remember { mutableStateOf(false) }
+    var text by remember(currentUrl, showDialog) { mutableStateOf(currentUrl) }
+
+    OutlinedButton(
+        onClick = { showDialog = true },
+        shape = RoundedCornerShape(16.dp),
+        colors = ButtonDefaults.outlinedButtonColors(contentColor = DesktopColors.TextPrimary)
+    ) {
+        Text("配置接口", fontSize = 12.sp)
+    }
+
+    if (showDialog) {
+        AlertDialog(
+            onDismissRequest = { showDialog = false },
+            title = {
+                Text(
+                    text = "配置换源服务接口",
+                    color = DesktopColors.TextPrimary,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Column {
+                    Text(
+                        text = "填写 UNM Utils 服务的基础访问 URL（末尾无需斜杠）：",
+                        color = DesktopColors.TextGray,
+                        fontSize = 12.sp
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = text,
+                        onValueChange = { text = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = { Text("例如 https://your-unm-server.com", color = DesktopColors.TextGray) }
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    onSave(text.trim())
+                    showDialog = false
+                }) {
+                    Text("保存", color = DesktopColors.Accent)
+                }
+            },
+            dismissButton = {
+                Row {
+                    TextButton(onClick = {
+                        text = ""
+                        onReset()
+                        showDialog = false
+                    }) {
+                        Text("清空", color = DesktopColors.Accent)
+                    }
+                    TextButton(onClick = { showDialog = false }) {
+                        Text("取消", color = DesktopColors.TextGray)
+                    }
+                }
+            }
         )
     }
 }

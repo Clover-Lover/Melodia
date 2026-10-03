@@ -21,10 +21,15 @@ import com.lin0721.linmusic.core.vehicle.LeapmotorSteeringControl
 import com.lin0721.linmusic.di.downloadModule
 import com.lin0721.linmusic.di.localModule
 import com.lin0721.linmusic.di.localMusicModule
+import com.lin0721.linmusic.di.lxPluginModule
 import com.lin0721.linmusic.di.networkModule
 import com.lin0721.linmusic.di.playerModule
 import com.lin0721.linmusic.di.recognitionModule
 import com.lin0721.linmusic.di.repositoryModule
+import com.lin0721.linmusic.di.sourceModule
+import com.lin0721.linmusic.core.source.SourcePreferences
+import com.lin0721.linmusic.feature.source.plugin.LxPluginEngine
+import kotlinx.coroutines.flow.first
 import com.lin0721.linmusic.di.updateModule
 import com.lin0721.linmusic.di.viewModelModule
 import kotlinx.coroutines.CoroutineScope
@@ -76,9 +81,19 @@ class MelodiaApplication : Application() {
             androidLogger(if (BuildConfig.DEBUG) Level.DEBUG else Level.ERROR)
             androidContext(this@MelodiaApplication)
             modules(
-                networkModule, repositoryModule, viewModelModule, playerModule,
-                localModule, updateModule, downloadModule, localMusicModule, recognitionModule
+                networkModule, localModule, repositoryModule, sourceModule, lxPluginModule, viewModelModule, playerModule,
+                updateModule, downloadModule, localMusicModule, recognitionModule
             )
+        }
+
+        // 异步预加载已保存启用的 LX 音源插件
+        val sourcePreferences: SourcePreferences by inject()
+        val lxPluginEngine: LxPluginEngine by inject()
+        CoroutineScope(Dispatchers.IO).launch {
+            val script = sourcePreferences.lxScriptContent.first()
+            if (script.isNotBlank() && sourcePreferences.lxPluginEnabled.first()) {
+                lxPluginEngine.loadScript(script)
+            }
         }
 
         // 初始化 WorkManager 并注入自定义 WorkerFactory

@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -39,10 +40,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.player.PlaybackController
+import com.lin0721.linmusic.core.source.ExternalTrack
+import com.lin0721.linmusic.core.source.MusicPlatform
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.feature.search.domain.SearchResultItem
 import com.lin0721.linmusic.feature.search.domain.SearchSuggestion
 import com.lin0721.linmusic.feature.search.domain.SearchType
+import com.lin0721.linmusic.feature.search.ui.ExternalSearchUiState
 import com.lin0721.linmusic.feature.search.ui.SearchMode
 import com.lin0721.linmusic.feature.search.ui.SearchResultsUiState
 import com.lin0721.linmusic.feature.search.ui.SearchViewModel
@@ -128,6 +132,7 @@ private fun ResultsContent(
     controller: PlaybackController,
     onOpenPlaylist: (Long, String, Boolean) -> Unit
 ) {
+    val selectedPlatform by viewModel.selectedPlatform.collectAsState()
     val selectedType by viewModel.selectedType.collectAsState()
     val results by viewModel.resultsByType.getValue(selectedType).collectAsState()
     val nowPlaying by controller.nowPlaying.collectAsState()
@@ -144,56 +149,177 @@ private fun ResultsContent(
     )
 
     Column(Modifier.fillMaxSize()) {
-        Row(Modifier.padding(24.dp, 16.dp, 24.dp, 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            SearchType.entries.forEach { type ->
-                FilterChip(
-                    selected = selectedType == type,
-                    onClick = { viewModel.selectType(type) },
-                    label = { Text(type.label) },
-                    shape = RoundedCornerShape(16.dp),
-                    colors = FilterChipDefaults.filterChipColors(
-                        containerColor = DesktopColors.Surface,
-                        labelColor = DesktopColors.TextPrimary,
-                        selectedContainerColor = DesktopColors.TextPrimary,
-                        selectedLabelColor = DesktopColors.Pane
-                    ),
-                    border = null
-                )
+        if (viewModel.searchPlatforms.size > 1) {
+            Row(Modifier.padding(horizontal = 24.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                viewModel.searchPlatforms.forEach { platform ->
+                    FilterChip(
+                        selected = selectedPlatform == platform,
+                        onClick = { viewModel.selectPlatform(platform) },
+                        label = { Text(platform.displayName) },
+                        shape = RoundedCornerShape(16.dp),
+                        colors = FilterChipDefaults.filterChipColors(
+                            containerColor = DesktopColors.Surface,
+                            labelColor = DesktopColors.TextPrimary,
+                            selectedContainerColor = DesktopColors.TextPrimary,
+                            selectedLabelColor = DesktopColors.Pane
+                        ),
+                        border = null
+                    )
+                }
             }
         }
-        when (val state = results) {
-            SearchResultsUiState.Idle, SearchResultsUiState.Loading ->
-                Centered { CircularProgressIndicator(color = DesktopColors.Accent) }
-            SearchResultsUiState.Empty -> Centered { Text("没有找到相关结果", color = DesktopColors.TextGray) }
-            is SearchResultsUiState.Error -> Centered {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(state.message, color = DesktopColors.TextGray)
-                    TextButton(onClick = viewModel::retrySearch) { Text("重试", color = DesktopColors.TextPrimary) }
+
+        if (selectedPlatform == MusicPlatform.NETEASE) {
+            Row(Modifier.padding(horizontal = 24.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                SearchType.entries.forEach { type ->
+                    FilterChip(
+                        selected = selectedType == type,
+                        onClick = { viewModel.selectType(type) },
+                        label = { Text(type.label) },
+                        shape = RoundedCornerShape(16.dp),
+                        colors = FilterChipDefaults.filterChipColors(
+                            containerColor = DesktopColors.Surface,
+                            labelColor = DesktopColors.TextPrimary,
+                            selectedContainerColor = DesktopColors.TextPrimary,
+                            selectedLabelColor = DesktopColors.Pane
+                        ),
+                        border = null
+                    )
                 }
             }
-            is SearchResultsUiState.Success -> {
-                val listState = rememberLazyListState()
-                val shouldLoadMore by remember(state) {
-                    derivedStateOf {
-                        val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
-                        state.hasMore && !state.isLoadingMore &&
-                            lastVisible >= listState.layoutInfo.totalItemsCount - RESULT_LOAD_MORE_THRESHOLD
+            when (val state = results) {
+                SearchResultsUiState.Idle, SearchResultsUiState.Loading ->
+                    Centered { CircularProgressIndicator(color = DesktopColors.Accent) }
+                SearchResultsUiState.Empty -> Centered { Text("没有找到相关结果", color = DesktopColors.TextGray) }
+                is SearchResultsUiState.Error -> Centered {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(state.message, color = DesktopColors.TextGray)
+                        TextButton(onClick = viewModel::retrySearch) { Text("重试", color = DesktopColors.TextPrimary) }
                     }
                 }
-                LaunchedEffect(shouldLoadMore) {
-                    if (shouldLoadMore) viewModel.loadMore()
-                }
-                HoverScrollbarBox(listState) {
-                    LazyColumn(state = listState, contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
-                        itemsIndexed(state.items) { index, item ->
-                            ResultEntry(index, item, nowPlaying?.songId, viewModel, actions, onOpenPlaylist)
+                is SearchResultsUiState.Success -> {
+                    val listState = rememberLazyListState()
+                    val shouldLoadMore by remember(state) {
+                        derivedStateOf {
+                            val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+                            state.hasMore && !state.isLoadingMore &&
+                                lastVisible >= listState.layoutInfo.totalItemsCount - RESULT_LOAD_MORE_THRESHOLD
                         }
-                        if (state.isLoadingMore) {
-                            item { Centered { CircularProgressIndicator(color = DesktopColors.Accent) } }
+                    }
+                    LaunchedEffect(shouldLoadMore) {
+                        if (shouldLoadMore) viewModel.loadMore()
+                    }
+                    HoverScrollbarBox(listState) {
+                        LazyColumn(state = listState, contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
+                            itemsIndexed(state.items) { index, item ->
+                                ResultEntry(index, item, nowPlaying?.songId, viewModel, actions, onOpenPlaylist)
+                            }
+                            if (state.isLoadingMore) {
+                                item { Centered { CircularProgressIndicator(color = DesktopColors.Accent) } }
+                            }
                         }
                     }
                 }
             }
+        } else {
+            ExternalResultsContent(viewModel, selectedPlatform, nowPlaying?.songId)
+        }
+    }
+}
+
+@Composable
+private fun ExternalResultsContent(
+    viewModel: SearchViewModel,
+    platform: MusicPlatform,
+    currentSongId: Long?
+) {
+    val resultsState = viewModel.externalResults[platform]?.collectAsState()?.value ?: ExternalSearchUiState.Idle
+    when (resultsState) {
+        ExternalSearchUiState.Idle, ExternalSearchUiState.Loading ->
+            Centered { CircularProgressIndicator(color = DesktopColors.Accent) }
+        ExternalSearchUiState.Empty -> Centered { Text("在 ${platform.displayName} 没有找到相关结果", color = DesktopColors.TextGray) }
+        is ExternalSearchUiState.Error -> Centered {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(resultsState.message, color = DesktopColors.TextGray)
+                TextButton(onClick = { viewModel.searchExternal(viewModel.inputState.value.query, platform, false) }) {
+                    Text("重试", color = DesktopColors.TextPrimary)
+                }
+            }
+        }
+        is ExternalSearchUiState.Success -> {
+            val listState = rememberLazyListState()
+            val shouldLoadMore by remember(resultsState) {
+                derivedStateOf {
+                    val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+                    resultsState.hasMore && !resultsState.isLoadingMore &&
+                        lastVisible >= listState.layoutInfo.totalItemsCount - RESULT_LOAD_MORE_THRESHOLD
+                }
+            }
+            LaunchedEffect(shouldLoadMore) {
+                if (shouldLoadMore) viewModel.loadMoreExternal(platform)
+            }
+            HoverScrollbarBox(listState) {
+                LazyColumn(state = listState, contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
+                    itemsIndexed(resultsState.tracks) { index, track ->
+                        val isCurrent = currentSongId == track.id.hashCode().toLong()
+                        ExternalResultEntry(index, track, isCurrent) {
+                            viewModel.playExternalTrack(track)
+                        }
+                    }
+                    if (resultsState.isLoadingMore) {
+                        item { Centered { CircularProgressIndicator(color = DesktopColors.Accent) } }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ExternalResultEntry(
+    index: Int,
+    track: ExternalTrack,
+    isCurrent: Boolean,
+    onPlay: () -> Unit
+) {
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(4.dp)).clickable(onClick = onPlay)
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            (index + 1).toString().padStart(2, '0'),
+            color = DesktopColors.TextGray,
+            fontSize = 13.sp,
+            modifier = Modifier.width(32.dp)
+        )
+        Cover(track.coverUrl.orEmpty(), 48.dp, shape = RoundedCornerShape(4.dp))
+        Column(Modifier.weight(1f).padding(start = 12.dp)) {
+            Text(
+                track.name,
+                color = if (isCurrent) DesktopColors.Accent else DesktopColors.TextPrimary,
+                fontSize = 15.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                if (track.albumName.isNotBlank()) "${track.artists} · ${track.albumName}" else track.artists,
+                color = DesktopColors.TextGray,
+                fontSize = 13.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        if (track.durationMs > 0) {
+            val totalSeconds = (track.durationMs / 1000).coerceAtLeast(0)
+            val minutes = totalSeconds / 60
+            val seconds = totalSeconds % 60
+            Text(
+                "$minutes:${seconds.toString().padStart(2, '0')}",
+                color = DesktopColors.TextGray,
+                fontSize = 13.sp,
+                modifier = Modifier.padding(horizontal = 16.dp)
+            )
         }
     }
 }

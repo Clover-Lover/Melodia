@@ -125,6 +125,7 @@ class LyricsResolverTest {
         }
         override fun getRawLyrics(songId: Long): Flow<Result<String>> = emptyFlow()
         override fun getSongUrl(songId: Long): Flow<Result<String>> = emptyFlow()
+        override fun getSongPlaybackInfo(songId: Long): Flow<Result<com.lin0721.linmusic.core.player.data.SongPlaybackInfo>> = emptyFlow()
         override fun getSongDetail(songId: Long): Flow<Result<Track>> = emptyFlow()
         override fun getSimilarSongs(songId: Long): Flow<Result<List<Track>>> = emptyFlow()
         override fun getIntelligenceSongs(songId: Long, playlistId: Long): Flow<Result<List<Track>>> = emptyFlow()
