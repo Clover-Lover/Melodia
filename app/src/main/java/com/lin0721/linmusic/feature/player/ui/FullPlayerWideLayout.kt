@@ -100,6 +100,7 @@ fun FullPlayerWideLayout(
     currentPositionProvider: () -> Long,
     isPlaying: Boolean,
     onLyricClick: (LyricLine) -> Unit,
+    onSeek: (Long) -> Unit = {},
     onLyricsVisibleChange: (Boolean) -> Unit,
     infoCards: LazyListScope.() -> Unit,
     modifier: Modifier = Modifier
@@ -152,6 +153,7 @@ fun FullPlayerWideLayout(
                 currentPositionProvider = currentPositionProvider,
                 isPlaying = isPlaying,
                 onLyricClick = onLyricClick,
+                onSeek = onSeek,
                 onLyricsVisibleChange = onLyricsVisibleChange,
                 infoCards = infoCards,
                 modifier = Modifier
@@ -173,6 +175,7 @@ private fun WideRightColumn(
     currentPositionProvider: () -> Long,
     isPlaying: Boolean,
     onLyricClick: (LyricLine) -> Unit,
+    onSeek: (Long) -> Unit = {},
     onLyricsVisibleChange: (Boolean) -> Unit,
     infoCards: LazyListScope.() -> Unit,
     modifier: Modifier = Modifier
@@ -293,10 +296,14 @@ private fun WideRightColumn(
                             advancedKaraokeEffect = karaokeAdvancedEffect,
                             karaokeGlowEffect = karaokeGlowEffect,
                             isPlaying = isPlaying,
-                            showSeekGuide = false,
+                            showSeekGuide = true,
                             userScrollEnabled = false,
                             onLineTextBounds = { index, bounds -> lineTextBounds[index] = bounds },
-                            onSeek = {},
+                            onSeek = { timeMs ->
+                                resumeJob?.cancel()
+                                isUserScrollingLyrics = false
+                                onSeek(timeMs)
+                            },
                             onLyricClick = { line ->
                                 resumeJob?.cancel()
                                 isUserScrollingLyrics = false
