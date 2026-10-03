@@ -43,6 +43,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import android.content.Intent
 import androidx.compose.ui.platform.LocalContext
+import com.lin0721.linmusic.core.ui.theme.LocalMelodiaWindowSizeClass
+import com.lin0721.linmusic.core.ui.theme.MelodiaWindowSizeClass
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import org.koin.compose.koinInject
@@ -83,6 +85,8 @@ fun FullScreenLyricsView(
 
     val settingsPreferences: SettingsPreferences = koinInject()
     val fullScreenLyricTextSize by settingsPreferences.fullScreenLyricTextSize.collectAsStateWithLifecycle(initialValue = 22)
+    val isExpanded = LocalMelodiaWindowSizeClass.current == MelodiaWindowSizeClass.Expanded
+    val effectiveLyricTextSize = if (isExpanded) fullScreenLyricTextSize.coerceIn(20, 40) else fullScreenLyricTextSize
     val fullScreenLyricAlignment by settingsPreferences.fullScreenLyricAlignment.collectAsStateWithLifecycle(initialValue = "left")
     val fullScreenLyricSecondaryMode by settingsPreferences.fullScreenLyricSecondaryMode.collectAsStateWithLifecycle(initialValue = "translation")
     val fullScreenKaraokeAdvancedEffect by settingsPreferences.fullScreenKaraokeAdvancedEffect.collectAsStateWithLifecycle(initialValue = true)
@@ -308,7 +312,7 @@ fun FullScreenLyricsView(
                 viewportHeightPx = dragState.viewportHeightPx,
                 onViewportHeightChange = { height -> dragState.onViewportHeightChange(height) },
                 gestureModifier = Modifier,
-                fontSize = fullScreenLyricTextSize,
+                fontSize = effectiveLyricTextSize,
                 alignment = fullScreenLyricAlignment,
                 secondaryMode = fullScreenLyricSecondaryMode,
                 lineSpacing = fullScreenLyricLineSpacing,

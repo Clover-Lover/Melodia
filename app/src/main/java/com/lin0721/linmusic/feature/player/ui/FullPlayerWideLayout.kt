@@ -182,6 +182,7 @@ private fun WideRightColumn(
 ) {
     val settingsPreferences: SettingsPreferences = koinInject()
     val lyricTextSize by settingsPreferences.fullScreenLyricTextSize.collectAsStateWithLifecycle(initialValue = 22)
+    val effectiveLyricTextSize = lyricTextSize.coerceIn(20, 40)
     val lyricAlignment by settingsPreferences.fullScreenLyricAlignment.collectAsStateWithLifecycle(initialValue = "left")
     val lyricSecondaryMode by settingsPreferences.fullScreenLyricSecondaryMode.collectAsStateWithLifecycle(initialValue = "translation")
     val karaokeAdvancedEffect by settingsPreferences.fullScreenKaraokeAdvancedEffect.collectAsStateWithLifecycle(initialValue = true)
@@ -288,7 +289,7 @@ private fun WideRightColumn(
                             viewportHeightPx = lyricsViewportPx,
                             onViewportHeightChange = { lyricsViewportPx = it },
                             gestureModifier = Modifier,
-                            fontSize = lyricTextSize,
+                            fontSize = effectiveLyricTextSize,
                             alignment = lyricAlignment,
                             secondaryMode = lyricSecondaryMode,
                             lineSpacing = lyricLineSpacing,

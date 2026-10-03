@@ -60,8 +60,10 @@ import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
 import com.lin0721.linmusic.core.player.PlayMode
 import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
+import com.lin0721.linmusic.core.ui.theme.LocalMelodiaWindowSizeClass
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
+import com.lin0721.linmusic.core.ui.theme.MelodiaWindowSizeClass
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -419,12 +421,25 @@ fun FullScreenLyricsSettingsSheet(
                 modifier = Modifier.padding(bottom = 6.dp)
             )
 
+            val isExpanded = LocalMelodiaWindowSizeClass.current == MelodiaWindowSizeClass.Expanded
+            val fontSizeRange = if (isExpanded) 20f..40f else 16f..32f
+            val displayFontSize = fontSize.coerceIn(
+                fontSizeRange.start.roundToInt(),
+                fontSizeRange.endInclusive.roundToInt()
+            )
+
+            LaunchedEffect(fontSizeRange) {
+                if (fontSize !in fontSizeRange.start.roundToInt()..fontSizeRange.endInclusive.roundToInt()) {
+                    onFontSizeChange(displayFontSize)
+                }
+            }
+
             LyricSliderSetting(
                 label = "歌词字号大小",
-                valueText = "${fontSize} sp",
-                value = fontSize,
+                valueText = "${displayFontSize} sp",
+                value = displayFontSize,
                 onValueChange = onFontSizeChange,
-                valueRange = 16f..32f
+                valueRange = fontSizeRange
             )
 
             LyricSliderSetting(
