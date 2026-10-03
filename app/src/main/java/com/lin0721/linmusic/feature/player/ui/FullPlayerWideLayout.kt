@@ -80,7 +80,7 @@ private val RightColumnEndPadding = 24.dp
 private val NoLyricsHeight = 56.dp
 
 // 手动滚动歌词松手后停留多久再回到当前行，与全屏歌词页一致
-private const val LYRICS_RESUME_DELAY_MS = 5000L
+private const val LYRICS_RESUME_DELAY_MS = 3000L
 
 private const val WIDE_LYRICS_KEY = "wide_lyrics"
 private const val WIDE_BOTTOM_SPACER_KEY = "wide_bottom_spacer"

@@ -218,25 +218,29 @@ fun FullScreenLyricsView(
         }
     }
 
-    LaunchedEffect(lazyListState.isScrollInProgress) {
-        if (lazyListState.isScrollInProgress) {
-            timerJob?.cancel()
-            isUserScrolling = true
-            if (fullScreenLyricAutoHideControls) {
-                autoHideJob?.cancel()
-            }
-        } else {
-            if (isUserScrolling) {
-                timerJob?.cancel()
-                if (isPlayingState.value) {
-                    timerJob = scope.launch {
-                        delay(5000)
-                        isUserScrolling = false
+    // 仅在真实触摸手势按下与抬起时维护用户滚动状态，避免程序自动平滑居中滚动时被误判为用户拖拽
+    val gestureModifier = Modifier.pointerInput(Unit) {
+        awaitPointerEventScope {
+            while (true) {
+                val event = awaitPointerEvent()
+                if (event.type == PointerEventType.Press) {
+                    timerJob?.cancel()
+                    isUserScrolling = true
+                    if (fullScreenLyricAutoHideControls) {
+                        autoHideJob?.cancel()
+                    }
+                } else if (event.type == PointerEventType.Release) {
+                    timerJob?.cancel()
+                    if (isPlayingState.value) {
+                        timerJob = scope.launch {
+                            delay(3000L)
+                            isUserScrolling = false
+                        }
+                    }
+                    if (fullScreenLyricAutoHideControls && areControlsVisible) {
+                        scheduleAutoHide()
                     }
                 }
-            }
-            if (fullScreenLyricAutoHideControls && areControlsVisible) {
-                scheduleAutoHide()
             }
         }
     }
@@ -311,7 +315,7 @@ fun FullScreenLyricsView(
                 lazyListState = lazyListState,
                 viewportHeightPx = dragState.viewportHeightPx,
                 onViewportHeightChange = { height -> dragState.onViewportHeightChange(height) },
-                gestureModifier = Modifier,
+                gestureModifier = gestureModifier,
                 fontSize = effectiveLyricTextSize,
                 alignment = fullScreenLyricAlignment,
                 secondaryMode = fullScreenLyricSecondaryMode,
