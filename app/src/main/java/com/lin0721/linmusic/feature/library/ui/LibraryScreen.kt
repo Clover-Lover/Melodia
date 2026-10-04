@@ -610,7 +610,9 @@ fun LibraryScreen(
                     viewModel.downloadLibraryItem(target, level)
                     downloadQualityTarget = null
                 },
-                onDismiss = { downloadQualityTarget = null }
+                onDismiss = { downloadQualityTarget = null },
+                headline = target.title,
+                supportingText = target.trackCount.takeIf { it > 0 }?.let { "共 $it 首" }
             )
         }
 

@@ -909,7 +909,9 @@ fun FullPlayerScreen(
                     viewModel.downloadCurrentSong(songId, title, artistNames, albumName, coverUrl, albumYear, level)
                     showDownloadQualitySheet = false
                 },
-                onDismiss = { showDownloadQualitySheet = false }
+                onDismiss = { showDownloadQualitySheet = false },
+                headline = title,
+                supportingText = artist
             )
         }
 

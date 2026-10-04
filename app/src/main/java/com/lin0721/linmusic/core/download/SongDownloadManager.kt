@@ -50,13 +50,24 @@ class SongDownloadManager(
         return request.id
     }
 
-    // 批量下载入队
-    override fun enqueueBatch(tracks: List<DownloadTrackInfo>, level: String, batchTag: String, batchLabel: String): List<UUID> =
-        tracks.map { track ->
+    // 批量下载入队：跳过已下载同等或更高音质的歌曲；同一首歌已在队列中时保留原任务，不打断重下
+    override suspend fun enqueueBatch(
+        tracks: List<DownloadTrackInfo>,
+        level: String,
+        batchTag: String,
+        batchLabel: String
+    ): BatchEnqueueResult {
+        val distinctTracks = tracks.distinctBy { it.songId }
+        val downloadedIds = downloadPreferences.findVerifiedRecords(distinctTracks.map { it.songId })
+            .filter { it.satisfies(level) }
+            .mapTo(HashSet()) { it.songId }
+        val pending = distinctTracks.filterNot { it.songId in downloadedIds }
+        pending.forEach { track ->
             val request = buildRequest(track, level, batchTag = batchTag, batchLabel = batchLabel)
-            workManager.enqueueUniqueWork(uniqueWorkName(track.songId), ExistingWorkPolicy.REPLACE, request)
-            request.id
+            workManager.enqueueUniqueWork(uniqueWorkName(track.songId), ExistingWorkPolicy.KEEP, request)
         }
+        return BatchEnqueueResult(enqueuedCount = pending.size, skippedCount = downloadedIds.size)
+    }
 
     fun cancel(songId: Long) {
         workManager.cancelUniqueWork(uniqueWorkName(songId))

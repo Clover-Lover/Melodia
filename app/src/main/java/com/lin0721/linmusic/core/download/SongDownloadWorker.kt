@@ -1,10 +1,12 @@
 package com.lin0721.linmusic.core.download
 
+import android.content.ContentUris
 import android.content.ContentValues
 import android.content.pm.ServiceInfo
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
+import android.provider.DocumentsContract
 import android.provider.MediaStore
 import androidx.documentfile.provider.DocumentFile
 import androidx.work.CoroutineWorker
@@ -58,6 +60,7 @@ class SongDownloadWorker(
         const val KEY_ALBUM_YEAR = "album_year"
         const val KEY_LEVEL = "level"
         const val KEY_ERROR = "error"
+        const val KEY_SKIPPED = "skipped"
         const val KEY_BATCH_TAG = "batch_tag"
         const val KEY_BATCH_LABEL = "batch_label"
         const val KEY_PROGRESS_SONG_NAME = "progress_song_name"
@@ -101,6 +104,14 @@ class SongDownloadWorker(
         if (songId <= 0) {
             AppLogger.e(TAG, "下载任务参数缺失 songId=$songId")
             return Result.failure(workDataOf(KEY_ERROR to "参数缺失"))
+        }
+
+        // 已下载同等或更高音质时直接跳过，避免重复下载产生多份文件
+        val existingRecord = downloadPreferences.findVerifiedRecord(songId)
+        if (existingRecord != null && existingRecord.satisfies(level)) {
+            AppLogger.i(TAG, "已下载 ${existingRecord.quality}，跳过 songId=$songId level=$level")
+            onTerminalSkipped()
+            return Result.success(workDataOf(KEY_SKIPPED to true))
         }
 
         if (batchTag != "stream_cache") {
@@ -154,30 +165,44 @@ class SongDownloadWorker(
                     onTerminalFailure("自定义下载目录不可用，请到设置里重新选择")
                     return Result.failure(workDataOf(KEY_ERROR to "自定义下载目录不可用"))
                 }
-                val finalName = uniqueNameIn(directory, displayName)
-                val doc = runCatching { directory.createFile(mimeType, finalName) }.getOrNull()
-                if (doc == null) {
-                    onTerminalFailure("创建本地文件失败")
-                    return Result.failure(workDataOf(KEY_ERROR to "SAF createFile 失败"))
-                }
-                cleanup = { doc.delete() }
-                if (copyFileToUri(tempFile, doc.uri)) {
-                    doc.uri
+                val reusableDoc = findReusableDocument(directory, displayName)
+                if (reusableDoc != null) {
+                    // 同名文件覆盖写入，不再生成带时间戳的副本
+                    if (copyFileToUri(tempFile, reusableDoc.uri, mode = "wt")) reusableDoc.uri else null
                 } else {
-                    null
+                    val finalName = uniqueNameIn(directory, displayName)
+                    val doc = runCatching { directory.createFile(mimeType, finalName) }.getOrNull()
+                    if (doc == null) {
+                        onTerminalFailure("创建本地文件失败")
+                        return Result.failure(workDataOf(KEY_ERROR to "SAF createFile 失败"))
+                    }
+                    cleanup = { doc.delete() }
+                    if (copyFileToUri(tempFile, doc.uri)) {
+                        doc.uri
+                    } else {
+                        null
+                    }
                 }
             } else {
-                val uri = insertPendingMediaStoreEntry(displayName, mimeType)
-                if (uri == null) {
-                    onTerminalFailure("创建本地文件失败")
-                    return Result.failure(workDataOf(KEY_ERROR to "MediaStore insert 失败"))
-                }
-                cleanup = { applicationContext.contentResolver.delete(uri, null, null) }
-                if (copyFileToUri(tempFile, uri)) {
-                    finalizePendingMediaStoreEntry(uri)
-                    uri
+                val reusableUri = findReusableMediaStoreEntry(displayName)
+                if (reusableUri != null && markMediaStoreEntryPending(reusableUri)) {
+                    // 同名文件覆盖写入，避免 MediaStore 自动重命名出 "(1)" 副本
+                    val written = copyFileToUri(tempFile, reusableUri, mode = "wt")
+                    finalizePendingMediaStoreEntry(reusableUri)
+                    if (written) reusableUri else null
                 } else {
-                    null
+                    val uri = insertPendingMediaStoreEntry(displayName, mimeType)
+                    if (uri == null) {
+                        onTerminalFailure("创建本地文件失败")
+                        return Result.failure(workDataOf(KEY_ERROR to "MediaStore insert 失败"))
+                    }
+                    cleanup = { applicationContext.contentResolver.delete(uri, null, null) }
+                    if (copyFileToUri(tempFile, uri)) {
+                        finalizePendingMediaStoreEntry(uri)
+                        uri
+                    } else {
+                        null
+                    }
                 }
             }
 
@@ -196,9 +221,15 @@ class SongDownloadWorker(
                     downloadedAt = System.currentTimeMillis(),
                     fileSize = finalFileSize,
                     songName = songName,
-                    artistName = artistName
+                    artistName = artistName,
+                    requestedLevel = level
                 )
             )
+
+            // 升级音质后旧文件已被新记录取代，删除以免残留重复歌曲
+            existingRecord?.mediaStoreUri
+                ?.takeIf { it != finalUri.toString() }
+                ?.let(::deleteReplacedFile)
 
             onTerminalSuccess()
             return Result.success()
@@ -232,6 +263,16 @@ class SongDownloadWorker(
         val (_, total) = batchCounts(tag)
         if (settledExcludingSelf + 1 >= total) {
             notificationHelper.showBatchSummary(tag, batchLabel, total)
+        }
+    }
+
+    // 已下载跳过时的通知，批量任务计入批次进度
+    private fun onTerminalSkipped() {
+        val tag = batchTag
+        if (tag == null) {
+            notificationHelper.showAlreadyDownloaded(songId, songName)
+        } else {
+            onTerminalSuccess()
         }
     }
 
@@ -313,6 +354,54 @@ class SongDownloadWorker(
             put(MediaStore.Audio.Media.IS_PENDING, 1)
         }
         return applicationContext.contentResolver.insert(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, values)
+    }
+
+    // 查找目标目录下可复用的同名 MediaStore 条目
+    private suspend fun findReusableMediaStoreEntry(displayName: String): Uri? {
+        val uri = withContext(Dispatchers.IO) {
+            runCatching {
+                applicationContext.contentResolver.query(
+                    MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+                    arrayOf(MediaStore.Audio.Media._ID),
+                    "${MediaStore.Audio.Media.RELATIVE_PATH}=? AND ${MediaStore.Audio.Media.DISPLAY_NAME}=?",
+                    arrayOf(relativePath(), displayName),
+                    null
+                )?.use { cursor ->
+                    if (cursor.moveToFirst()) {
+                        ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, cursor.getLong(0))
+                    } else {
+                        null
+                    }
+                }
+            }.onFailure { AppLogger.w(TAG, "查询同名文件失败 songId=$songId", it) }.getOrNull()
+        } ?: return null
+        return uri.takeUnless { downloadPreferences.isUriClaimedByOtherSong(it.toString(), songId) }
+    }
+
+    // 查找自定义目录下可复用的同名文件
+    private suspend fun findReusableDocument(directory: DocumentFile, displayName: String): DocumentFile? {
+        val doc = withContext(Dispatchers.IO) {
+            runCatching { directory.findFile(displayName) }.getOrNull()
+        }?.takeIf { it.isFile } ?: return null
+        return doc.takeUnless { downloadPreferences.isUriClaimedByOtherSong(it.uri.toString(), songId) }
+    }
+
+    // 覆盖前标记为写入中；非本应用创建的文件无写权限，返回 false 后改为新建
+    private fun markMediaStoreEntryPending(uri: Uri): Boolean = runCatching {
+        val values = ContentValues().apply { put(MediaStore.Audio.Media.IS_PENDING, 1) }
+        applicationContext.contentResolver.update(uri, values, null, null) > 0
+    }.onFailure { AppLogger.w(TAG, "同名文件不可覆盖，改为新建 uri=$uri", it) }.getOrDefault(false)
+
+    // 删除被新音质取代的旧文件
+    private fun deleteReplacedFile(uriString: String) {
+        val uri = Uri.parse(uriString)
+        runCatching {
+            if (isDefaultDownloadDirectoryUri(uriString)) {
+                applicationContext.contentResolver.delete(uri, null, null)
+            } else {
+                DocumentsContract.deleteDocument(applicationContext.contentResolver, uri)
+            }
+        }.onFailure { AppLogger.w(TAG, "删除旧音质文件失败 uri=$uriString", it) }
     }
 
     private fun finalizePendingMediaStoreEntry(uri: Uri) {
@@ -431,9 +520,9 @@ class SongDownloadWorker(
     }
 
     // 拷贝文件至目标 Uri
-    private suspend fun copyFileToUri(file: File, uri: Uri): Boolean = withContext(Dispatchers.IO) {
+    private suspend fun copyFileToUri(file: File, uri: Uri, mode: String = "w"): Boolean = withContext(Dispatchers.IO) {
         runCatching {
-            val output = applicationContext.contentResolver.openOutputStream(uri) ?: return@runCatching false
+            val output = applicationContext.contentResolver.openOutputStream(uri, mode) ?: return@runCatching false
             output.use { out ->
                 file.inputStream().use { input -> input.copyTo(out) }
             }
