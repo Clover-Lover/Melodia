@@ -334,6 +334,7 @@ fun MelodiaApp() {
                     onNavigateToRecentPlay = { navigation.openRecentPlay() },
                     onNavigateToListenData = { navigation.openListenData() },
                     onNavigateToCloud = { navigation.openCloud() },
+                    onNavigateToDownloads = { navigation.openDownloads() },
                     onNavigateToMessage = { navigation.openMessage() },
                     onNavigateToAccount = { navigation.openAccount() },
                     onNavigateToSettings = { navigation.navigateTo(Screen.Settings) }

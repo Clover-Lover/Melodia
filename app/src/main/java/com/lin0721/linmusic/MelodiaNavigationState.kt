@@ -47,6 +47,8 @@ sealed class Screen {
     @Serializable
     data object Cloud : Screen()
     @Serializable
+    data object Downloads : Screen()
+    @Serializable
     data object LocalMusic : Screen()
     @Serializable
     data object LocalMusicSettings : Screen()
@@ -248,6 +250,10 @@ class MelodiaNavigationState(
 
     fun openCloud() {
         navigateTo(Screen.Cloud)
+    }
+
+    fun openDownloads() {
+        navigateTo(Screen.Downloads)
     }
 
     fun openLocalMusic() {
