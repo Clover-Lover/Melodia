@@ -36,6 +36,7 @@ import com.lin0721.linmusic.core.download.DownloadTask
 import com.lin0721.linmusic.core.download.DownloadTaskStatus
 import com.lin0721.linmusic.core.download.SongDownloadManager
 import com.lin0721.linmusic.core.ui.components.MelodiaDragHandle
+import com.lin0721.linmusic.core.ui.components.MelodiaTextButton
 import com.lin0721.linmusic.core.ui.theme.BackgroundDark
 import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
 import com.lin0721.linmusic.core.ui.theme.DownloadFailedRed
@@ -103,6 +104,7 @@ fun DownloadManagerSheet(
     var tab by rememberSaveable { mutableStateOf(initialTab) }
     var editing by rememberSaveable { mutableStateOf(false) }
     var selectedIds by remember { mutableStateOf(emptySet<String>()) }
+    var showClearFailedDialog by remember { mutableStateOf(false) }
     val counts = tasks.counts()
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
@@ -195,10 +197,12 @@ fun DownloadManagerSheet(
             if (!editing) {
                 SummaryCard(
                     counts = counts,
+                    tab = tab,
                     onPauseAll = { actions.onPause(tasks) },
                     onResumeAll = { actions.onResume(tasks) },
                     onRetryFailed = { actions.onRetry(tasks) },
-                    onClearSucceeded = { actions.onRemove(tasks.filter { it.status == DownloadTaskStatus.SUCCEEDED }) }
+                    onClearSucceeded = { actions.onRemove(tasks.filter { it.status == DownloadTaskStatus.SUCCEEDED }) },
+                    onClearFailed = { showClearFailedDialog = true }
                 )
             }
 
@@ -249,6 +253,38 @@ fun DownloadManagerSheet(
                 else -> GroupedTaskList(tasks = visible, tab = tab, actions = actions, modifier = Modifier.weight(1f))
             }
         }
+    }
+
+    if (showClearFailedDialog) {
+        AlertDialog(
+            onDismissRequest = { showClearFailedDialog = false },
+            title = { Text("清除失败任务", color = Color.White, fontWeight = FontWeight.Bold) },
+            text = {
+                Text(
+                    text = if (counts.failed > 0) "确定清除全部 ${counts.failed} 首失败的下载任务吗？" else "确定清除全部失败的下载任务吗？",
+                    color = TextGray,
+                    fontSize = 14.sp
+                )
+            },
+            confirmButton = {
+                MelodiaTextButton(
+                    onClick = {
+                        actions.onRemove(tasks.filter { it.status == DownloadTaskStatus.FAILED })
+                        showClearFailedDialog = false
+                    },
+                    colors = ButtonDefaults.textButtonColors(contentColor = DownloadFailedRed)
+                ) {
+                    Text("清除", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                MelodiaTextButton(onClick = { showClearFailedDialog = false }) {
+                    Text("取消", color = Color.White)
+                }
+            },
+            containerColor = SurfaceDark,
+            shape = RoundedCornerShape(12.dp)
+        )
     }
 }
 
@@ -379,10 +415,12 @@ private fun EditHeader(selectedCount: Int, allSelected: Boolean, onToggleAll: ()
 @Composable
 private fun SummaryCard(
     counts: DownloadCounts,
+    tab: DownloadManagerTab,
     onPauseAll: () -> Unit,
     onResumeAll: () -> Unit,
     onRetryFailed: () -> Unit,
-    onClearSucceeded: () -> Unit
+    onClearSucceeded: () -> Unit,
+    onClearFailed: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -424,7 +462,23 @@ private fun SummaryCard(
                 onClick = onRetryFailed,
                 modifier = Modifier.weight(1f)
             )
-            ActionPill("清除已完成", enabled = counts.succeeded > 0, onClick = onClearSucceeded, modifier = Modifier.weight(1f))
+            val showClearFailed = tab == DownloadManagerTab.FAILED || (counts.succeeded == 0 && counts.failed > 0)
+            if (showClearFailed) {
+                ActionPill(
+                    text = "清除失败",
+                    enabled = counts.failed > 0,
+                    color = DownloadFailedRed,
+                    onClick = onClearFailed,
+                    modifier = Modifier.weight(1f)
+                )
+            } else {
+                ActionPill(
+                    text = "清除已完成",
+                    enabled = counts.succeeded > 0,
+                    onClick = onClearSucceeded,
+                    modifier = Modifier.weight(1f)
+                )
+            }
         }
     }
 }
