@@ -17,7 +17,8 @@ class DownloadWorkerFactory(
     private val notificationHelper: DownloadNotificationHelper,
     private val playbackRepository: PlaybackRepository,
     private val downloadClient: OkHttpClient,
-    private val taskStore: DownloadTaskStore
+    private val taskStore: DownloadTaskStore,
+    private val queueGate: DownloadQueueGate
 ) : WorkerFactory() {
 
     override fun createWorker(
@@ -34,7 +35,8 @@ class DownloadWorkerFactory(
             notificationHelper,
             playbackRepository,
             downloadClient,
-            taskStore
+            taskStore,
+            queueGate
         )
         else -> null
     }

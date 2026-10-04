@@ -50,7 +50,8 @@ class SongDownloadWorker(
     private val notificationHelper: DownloadNotificationHelper,
     private val playbackRepository: PlaybackRepository,
     private val downloadClient: OkHttpClient,
-    private val taskStore: DownloadTaskStore
+    private val taskStore: DownloadTaskStore,
+    private val queueGate: DownloadQueueGate
 ) : CoroutineWorker(context, params) {
 
     companion object {
@@ -69,6 +70,8 @@ class SongDownloadWorker(
         const val KEY_BATCH_LABEL = "batch_label"
         const val KEY_PROGRESS_SONG_NAME = "progress_song_name"
         const val KEY_PROGRESS_PERCENT = "progress_percent"
+        // 已拿到下载名额开始下载；WorkManager 中处于 RUNNING 但未开始的任务仍在排队
+        const val KEY_PROGRESS_STARTED = "progress_started"
 
         // 断点续传的原始音频数据，按歌曲、音质与服务端文件大小区分，暂停或中断后保留
         fun partialFile(context: Context, songId: Long, level: String, size: Long) =
@@ -129,6 +132,11 @@ class SongDownloadWorker(
             return Result.success(workDataOf(KEY_SKIPPED to true))
         }
 
+        // 并发与排队顺序由闸门统一调度，拿到名额后才真正开始下载
+        return queueGate.withPermit(id.toString()) { download(songId, existingRecord) }
+    }
+
+    private suspend fun download(songId: Long, existingRecord: DownloadRecord?): Result {
         if (batchTag != "stream_cache") {
             setForegroundAsync(buildForegroundInfo(0))
             publishProgress(0)
@@ -328,7 +336,13 @@ class SongDownloadWorker(
 
     // 异步上报下载进度
     private fun publishProgress(progress: Int) {
-        setProgressAsync(workDataOf(KEY_PROGRESS_SONG_NAME to songName, KEY_PROGRESS_PERCENT to progress))
+        setProgressAsync(
+            workDataOf(
+                KEY_PROGRESS_SONG_NAME to songName,
+                KEY_PROGRESS_PERCENT to progress,
+                KEY_PROGRESS_STARTED to true
+            )
+        )
     }
 
     private fun buildForegroundInfo(progress: Int): ForegroundInfo {

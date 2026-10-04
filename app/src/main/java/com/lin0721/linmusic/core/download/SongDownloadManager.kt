@@ -14,6 +14,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.UUID
@@ -24,9 +25,14 @@ enum class DownloadTaskStatus { WAITING, RUNNING, PAUSED, SUCCEEDED, FAILED }
 
 // 合并 WorkManager 实时状态与持久化状态；WorkManager 清理已结束任务后以持久化状态为准，
 // 返回 null 表示该任务不展示（已取消或未实际入队）
-internal fun resolveTaskStatus(workState: WorkInfo.State?, persisted: PersistedTaskState?): DownloadTaskStatus? =
+internal fun resolveTaskStatus(
+    workState: WorkInfo.State?,
+    persisted: PersistedTaskState?,
+    started: Boolean = true
+): DownloadTaskStatus? =
     when (workState) {
-        WorkInfo.State.RUNNING -> DownloadTaskStatus.RUNNING
+        // 已被 WorkManager 启动但还在闸门前排队的任务仍算等待中
+        WorkInfo.State.RUNNING -> if (started) DownloadTaskStatus.RUNNING else DownloadTaskStatus.WAITING
         WorkInfo.State.ENQUEUED, WorkInfo.State.BLOCKED -> DownloadTaskStatus.WAITING
         WorkInfo.State.SUCCEEDED -> DownloadTaskStatus.SUCCEEDED
         WorkInfo.State.FAILED -> DownloadTaskStatus.FAILED
@@ -135,9 +141,10 @@ class SongDownloadManager(
     fun observeTasks(): Flow<List<DownloadTask>> =
         combine(taskStore.tasks, workManager.getWorkInfosByTagFlow(TAG_DOWNLOAD)) { metas, infos ->
             val infoById = infos.associateBy { it.id.toString() }
-            metas.mapNotNull { meta ->
+            metas.sortedBy { it.queueOrder }.mapNotNull { meta ->
                 val info = infoById[meta.workId]
-                val status = resolveTaskStatus(info?.state, meta.state) ?: return@mapNotNull null
+                val started = info?.progress?.getBoolean(SongDownloadWorker.KEY_PROGRESS_STARTED, false) == true
+                val status = resolveTaskStatus(info?.state, meta.state, started) ?: return@mapNotNull null
                 DownloadTask(
                     meta = meta,
                     status = status,
@@ -177,6 +184,27 @@ class SongDownloadManager(
         }
     }
 
+    // 优先下载：移到排队最前，按传入顺序排列；正在下载的不受影响
+    suspend fun prioritize(tasks: List<DownloadTask>) {
+        val targets = tasks.filter { it.isUnfinished }
+        if (targets.isEmpty()) return
+        val front = taskStore.tasks.first().minOfOrNull { it.queueOrder } ?: System.currentTimeMillis()
+        taskStore.setOrders(
+            targets.mapIndexed { index, task -> task.meta.workId to front - targets.size + index }.toMap()
+        )
+    }
+
+    // 按拖动后的顺序重排未结束的任务，沿用它们原有的排队位置区间
+    suspend fun reorder(orderedWorkIds: List<String>) {
+        if (orderedWorkIds.size < 2) return
+        val ids = orderedWorkIds.toHashSet()
+        val slots = taskStore.tasks.first().filter { it.workId in ids }.map { it.queueOrder }.sorted()
+        if (slots.size != orderedWorkIds.size) return
+        // 原位置可能重复（同一毫秒创建），按首个位置依次递增保证严格有序
+        val base = slots.first()
+        taskStore.setOrders(orderedWorkIds.mapIndexed { index, id -> id to base + index }.toMap())
+    }
+
     // 从列表移除已结束的任务，不影响已下载的文件
     suspend fun dismiss(tasks: List<DownloadTask>) {
         taskStore.remove(tasks.filterNot { it.isUnfinished }.mapTo(HashSet()) { it.meta.workId })
@@ -191,13 +219,15 @@ class SongDownloadManager(
         val now = System.currentTimeMillis()
         taskStore.add(
             requests.map { (meta, request) ->
+                // 继续或重试沿用原排队位置，不排到队尾
                 meta.copy(
                     workId = request.id.toString(),
                     createdAt = now,
                     state = null,
                     failureReason = null,
                     skipped = false,
-                    finishedAt = 0
+                    finishedAt = 0,
+                    sortOrder = meta.queueOrder
                 )
             }
         )

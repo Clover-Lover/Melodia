@@ -1,4 +1,4 @@
-package com.lin0721.linmusic.feature.localmusic.ui.playlist
+package com.lin0721.linmusic.core.ui.components
 
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.Composable
@@ -10,9 +10,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 
-// 中线越过相邻行时交换并抵消位移，被拖行始终停在手指下；列表只能放可排序的行
+// 拖动排序状态：中线越过相邻行时交换并抵消位移，被拖行始终停在手指下；列表只能放可排序的行
 @Stable
-class LocalReorderState internal constructor(
+class DragReorderState internal constructor(
     private val listState: LazyListState,
     private val onMove: (from: Int, to: Int) -> Unit
 ) {
@@ -46,7 +46,7 @@ class LocalReorderState internal constructor(
 }
 
 @Composable
-fun rememberLocalReorderState(listState: LazyListState, onMove: (from: Int, to: Int) -> Unit): LocalReorderState {
+fun rememberDragReorderState(listState: LazyListState, onMove: (from: Int, to: Int) -> Unit): DragReorderState {
     val currentOnMove by rememberUpdatedState(onMove)
-    return remember(listState) { LocalReorderState(listState) { from, to -> currentOnMove(from, to) } }
+    return remember(listState) { DragReorderState(listState) { from, to -> currentOnMove(from, to) } }
 }
