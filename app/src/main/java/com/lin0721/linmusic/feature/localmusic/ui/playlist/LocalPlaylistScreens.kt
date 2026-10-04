@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.feature.localmusic.ui.playlist
 
+import com.lin0721.linmusic.core.ui.components.rememberDragReorderState
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -320,7 +321,7 @@ private fun EditPlaylistContent(
 ) {
     var working by remember(playlist.id) { mutableStateOf(playlist.tracks) }
     val listState = rememberLazyListState()
-    val reorder = rememberLocalReorderState(listState) { from, to ->
+    val reorder = rememberDragReorderState(listState) { from, to ->
         working = working.toMutableList().apply { add(to, removeAt(from)) }
     }
 

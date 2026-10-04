@@ -17,6 +17,12 @@ class ResolveTaskStatusTest {
     }
 
     @Test
+    fun `已启动但仍在闸门前排队的任务显示为等待`() {
+        assertEquals(DownloadTaskStatus.WAITING, resolveTaskStatus(WorkInfo.State.RUNNING, null, started = false))
+        assertEquals(DownloadTaskStatus.RUNNING, resolveTaskStatus(WorkInfo.State.RUNNING, null, started = true))
+    }
+
+    @Test
     fun `暂停的任务被取消后仍显示为已暂停`() {
         assertEquals(DownloadTaskStatus.PAUSED, resolveTaskStatus(WorkInfo.State.CANCELLED, PersistedTaskState.PAUSED))
     }

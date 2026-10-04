@@ -39,8 +39,13 @@ data class DownloadTaskMeta(
     val state: PersistedTaskState? = null,
     val failureReason: String? = null,
     val skipped: Boolean = false,
-    val finishedAt: Long = 0
+    val finishedAt: Long = 0,
+    // 用户调整过的排队顺序，0 表示按创建时间排队
+    val sortOrder: Long = 0
 ) {
+    // 排队顺序，越小越先下载
+    val queueOrder: Long get() = if (sortOrder != 0L) sortOrder else createdAt
+
     fun toTrackInfo() = DownloadTrackInfo(songId, songName, artistName, albumName, coverUrl, albumYear)
 }
 
@@ -90,6 +95,12 @@ class DownloadTaskStore(private val context: Context) {
                 }
             )
         }
+    }
+
+    // 更新排队顺序
+    suspend fun setOrders(orders: Map<String, Long>) {
+        if (orders.isEmpty()) return
+        update { list -> list.map { meta -> orders[meta.workId]?.let { meta.copy(sortOrder = it) } ?: meta } }
     }
 
     // 清理既不在 WorkManager 中、也没有保存状态的任务（KEEP 未入队的重复记录等）；

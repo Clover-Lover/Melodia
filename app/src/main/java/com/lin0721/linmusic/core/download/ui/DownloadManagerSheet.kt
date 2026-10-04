@@ -1,43 +1,40 @@
 package com.lin0721.linmusic.core.download.ui
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.zIndex
+import com.lin0721.linmusic.core.ui.components.rememberDragReorderState
+import com.lin0721.linmusic.core.ui.theme.NeteaseRed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Pause
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import coil3.compose.SubcomposeAsyncImage
 import com.lin0721.linmusic.core.download.DownloadTask
 import com.lin0721.linmusic.core.download.DownloadTaskStatus
 import com.lin0721.linmusic.core.download.SongDownloadManager
-import com.lin0721.linmusic.core.model.getQualityDisplayName
-import com.lin0721.linmusic.core.ui.components.CoverPlaceholder
 import com.lin0721.linmusic.core.ui.components.MelodiaDragHandle
 import com.lin0721.linmusic.core.ui.theme.BackgroundDark
 import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
@@ -49,9 +46,7 @@ import com.lin0721.linmusic.core.ui.theme.TextGray
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 
-private val TrackGray = Color(0xFF333333)
 private val PendingGray = Color(0xFF555555)
-private val MutedText = Color(0xFF8A8A8A)
 
 // 下载管理面板的分类
 enum class DownloadManagerTab(val label: String) {
@@ -94,7 +89,7 @@ internal fun List<DownloadTask>.counts(): DownloadCounts {
     )
 }
 
-// 下载管理面板：查看各任务进度，取消、重试与清理
+// 下载管理面板：查看各任务进度，暂停、取消、重试与清理；编辑模式下批量操作与拖动排序
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DownloadManagerSheet(
@@ -106,8 +101,39 @@ fun DownloadManagerSheet(
     val tasks by tasksFlow.collectAsStateWithLifecycle(initialValue = emptyList())
     val scope = rememberCoroutineScope()
     var tab by rememberSaveable { mutableStateOf(initialTab) }
+    var editing by rememberSaveable { mutableStateOf(false) }
+    var selectedIds by remember { mutableStateOf(emptySet<String>()) }
     val counts = tasks.counts()
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    val actions = remember(manager, scope) {
+        fun run(block: suspend () -> Unit) {
+            scope.launch { block() }
+        }
+        TaskActions(
+            onPrioritize = { run { manager.prioritize(it) } },
+            onPause = { run { manager.pause(it) } },
+            onResume = { run { manager.resume(it) } },
+            onCancel = { run { manager.cancel(it) } },
+            onRetry = { run { manager.retry(it) } },
+            onRemove = { run { manager.dismiss(it) } }
+        )
+    }
+    // 批量操作后清空选择，保留编辑模式便于连续操作
+    val editActions = remember(actions) {
+        fun after(action: (List<DownloadTask>) -> Unit): (List<DownloadTask>) -> Unit = {
+            action(it)
+            selectedIds = emptySet()
+        }
+        TaskActions(
+            onPrioritize = after(actions.onPrioritize),
+            onPause = after(actions.onPause),
+            onResume = after(actions.onResume),
+            onCancel = after(actions.onCancel),
+            onRetry = after(actions.onRetry),
+            onRemove = after(actions.onRemove)
+        )
+    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -122,14 +148,39 @@ fun DownloadManagerSheet(
                 .fillMaxHeight(0.85f)
                 .navigationBarsPadding()
         ) {
-            Text(
-                text = "下载管理",
-                color = Color.White,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.ExtraBold,
-                modifier = Modifier.padding(horizontal = MelodiaSpacing.lg)
-            )
-            Spacer(Modifier.height(MelodiaSpacing.md))
+            val visible = tasks.filter(tab::matches)
+
+            if (editing) {
+                EditHeader(
+                    selectedCount = selectedIds.size,
+                    allSelected = visible.isNotEmpty() && visible.all { it.meta.workId in selectedIds },
+                    onToggleAll = {
+                        selectedIds = if (visible.all { it.meta.workId in selectedIds }) emptySet()
+                        else visible.mapTo(HashSet()) { it.meta.workId }
+                    },
+                    onDone = {
+                        editing = false
+                        selectedIds = emptySet()
+                    }
+                )
+            } else {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(start = MelodiaSpacing.lg, end = MelodiaSpacing.sm),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "下载管理",
+                        color = Color.White,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        modifier = Modifier.weight(1f)
+                    )
+                    if (tasks.isNotEmpty()) {
+                        TextAction("编辑", Color.White) { editing = true }
+                    }
+                }
+            }
+            Spacer(Modifier.height(MelodiaSpacing.sm))
 
             if (tasks.isEmpty()) {
                 Box(
@@ -141,15 +192,15 @@ fun DownloadManagerSheet(
                 return@Column
             }
 
-            SummaryCard(
-                counts = counts,
-                onPauseAll = { scope.launch { manager.pause(tasks) } },
-                onResumeAll = { scope.launch { manager.resume(tasks) } },
-                onRetryFailed = { scope.launch { manager.retry(tasks) } },
-                onClearSucceeded = {
-                    scope.launch { manager.dismiss(tasks.filter { it.status == DownloadTaskStatus.SUCCEEDED }) }
-                }
-            )
+            if (!editing) {
+                SummaryCard(
+                    counts = counts,
+                    onPauseAll = { actions.onPause(tasks) },
+                    onResumeAll = { actions.onResume(tasks) },
+                    onRetryFailed = { actions.onRetry(tasks) },
+                    onClearSucceeded = { actions.onRemove(tasks.filter { it.status == DownloadTaskStatus.SUCCEEDED }) }
+                )
+            }
 
             Row(
                 modifier = Modifier.padding(horizontal = MelodiaSpacing.md, vertical = MelodiaSpacing.sm),
@@ -165,50 +216,163 @@ fun DownloadManagerSheet(
                         text = "${entry.label} $count",
                         selected = tab == entry,
                         accent = if (entry == DownloadManagerTab.FAILED && count > 0) DownloadFailedRed else null,
-                        onClick = { tab = entry }
+                        onClick = {
+                            tab = entry
+                            selectedIds = emptySet()
+                        }
                     )
                 }
             }
 
-            val visible = tasks.filter(tab::matches)
-            if (visible.isEmpty()) {
-                Box(
+            when {
+                visible.isEmpty() -> Box(
                     modifier = Modifier.fillMaxWidth().weight(1f),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(text = "没有${tab.label}的任务", color = MutedText, fontSize = 14.sp)
                 }
-            } else {
-                val groups = visible.groupBy { it.meta.batchLabel ?: "单曲" }
-                LazyColumn(
-                    modifier = Modifier.fillMaxWidth().weight(1f),
-                    contentPadding = PaddingValues(start = MelodiaSpacing.sm, end = MelodiaSpacing.sm, bottom = MelodiaSpacing.lg)
-                ) {
-                    groups.forEach { (label, groupTasks) ->
-                        item(key = "header_$label") {
-                            GroupHeader(
-                                label = label,
-                                tasks = groupTasks,
-                                tab = tab,
-                                onPause = { scope.launch { manager.pause(groupTasks) } },
-                                onResume = { scope.launch { manager.resume(groupTasks) } },
-                                onCancel = { scope.launch { manager.cancel(groupTasks) } },
-                                onRetry = { scope.launch { manager.retry(groupTasks) } }
-                            )
-                        }
-                        items(groupTasks, key = { it.meta.workId }) { task ->
-                            TaskRow(
-                                task = task,
-                                onPause = { scope.launch { manager.pause(listOf(task)) } },
-                                onResume = { scope.launch { manager.resume(listOf(task)) } },
-                                onCancel = { scope.launch { manager.cancel(listOf(task)) } },
-                                onRetry = { scope.launch { manager.retry(listOf(task)) } }
-                            )
-                        }
-                    }
+                editing -> {
+                    EditableTaskList(
+                        tasks = visible,
+                        selectedIds = selectedIds,
+                        sortable = tab == DownloadManagerTab.ACTIVE,
+                        onToggle = { id -> selectedIds = if (id in selectedIds) selectedIds - id else selectedIds + id },
+                        onReorder = { orderedIds -> scope.launch { manager.reorder(orderedIds) } },
+                        modifier = Modifier.weight(1f)
+                    )
+                    EditActionBar(
+                        tab = tab,
+                        selectedTasks = visible.filter { it.meta.workId in selectedIds },
+                        actions = editActions
+                    )
                 }
+                else -> GroupedTaskList(tasks = visible, tab = tab, actions = actions, modifier = Modifier.weight(1f))
             }
         }
+    }
+}
+
+// 普通模式：按歌单分组展示
+@Composable
+private fun GroupedTaskList(
+    tasks: List<DownloadTask>,
+    tab: DownloadManagerTab,
+    actions: TaskActions,
+    modifier: Modifier = Modifier
+) {
+    // 等待中的任务按排队顺序编号，tasks 已按排队顺序排列
+    val queuePositions = remember(tasks) {
+        tasks.filter { it.status == DownloadTaskStatus.WAITING }
+            .mapIndexed { index, task -> task.meta.workId to index + 1 }
+            .toMap()
+    }
+    val groups = tasks.groupBy { it.meta.batchLabel ?: "单曲" }
+    LazyColumn(
+        modifier = modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(start = MelodiaSpacing.sm, end = MelodiaSpacing.sm, bottom = MelodiaSpacing.lg)
+    ) {
+        groups.forEach { (label, groupTasks) ->
+            item(key = "header_$label") {
+                GroupHeader(
+                    label = label,
+                    tasks = groupTasks,
+                    tab = tab,
+                    onPause = { actions.onPause(groupTasks) },
+                    onResume = { actions.onResume(groupTasks) },
+                    onCancel = { actions.onCancel(groupTasks) },
+                    onRetry = { actions.onRetry(groupTasks) }
+                )
+            }
+            items(groupTasks, key = { it.meta.workId }) { task ->
+                TaskRow(task = task, queuePosition = queuePositions[task.meta.workId], actions = actions)
+            }
+        }
+    }
+}
+
+// 编辑模式：平铺列表，进行中分类可拖动调整下载顺序
+@Composable
+private fun EditableTaskList(
+    tasks: List<DownloadTask>,
+    selectedIds: Set<String>,
+    sortable: Boolean,
+    onToggle: (String) -> Unit,
+    onReorder: (List<String>) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    // 拖动期间维护本地顺序，松手后再写入；任务增减时与最新列表对齐
+    var order by remember { mutableStateOf(tasks.map { it.meta.workId }) }
+    val taskById = tasks.associateBy { it.meta.workId }
+    val ordered = order.filter { it in taskById } + tasks.map { it.meta.workId }.filterNot { it in order }
+    val listState = rememberLazyListState()
+    val reorder = rememberDragReorderState(listState) { from, to ->
+        order = ordered.toMutableList().apply { add(to, removeAt(from)) }
+    }
+    // 拖动手势只在开始时捕获回调，用最新值避免松手时按过期的任务列表写入
+    val currentTaskIds by rememberUpdatedState(taskById.keys)
+    val currentOnReorder by rememberUpdatedState(onReorder)
+
+    if (sortable && ordered.size > 1) {
+        Text(
+            text = "拖动右侧把手调整下载顺序，正在下载的任务不受影响",
+            color = MutedText,
+            fontSize = 12.sp,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = MelodiaSpacing.md, vertical = MelodiaSpacing.xs)
+        )
+    }
+    // 列表里只放可排序的行，拖动换位按列表下标计算
+    LazyColumn(
+        state = listState,
+        modifier = modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(start = MelodiaSpacing.sm, end = MelodiaSpacing.sm, bottom = MelodiaSpacing.sm)
+    ) {
+        items(ordered, key = { it }) { id ->
+            val task = taskById.getValue(id)
+            val dragging = reorder.draggingKey == id
+            EditableTaskRow(
+                task = task,
+                selected = id in selectedIds,
+                onToggle = { onToggle(id) },
+                dragHandle = if (sortable) {
+                    {
+                        reorderHandle(
+                            key = id,
+                            onStart = { reorder.start(id) },
+                            onDrag = reorder::drag,
+                            onEnd = {
+                                reorder.end()
+                                currentOnReorder(order.filter { it in currentTaskIds })
+                            }
+                        )
+                    }
+                } else {
+                    null
+                },
+                modifier = Modifier
+                    .then(if (dragging) Modifier.zIndex(1f) else Modifier.animateItem())
+                    .graphicsLayer { translationY = if (dragging) reorder.dragOffset else 0f }
+                    .background(if (dragging) SurfaceDark else Color.Transparent, RoundedCornerShape(12.dp))
+            )
+        }
+    }
+}
+
+@Composable
+private fun EditHeader(selectedCount: Int, allSelected: Boolean, onToggleAll: () -> Unit, onDone: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = MelodiaSpacing.sm),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        TextAction(if (allSelected) "全不选" else "全选", Color.White, onToggleAll)
+        Text(
+            text = if (selectedCount > 0) "已选 $selectedCount 项" else "选择任务",
+            color = Color.White,
+            fontSize = 17.sp,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.weight(1f)
+        )
+        TextAction("完成", NeteaseRed, onDone)
     }
 }
 
@@ -394,125 +558,4 @@ private fun TextAction(text: String, color: Color, onClick: () -> Unit) {
             .clickable(onClick = onClick)
             .padding(horizontal = 10.dp, vertical = 10.dp)
     )
-}
-
-@Composable
-private fun TaskRow(
-    task: DownloadTask,
-    onPause: () -> Unit,
-    onResume: () -> Unit,
-    onCancel: () -> Unit,
-    onRetry: () -> Unit
-) {
-    val meta = task.meta
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = MelodiaSpacing.sm, vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        val cover = meta.coverUrl?.let { url ->
-            if (url.startsWith("http://") || url.startsWith("https://")) "$url?param=120y120" else url
-        }
-        SubcomposeAsyncImage(
-            model = cover,
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            loading = { CoverPlaceholder() },
-            error = { CoverPlaceholder() },
-            modifier = Modifier.size(44.dp).clip(RoundedCornerShape(8.dp))
-        )
-        Spacer(Modifier.width(10.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = meta.songName,
-                    color = Color.White,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f, fill = false)
-                )
-                Spacer(Modifier.width(6.dp))
-                Box(
-                    modifier = Modifier
-                        .border(1.dp, MutedText, RoundedCornerShape(4.dp))
-                        .padding(horizontal = 4.dp)
-                ) {
-                    Text(text = getQualityDisplayName(meta.level), color = TextGray, fontSize = 10.sp, maxLines = 1)
-                }
-            }
-            Spacer(Modifier.height(2.dp))
-            val secondary = when {
-                task.status == DownloadTaskStatus.FAILED -> task.failureReason ?: "下载失败"
-                task.skipped -> "${meta.artistName} · 已存在，未重复下载"
-                else -> meta.artistName
-            }
-            Text(
-                text = secondary,
-                color = if (task.status == DownloadTaskStatus.FAILED) DownloadFailedRed else MutedText,
-                fontSize = 12.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            if (task.status == DownloadTaskStatus.RUNNING) {
-                Spacer(Modifier.height(6.dp))
-                LinearProgressIndicator(
-                    progress = { task.progress.coerceIn(0, 100) / 100f },
-                    modifier = Modifier.fillMaxWidth().height(3.dp),
-                    color = Color.White,
-                    trackColor = TrackGray,
-                    drawStopIndicator = {}
-                )
-            }
-        }
-        Spacer(Modifier.width(8.dp))
-        when (task.status) {
-            DownloadTaskStatus.RUNNING, DownloadTaskStatus.WAITING, DownloadTaskStatus.PAUSED -> {
-                Text(
-                    text = when (task.status) {
-                        DownloadTaskStatus.RUNNING -> "${task.progress}%"
-                        DownloadTaskStatus.PAUSED -> "已暂停"
-                        else -> "等待中"
-                    },
-                    color = if (task.status == DownloadTaskStatus.RUNNING) Color.White else MutedText,
-                    fontSize = 12.sp
-                )
-                if (task.status == DownloadTaskStatus.PAUSED) {
-                    IconButton(onClick = onResume) {
-                        Icon(Icons.Rounded.PlayArrow, contentDescription = "继续下载", tint = Color.White, modifier = Modifier.size(20.dp))
-                    }
-                } else {
-                    IconButton(onClick = onPause) {
-                        Icon(Icons.Rounded.Pause, contentDescription = "暂停下载", tint = Color.White, modifier = Modifier.size(20.dp))
-                    }
-                }
-                IconButton(onClick = onCancel, modifier = Modifier.size(36.dp)) {
-                    Icon(Icons.Rounded.Close, contentDescription = "取消下载", tint = MutedText, modifier = Modifier.size(18.dp))
-                }
-            }
-            DownloadTaskStatus.FAILED -> {
-                Box(
-                    modifier = Modifier
-                        .height(32.dp)
-                        .clip(RoundedCornerShape(16.dp))
-                        .border(1.dp, Color.White.copy(alpha = 0.25f), RoundedCornerShape(16.dp))
-                        .clickable(onClick = onRetry)
-                        .padding(horizontal = 12.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(text = "重试", color = Color.White, fontSize = 12.sp)
-                }
-            }
-            DownloadTaskStatus.SUCCEEDED -> {
-                Icon(
-                    imageVector = Icons.Rounded.CheckCircle,
-                    contentDescription = "已完成",
-                    tint = DownloadedGreen,
-                    modifier = Modifier.padding(end = 8.dp).size(20.dp)
-                )
-            }
-        }
-    }
 }
