@@ -723,12 +723,20 @@ fun PlaylistScreen(
 
         val successState = uiState as? PlaylistUiState.Success
         if (showDownloadQualitySheet && successState != null) {
+            val playlist = successState.playlist
+            // 超过1000首的歌单 tracks 被截断，以完整的 trackIds 统计已下载数
+            val batchSongIds = remember(playlist.trackIds, playlist.tracks) {
+                playlist.trackIds.map { it.id }.ifEmpty { playlist.tracks.map { it.id } }
+            }
             com.lin0721.linmusic.core.download.ui.DownloadQualityPickerSheet(
                 onQualitySelected = { level ->
-                    viewModel.downloadPlaylist(successState.playlist.id, successState.playlist.name, level)
+                    viewModel.downloadPlaylist(playlist.id, playlist.name, level)
                     showDownloadQualitySheet = false
                 },
-                onDismiss = { showDownloadQualitySheet = false }
+                onDismiss = { showDownloadQualitySheet = false },
+                headline = playlist.name,
+                supportingText = "共 ${batchSongIds.size} 首",
+                batchSongIds = batchSongIds
             )
         }
 
@@ -739,7 +747,11 @@ fun PlaylistScreen(
                     viewModel.downloadTrack(trackToDownload, level)
                     pendingDownloadTrack = null
                 },
-                onDismiss = { pendingDownloadTrack = null }
+                onDismiss = { pendingDownloadTrack = null },
+                songId = trackToDownload.id,
+                maxDownloadLevel = trackToDownload.privilege?.dlLevel,
+                headline = trackToDownload.name,
+                supportingText = trackToDownload.ar.joinToString("/") { it.name }
             )
         }
 

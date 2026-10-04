@@ -16,7 +16,8 @@ class DownloadWorkerFactory(
     private val settingsPreferences: SettingsPreferences,
     private val notificationHelper: DownloadNotificationHelper,
     private val playbackRepository: PlaybackRepository,
-    private val downloadClient: OkHttpClient
+    private val downloadClient: OkHttpClient,
+    private val taskStore: DownloadTaskStore
 ) : WorkerFactory() {
 
     override fun createWorker(
@@ -32,7 +33,8 @@ class DownloadWorkerFactory(
             settingsPreferences,
             notificationHelper,
             playbackRepository,
-            downloadClient
+            downloadClient,
+            taskStore
         )
         else -> null
     }

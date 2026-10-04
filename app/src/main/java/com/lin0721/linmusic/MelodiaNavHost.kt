@@ -203,6 +203,9 @@ fun MelodiaNavHost(
             is Screen.Cloud -> {
                 com.lin0721.linmusic.feature.cloud.ui.CloudScreen(onBack = onBack)
             }
+            is Screen.Downloads -> {
+                com.lin0721.linmusic.feature.downloads.ui.DownloadsScreen(onBack = onBack)
+            }
             is Screen.Message -> {
                 com.lin0721.linmusic.feature.message.ui.MessageScreen(
                     onBack = onBack,

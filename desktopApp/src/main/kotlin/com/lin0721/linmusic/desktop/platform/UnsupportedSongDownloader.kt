@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.desktop.platform
 
+import com.lin0721.linmusic.core.download.BatchEnqueueResult
 import com.lin0721.linmusic.core.download.DownloadTrackInfo
 import com.lin0721.linmusic.core.download.SongDownloader
 import com.lin0721.linmusic.core.log.AppLogger
@@ -14,13 +15,13 @@ class UnsupportedSongDownloader : SongDownloader {
         return UUID.randomUUID()
     }
 
-    override fun enqueueBatch(
+    override suspend fun enqueueBatch(
         tracks: List<DownloadTrackInfo>,
         level: String,
         batchTag: String,
         batchLabel: String
-    ): List<UUID> {
+    ): BatchEnqueueResult {
         AppLogger.w(TAG, "桌面端暂不支持批量下载：${tracks.size} 首")
-        return tracks.map { UUID.randomUUID() }
+        return BatchEnqueueResult(enqueuedCount = 0, skippedCount = 0)
     }
 }

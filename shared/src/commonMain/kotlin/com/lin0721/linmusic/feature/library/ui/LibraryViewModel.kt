@@ -7,6 +7,7 @@ import com.lin0721.linmusic.core.auth.UserProfile
 import com.lin0721.linmusic.core.auth.SyncProfileAfterLoginUseCase
 import com.lin0721.linmusic.core.download.DownloadTrackInfo
 import com.lin0721.linmusic.core.download.SongDownloader
+import com.lin0721.linmusic.core.download.toToastMessage
 import com.lin0721.linmusic.feature.library.data.LibraryPreferences
 import com.lin0721.linmusic.core.download.yearFromEpochMillis
 import com.lin0721.linmusic.core.log.AppLogger
@@ -613,10 +614,10 @@ class LibraryViewModel(
                                     yearFromEpochMillis(track.publishTime)
                                 )
                             }
-                            songDownloadManager.enqueueBatch(
+                            val enqueueResult = songDownloadManager.enqueueBatch(
                                 tracks, level, batchTag = "library_${item.type}_$id", batchLabel = item.title
                             )
-                            _toastEvent.emit("已将 ${tracks.size} 首歌曲加入下载队列")
+                            _toastEvent.emit(enqueueResult.toToastMessage())
                         }
                     }.onFailure { e ->
                         _toastEvent.emit(e.toUserMessage(resourceProvider))

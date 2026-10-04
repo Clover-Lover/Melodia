@@ -21,6 +21,7 @@ import com.lin0721.linmusic.feature.message.ui.MessageViewModel
 import com.lin0721.linmusic.feature.profile.ui.ProfileViewModel
 import com.lin0721.linmusic.feature.recent.ui.RecentPlayViewModel
 import com.lin0721.linmusic.feature.cloud.ui.CloudViewModel
+import com.lin0721.linmusic.feature.downloads.ui.DownloadsViewModel
 import com.lin0721.linmusic.feature.artist.ui.ArtistViewModel
 import com.lin0721.linmusic.core.source.AudioSourceProvider
 import com.lin0721.linmusic.feature.search.ui.SearchViewModel
@@ -63,6 +64,7 @@ val viewModelModule = module {
     viewModelOf(::LibraryViewModel)
     viewModelOf(::RecentPlayViewModel)
     viewModelOf(::CloudViewModel)
+    viewModelOf(::DownloadsViewModel)
     viewModelOf(::ListenDataViewModel)
     viewModelOf(::LocalMusicViewModel)
     viewModelOf(::LocalMusicSettingsViewModel)

@@ -35,6 +35,9 @@ fun MiniStatusBanner(
     modifier: Modifier = Modifier,
     subtitle: String? = null,
     progress: Float? = null,
+    // 自定义进度区域，提供时替代默认进度条
+    progressContent: (@Composable () -> Unit)? = null,
+    iconTint: Color = NeteaseRed,
     trailingText: String? = null,
     onClick: (() -> Unit)? = null,
     onClose: (() -> Unit)? = null
@@ -54,7 +57,7 @@ fun MiniStatusBanner(
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = NeteaseRed,
+                tint = iconTint,
                 modifier = Modifier.size(18.dp)
             )
             Spacer(modifier = Modifier.width(MelodiaSpacing.sm))
@@ -77,7 +80,10 @@ fun MiniStatusBanner(
                         overflow = TextOverflow.Ellipsis
                     )
                 }
-                if (progress != null) {
+                if (progressContent != null) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    progressContent()
+                } else if (progress != null) {
                     Spacer(modifier = Modifier.height(4.dp))
                     LinearProgressIndicator(
                         progress = { progress },

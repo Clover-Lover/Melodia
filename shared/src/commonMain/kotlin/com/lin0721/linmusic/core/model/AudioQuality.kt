@@ -14,3 +14,11 @@ fun getQualityDisplayName(quality: String): String {
         else -> quality
     }
 }
+
+// 可选下载音质档位，从低到高排列
+val DOWNLOAD_QUALITY_LEVELS = listOf(
+    "standard", "higher", "exhigh", "lossless", "hires", "jyeffect", "sky", "jymaster"
+)
+
+// 音质档位高低排序，未知档位返回 -1
+fun qualityRank(level: String?): Int = level?.let(DOWNLOAD_QUALITY_LEVELS::indexOf) ?: -1

@@ -46,6 +46,7 @@ fun ProfileSidebar(
     onNavigateToRecentPlay: () -> Unit,
     onNavigateToListenData: () -> Unit,
     onNavigateToCloud: () -> Unit,
+    onNavigateToDownloads: () -> Unit,
     onNavigateToMessage: () -> Unit,
     onNavigateToAccount: () -> Unit,
     onNavigateToSettings: () -> Unit
@@ -126,6 +127,11 @@ fun ProfileSidebar(
                 icon = Icons.Outlined.CloudQueue,
                 title = "我的云盘",
                 onClick = { onDismiss(); onNavigateToCloud() }
+            )
+            SidebarMenuItem(
+                icon = Icons.Outlined.FileDownload,
+                title = "下载管理",
+                onClick = { onDismiss(); onNavigateToDownloads() }
             )
             SidebarMenuItem(
                 icon = Icons.Outlined.Notifications,

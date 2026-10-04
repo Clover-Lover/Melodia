@@ -6,6 +6,7 @@ import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.core.auth.UserProfile
 import com.lin0721.linmusic.core.download.DownloadTrackInfo
 import com.lin0721.linmusic.core.download.SongDownloader
+import com.lin0721.linmusic.core.download.toToastMessage
 import com.lin0721.linmusic.core.download.yearFromEpochMillis
 import com.lin0721.linmusic.core.model.PlaylistDetail
 import com.lin0721.linmusic.core.model.Track
@@ -1034,10 +1035,12 @@ class PlaylistViewModel(
                     yearFromEpochMillis(track.publishTime)
                 )
             }
-            songDownloadManager.enqueueBatch(
-                downloadTracks, level, batchTag = "playlist_$playlistId", batchLabel = playlistName
-            )
-            viewModelScope.launch { _toastEvent.emit("已将 ${downloadTracks.size} 首歌曲加入下载队列") }
+            viewModelScope.launch {
+                val result = songDownloadManager.enqueueBatch(
+                    downloadTracks, level, batchTag = "playlist_$playlistId", batchLabel = playlistName
+                )
+                _toastEvent.emit(result.toToastMessage())
+            }
         }
     }
 
