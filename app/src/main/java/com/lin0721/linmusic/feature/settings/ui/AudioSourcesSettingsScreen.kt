@@ -48,15 +48,13 @@ fun AudioSourcesSettingsView(viewModel: SettingsViewModel) {
     val unmEnabledModules by viewModel.unmEnabledModules.collectAsStateWithLifecycle()
     val unmModuleOrder by viewModel.unmModuleOrder.collectAsStateWithLifecycle()
 
+    val communityPriority by viewModel.communityPriority.collectAsStateWithLifecycle()
     val lxPluginEnabled by viewModel.lxPluginEnabled.collectAsStateWithLifecycle()
-    val lxPluginName by viewModel.lxPluginName.collectAsStateWithLifecycle()
-    val lxPluginVersion by viewModel.lxPluginVersion.collectAsStateWithLifecycle()
-    val lxPluginAuthor by viewModel.lxPluginAuthor.collectAsStateWithLifecycle()
-    val lxPluginDesc by viewModel.lxPluginDesc.collectAsStateWithLifecycle()
-    val lxPluginSources by viewModel.lxPluginSources.collectAsStateWithLifecycle()
+    val lxPlugins by viewModel.lxPlugins.collectAsStateWithLifecycle()
 
     var showServerUrlDialog by remember { mutableStateOf(false) }
     var showImportDialog by remember { mutableStateOf(false) }
+    var duplicateCheckResult by remember { mutableStateOf<SettingsViewModel.ScriptImportCheckResult.Duplicate?>(null) }
 
     // 系统文件选取器 (选取 .js 文件)
     val filePickerLauncher = rememberLauncherForActivityResult(
@@ -69,11 +67,16 @@ fun AudioSourcesSettingsView(viewModel: SettingsViewModel) {
                         stream.bufferedReader().readText()
                     }
                     if (!content.isNullOrBlank()) {
-                        val result = viewModel.importLxScript(content)
-                        if (result.isSuccess) {
-                            ToastManager.showToast("插件导入成功: ${result.getOrNull()?.name}")
-                        } else {
-                            ToastManager.showToast("插件解析失败，请检查脚本格式")
+                        when (val result = viewModel.precheckAndImportScript(content)) {
+                            is SettingsViewModel.ScriptImportCheckResult.Success -> {
+                                ToastManager.showToast("插件导入成功: ${result.item.name}")
+                            }
+                            is SettingsViewModel.ScriptImportCheckResult.Duplicate -> {
+                                duplicateCheckResult = result
+                            }
+                            is SettingsViewModel.ScriptImportCheckResult.Failure -> {
+                                ToastManager.showToast("插件解析失败: ${result.message}")
+                            }
                         }
                     }
                 } catch (e: Exception) {
@@ -237,14 +240,14 @@ fun AudioSourcesSettingsView(viewModel: SettingsViewModel) {
         // 分组 4：社区扩展源 (LX Music 脚本)
         item {
             SettingsGroupCard("社区扩展源 (LX Music 脚本)") {
-                val hasPlugin = lxPluginName.isNotBlank()
+                val hasPlugins = lxPlugins.isNotEmpty()
 
                 SettingsSwitchRow(
                     title = "启用社区源插件",
-                    subtitle = if (hasPlugin) "UNM 服务未命中时，调用已加载的社区自定义源脚本兜底解析" else "尚未导入脚本，请先导入 .js 脚本",
-                    checked = lxPluginEnabled && hasPlugin,
+                    subtitle = if (hasPlugins) "开启后参与音源换源解析" else "尚未导入脚本，请先导入 .js 脚本",
+                    checked = lxPluginEnabled && hasPlugins,
                     onCheckedChange = {
-                        if (hasPlugin) {
+                        if (hasPlugins) {
                             viewModel.updateLxPluginEnabled(it)
                         } else {
                             ToastManager.showToast("请先导入源脚本")
@@ -252,70 +255,142 @@ fun AudioSourcesSettingsView(viewModel: SettingsViewModel) {
                     }
                 )
 
-                if (hasPlugin) {
+                if (lxPluginEnabled && hasPlugins) {
+                    HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+
+                    SettingsSwitchRow(
+                        title = "社区源优先",
+                        subtitle = "换源时优先调用社区插件解析，未命中再尝试本地与远程服务",
+                        checked = communityPriority,
+                        onCheckedChange = { viewModel.updateCommunityPriority(it) }
+                    )
+                }
+
+                if (hasPlugins) {
                     Spacer(modifier = Modifier.height(MelodiaSpacing.xs))
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        lxPlugins.forEachIndexed { index, plugin ->
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (plugin.isEnabled) 0.5f else 0.25f),
+                                modifier = Modifier.fillMaxWidth()
                             ) {
-                                Text(
-                                    text = "$lxPluginName (v$lxPluginVersion)",
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                TextButton(
-                                    onClick = { viewModel.removeLxPlugin() },
-                                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                                ) {
-                                    Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text("卸载", fontSize = 12.sp)
-                                }
-                            }
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            Surface(
+                                                shape = RoundedCornerShape(6.dp),
+                                                color = MaterialTheme.colorScheme.primary.copy(alpha = if (plugin.isEnabled) 0.15f else 0.05f),
+                                                modifier = Modifier.size(24.dp)
+                                            ) {
+                                                Box(contentAlignment = Alignment.Center) {
+                                                    Text(
+                                                        text = "${index + 1}",
+                                                        fontSize = 11.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = if (plugin.isEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                                                    )
+                                                }
+                                            }
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text(
+                                                text = "${plugin.name} (v${plugin.version})",
+                                                fontSize = 14.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = if (plugin.isEnabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                                            )
+                                        }
 
-                            if (lxPluginAuthor.isNotBlank()) {
-                                Text(
-                                    text = "作者: $lxPluginAuthor",
-                                    fontSize = 12.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            if (lxPluginDesc.isNotBlank()) {
-                                Text(
-                                    text = lxPluginDesc,
-                                    fontSize = 12.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(top = 2.dp)
-                                )
-                            }
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            MelodiaSwitch(
+                                                checked = plugin.isEnabled,
+                                                onCheckedChange = { viewModel.toggleLxPlugin(plugin.id) }
+                                            )
+                                            Spacer(modifier = Modifier.width(2.dp))
+                                            MelodiaIconButton(
+                                                onClick = { viewModel.moveLxPluginUp(plugin.id) },
+                                                enabled = index > 0
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.ArrowUpward,
+                                                    contentDescription = "上移",
+                                                    tint = if (index > 0) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f),
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                            }
+                                            MelodiaIconButton(
+                                                onClick = { viewModel.moveLxPluginDown(plugin.id) },
+                                                enabled = index < lxPlugins.size - 1
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.ArrowDownward,
+                                                    contentDescription = "下移",
+                                                    tint = if (index < lxPlugins.size - 1) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f),
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                            }
+                                            MelodiaIconButton(
+                                                onClick = { viewModel.removeLxPlugin(plugin.id) }
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Delete,
+                                                    contentDescription = "卸载",
+                                                    tint = MaterialTheme.colorScheme.error,
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                            }
+                                        }
+                                    }
 
-                            if (lxPluginSources.isNotEmpty()) {
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Row(
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text("支持平台:", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    lxPluginSources.forEach { sourceKey ->
-                                        Surface(
-                                            shape = RoundedCornerShape(4.dp),
-                                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                                    if (plugin.author.isNotBlank()) {
+                                        Text(
+                                            text = "作者: ${plugin.author}",
+                                            fontSize = 11.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (plugin.isEnabled) 1f else 0.5f),
+                                            modifier = Modifier.padding(top = 2.dp)
+                                        )
+                                    }
+                                    if (plugin.description.isNotBlank()) {
+                                        Text(
+                                            text = plugin.description,
+                                            fontSize = 11.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (plugin.isEnabled) 1f else 0.5f),
+                                            modifier = Modifier.padding(top = 2.dp)
+                                        )
+                                    }
+
+                                    if (plugin.sources.isNotEmpty()) {
+                                        Spacer(modifier = Modifier.height(6.dp))
+                                        Row(
+                                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                            verticalAlignment = Alignment.CenterVertically
                                         ) {
                                             Text(
-                                                text = formatSourceBadge(sourceKey),
+                                                text = "支持平台:",
                                                 fontSize = 10.sp,
-                                                fontWeight = FontWeight.Medium,
-                                                color = MaterialTheme.colorScheme.primary,
-                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (plugin.isEnabled) 1f else 0.5f)
                                             )
+                                            plugin.sources.forEach { sourceKey ->
+                                                Surface(
+                                                    shape = RoundedCornerShape(4.dp),
+                                                    color = MaterialTheme.colorScheme.primary.copy(alpha = if (plugin.isEnabled) 0.15f else 0.05f)
+                                                ) {
+                                                    Text(
+                                                        text = formatSourceBadge(sourceKey),
+                                                        fontSize = 9.sp,
+                                                        fontWeight = FontWeight.Medium,
+                                                        color = if (plugin.isEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                                    )
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -371,19 +446,42 @@ fun AudioSourcesSettingsView(viewModel: SettingsViewModel) {
         )
     }
 
-    // 粘贴脚本导入弹窗
+    // 粘贴/下载脚本导入弹窗
     if (showImportDialog) {
         LxScriptImportDialog(
+            viewModel = viewModel,
             onDismiss = { showImportDialog = false },
-            onImport = { script ->
+            onDuplicate = { duplicate ->
+                duplicateCheckResult = duplicate
+            }
+        )
+    }
+
+    // 重名插件处理选择弹窗
+    duplicateCheckResult?.let { duplicate ->
+        DuplicatePluginDialog(
+            duplicate = duplicate,
+            onDismiss = { duplicateCheckResult = null },
+            onOverwrite = {
                 coroutineScope.launch {
-                    val result = viewModel.importLxScript(script)
-                    if (result.isSuccess) {
-                        ToastManager.showToast("插件导入成功: ${result.getOrNull()?.name}")
-                    } else {
-                        ToastManager.showToast("插件初始化失败，请检查脚本语法")
-                    }
-                    showImportDialog = false
+                    viewModel.confirmImportPlugin(
+                        info = duplicate.newInfo,
+                        script = duplicate.rawScript,
+                        overwriteExistingId = duplicate.existing.id
+                    )
+                    ToastManager.showToast("已覆盖更新插件: ${duplicate.newInfo.name}")
+                    duplicateCheckResult = null
+                }
+            },
+            onKeepBoth = {
+                coroutineScope.launch {
+                    viewModel.confirmImportPlugin(
+                        info = duplicate.newInfo,
+                        script = duplicate.rawScript,
+                        overwriteExistingId = null
+                    )
+                    ToastManager.showToast("已作为新插件添加: ${duplicate.newInfo.name}")
+                    duplicateCheckResult = null
                 }
             }
         )
@@ -499,23 +597,29 @@ private fun ServerUrlEditDialog(
     )
 }
 
-// 粘贴脚本文本导入弹窗
+// 粘贴脚本或远程 URL 导入弹窗
 @Composable
 private fun LxScriptImportDialog(
+    viewModel: SettingsViewModel,
     onDismiss: () -> Unit,
-    onImport: (String) -> Unit
+    onDuplicate: (SettingsViewModel.ScriptImportCheckResult.Duplicate) -> Unit
 ) {
     var textValue by remember { mutableStateOf("") }
+    var isProcessing by remember { mutableStateOf(false) }
+    var statusText by remember { mutableStateOf("") }
+    val scope = rememberCoroutineScope()
 
     AlertDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = {
+            if (!isProcessing) onDismiss()
+        },
         title = {
             Text(text = "导入 LX 插件脚本", fontSize = 18.sp, fontWeight = FontWeight.Bold)
         },
         text = {
             Column(modifier = Modifier.fillMaxWidth()) {
                 Text(
-                    text = "粘贴完整的落雪音乐自定义音源 JavaScript 脚本内容：",
+                    text = "支持粘贴 JS 脚本内容，或粘贴远程脚本 URL (http/https)：",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 12.sp,
                     modifier = Modifier.padding(bottom = MelodiaSpacing.sm)
@@ -523,20 +627,149 @@ private fun LxScriptImportDialog(
                 OutlinedTextField(
                     value = textValue,
                     onValueChange = { textValue = it },
-                    placeholder = { Text("粘贴脚本文本 (含 globalThis.lx)...", fontSize = 13.sp) },
+                    placeholder = { Text("粘贴脚本文本或以 http(s):// 开头的下载链接...", fontSize = 13.sp) },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(180.dp),
+                    enabled = !isProcessing,
                     maxLines = 10
                 )
+
+                if (isProcessing) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = statusText,
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
             }
         },
         confirmButton = {
-            TextButton(
-                onClick = { onImport(textValue.trim()) },
-                enabled = textValue.isNotBlank()
+            Button(
+                onClick = {
+                    val input = textValue.trim()
+                    if (input.isBlank()) return@Button
+                    isProcessing = true
+                    val isRemote = input.startsWith("http://", ignoreCase = true) || input.startsWith("https://", ignoreCase = true)
+                    statusText = if (isRemote) "正在从远端下载脚本..." else "正在校验沙盒环境..."
+
+                    scope.launch {
+                        try {
+                            val contentRes = viewModel.resolveScriptContent(input)
+                            if (contentRes.isFailure) {
+                                isProcessing = false
+                                ToastManager.showToast("下载远程脚本失败: ${contentRes.exceptionOrNull()?.message}")
+                                return@launch
+                            }
+                            statusText = "正在加载并校验脚本..."
+                            val script = contentRes.getOrThrow()
+                            when (val result = viewModel.precheckAndImportScript(script)) {
+                                is SettingsViewModel.ScriptImportCheckResult.Success -> {
+                                    isProcessing = false
+                                    ToastManager.showToast("插件导入成功: ${result.item.name}")
+                                    onDismiss()
+                                }
+                                is SettingsViewModel.ScriptImportCheckResult.Duplicate -> {
+                                    isProcessing = false
+                                    onDuplicate(result)
+                                    onDismiss()
+                                }
+                                is SettingsViewModel.ScriptImportCheckResult.Failure -> {
+                                    isProcessing = false
+                                    ToastManager.showToast("解析失败: ${result.message}")
+                                }
+                            }
+                        } catch (e: Exception) {
+                            isProcessing = false
+                            ToastManager.showToast("导入异常: ${e.message}")
+                        }
+                    }
+                },
+                enabled = !isProcessing && textValue.isNotBlank()
             ) {
                 Text("解析并导入", fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = onDismiss,
+                enabled = !isProcessing
+            ) {
+                Text("取消")
+            }
+        }
+    )
+}
+
+// 重名插件冲突处理弹窗
+@Composable
+private fun DuplicatePluginDialog(
+    duplicate: SettingsViewModel.ScriptImportCheckResult.Duplicate,
+    onDismiss: () -> Unit,
+    onOverwrite: () -> Unit,
+    onKeepBoth: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(text = "检测到同名插件", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        },
+        text = {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = "插件【${duplicate.existing.name}】已存在，请选择导入方式：",
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(10.dp)) {
+                        Text(
+                            text = "现有版本: v${duplicate.existing.version} (作者: ${duplicate.existing.author.ifBlank { "未知" }})",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "导入版本: v${duplicate.newInfo.version} (作者: ${duplicate.newInfo.author.ifBlank { "未知" }})",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    onClick = onOverwrite,
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                ) {
+                    Text("覆盖更新", fontSize = 12.sp)
+                }
+                OutlinedButton(
+                    onClick = onKeepBoth
+                ) {
+                    Text("保留为副本", fontSize = 12.sp)
+                }
             }
         },
         dismissButton = {

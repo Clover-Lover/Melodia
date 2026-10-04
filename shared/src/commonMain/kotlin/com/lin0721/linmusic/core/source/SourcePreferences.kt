@@ -31,8 +31,10 @@ class SourcePreferences(private val dataStore: DataStore<Preferences>) {
         private val KEY_LX_PLUGIN_AUTHOR = stringPreferencesKey("source_lx_plugin_author")
         private val KEY_LX_PLUGIN_DESC = stringPreferencesKey("source_lx_plugin_desc")
         private val KEY_LX_PLUGIN_SOURCES = stringPreferencesKey("source_lx_plugin_sources")
+        private val KEY_LX_PLUGINS_JSON = stringPreferencesKey("source_lx_plugins_json")
 
-        // 聚合搜索偏好（默认关闭）
+        // 社区源优先与聚合搜索偏好
+        private val KEY_COMMUNITY_SOURCE_PRIORITY = booleanPreferencesKey("source_community_source_priority")
         private val KEY_SEARCH_AGGREGATION_ENABLED = booleanPreferencesKey("source_search_aggregation_enabled")
     }
 
@@ -156,6 +158,15 @@ class SourcePreferences(private val dataStore: DataStore<Preferences>) {
     val fallbackOrder: Flow<List<String>> get() = unmModuleOrder
     suspend fun saveFallbackOrder(order: List<String>) = saveUnmModuleOrder(order)
 
+    // 社区源优先开关
+    val communityPriority: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_COMMUNITY_SOURCE_PRIORITY] ?: false
+    }
+
+    suspend fun saveCommunityPriority(enabled: Boolean) {
+        dataStore.edit { prefs -> prefs[KEY_COMMUNITY_SOURCE_PRIORITY] = enabled }
+    }
+
     // ─── LX 插件相关偏好 ───
 
     val lxPluginEnabled: Flow<Boolean> = dataStore.data.map { prefs ->
@@ -192,6 +203,93 @@ class SourcePreferences(private val dataStore: DataStore<Preferences>) {
         else runCatching { Json.decodeFromString<List<String>>(raw) }.getOrDefault(emptyList())
     }
 
+    // 多插件持久化列表（平滑兼容旧版单插件配置）
+    val lxPlugins: Flow<List<LxPluginItem>> = dataStore.data.map { prefs ->
+        val raw = prefs[KEY_LX_PLUGINS_JSON]
+        if (!raw.isNullOrBlank()) {
+            runCatching { Json.decodeFromString<List<LxPluginItem>>(raw) }.getOrDefault(emptyList())
+        } else {
+            val oldScript = prefs[KEY_LX_SCRIPT_CONTENT] ?: ""
+            if (oldScript.isNotBlank()) {
+                val oldSources = prefs[KEY_LX_PLUGIN_SOURCES]?.let {
+                    runCatching { Json.decodeFromString<List<String>>(it) }.getOrNull()
+                } ?: emptyList()
+                listOf(
+                    LxPluginItem(
+                        id = "legacy_default",
+                        name = prefs[KEY_LX_PLUGIN_NAME] ?: "未命名插件",
+                        version = prefs[KEY_LX_PLUGIN_VERSION] ?: "1.0.0",
+                        author = prefs[KEY_LX_PLUGIN_AUTHOR] ?: "未知",
+                        description = prefs[KEY_LX_PLUGIN_DESC] ?: "",
+                        sources = oldSources,
+                        rawScript = oldScript,
+                        isEnabled = prefs[KEY_LX_PLUGIN_ENABLED] ?: true
+                    )
+                )
+            } else {
+                emptyList()
+            }
+        }
+    }
+
+    suspend fun saveLxPlugins(plugins: List<LxPluginItem>) {
+        dataStore.edit { prefs ->
+            prefs[KEY_LX_PLUGINS_JSON] = Json.encodeToString(plugins)
+        }
+    }
+
+    suspend fun addOrUpdateLxPlugin(item: LxPluginItem, overwriteId: String? = null) {
+        val current = lxPlugins.first().toMutableList()
+        if (overwriteId != null) {
+            val index = current.indexOfFirst { it.id == overwriteId }
+            if (index >= 0) {
+                current[index] = item.copy(id = overwriteId)
+            } else {
+                current.add(item)
+            }
+        } else {
+            val existingIndex = current.indexOfFirst { it.id == item.id }
+            if (existingIndex >= 0) {
+                current[existingIndex] = item
+            } else {
+                current.add(item)
+            }
+        }
+        saveLxPlugins(current)
+    }
+
+    suspend fun removeLxPlugin(id: String) {
+        val current = lxPlugins.first().filter { it.id != id }
+        saveLxPlugins(current)
+    }
+
+    suspend fun toggleLxPlugin(id: String) {
+        val current = lxPlugins.first().map {
+            if (it.id == id) it.copy(isEnabled = !it.isEnabled) else it
+        }
+        saveLxPlugins(current)
+    }
+
+    suspend fun moveLxPluginUp(id: String) {
+        val current = lxPlugins.first().toMutableList()
+        val index = current.indexOfFirst { it.id == id }
+        if (index > 0) {
+            val item = current.removeAt(index)
+            current.add(index - 1, item)
+            saveLxPlugins(current)
+        }
+    }
+
+    suspend fun moveLxPluginDown(id: String) {
+        val current = lxPlugins.first().toMutableList()
+        val index = current.indexOfFirst { it.id == id }
+        if (index in 0 until current.size - 1) {
+            val item = current.removeAt(index)
+            current.add(index + 1, item)
+            saveLxPlugins(current)
+        }
+    }
+
     suspend fun saveLxPlugin(
         name: String,
         version: String,
@@ -200,6 +298,17 @@ class SourcePreferences(private val dataStore: DataStore<Preferences>) {
         sources: List<String>,
         script: String
     ) {
+        val item = LxPluginItem(
+            id = "default_${System.currentTimeMillis()}",
+            name = name,
+            version = version,
+            author = author,
+            description = desc,
+            sources = sources,
+            rawScript = script,
+            isEnabled = true
+        )
+        addOrUpdateLxPlugin(item)
         dataStore.edit { prefs ->
             prefs[KEY_LX_PLUGIN_NAME] = name
             prefs[KEY_LX_PLUGIN_VERSION] = version
@@ -212,6 +321,7 @@ class SourcePreferences(private val dataStore: DataStore<Preferences>) {
     }
 
     suspend fun clearLxPlugin() {
+        saveLxPlugins(emptyList())
         dataStore.edit { prefs ->
             prefs.remove(KEY_LX_PLUGIN_NAME)
             prefs.remove(KEY_LX_PLUGIN_VERSION)
