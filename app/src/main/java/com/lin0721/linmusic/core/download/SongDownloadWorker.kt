@@ -6,7 +6,6 @@ import android.content.pm.ServiceInfo
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
-import android.provider.DocumentsContract
 import android.provider.MediaStore
 import androidx.documentfile.provider.DocumentFile
 import androidx.work.CoroutineWorker
@@ -31,6 +30,7 @@ import android.os.ParcelFileDescriptor
 import com.kyant.taglib.Picture
 import com.kyant.taglib.TagLib
 import java.io.File
+import java.io.FileOutputStream
 import java.io.IOException
 import android.content.Context
 
@@ -49,7 +49,8 @@ class SongDownloadWorker(
     private val settingsPreferences: SettingsPreferences,
     private val notificationHelper: DownloadNotificationHelper,
     private val playbackRepository: PlaybackRepository,
-    private val downloadClient: OkHttpClient
+    private val downloadClient: OkHttpClient,
+    private val taskStore: DownloadTaskStore
 ) : CoroutineWorker(context, params) {
 
     companion object {
@@ -68,6 +69,16 @@ class SongDownloadWorker(
         const val KEY_BATCH_LABEL = "batch_label"
         const val KEY_PROGRESS_SONG_NAME = "progress_song_name"
         const val KEY_PROGRESS_PERCENT = "progress_percent"
+
+        // 断点续传的原始音频数据，按歌曲、音质与服务端文件大小区分，暂停或中断后保留
+        fun partialFile(context: Context, songId: Long, level: String, size: Long) =
+            File(context.cacheDir, "dl_${songId}_${level}_$size.part")
+
+        // 某首歌的全部断点文件，取消下载时清理
+        fun partialFilesOf(context: Context, songId: Long): List<File> =
+            context.cacheDir.listFiles { file -> file.name.startsWith("dl_${songId}_") && file.name.endsWith(".part") }
+                ?.toList()
+                .orEmpty()
 
         fun buildInputData(
             songId: Long,
@@ -113,6 +124,7 @@ class SongDownloadWorker(
         val existingRecord = downloadPreferences.findVerifiedRecord(songId)
         if (existingRecord != null && existingRecord.satisfies(level)) {
             AppLogger.i(TAG, "已下载 ${existingRecord.quality}，跳过 songId=$songId level=$level")
+            persistState(PersistedTaskState.SUCCEEDED, skipped = true)
             onTerminalSkipped()
             return Result.success(workDataOf(KEY_SKIPPED to true))
         }
@@ -123,6 +135,9 @@ class SongDownloadWorker(
         }
 
         var localTemp: File? = null
+        var partial: File? = null
+        // 暂停、系统中断或将要重试时保留断点文件，下次从断点继续
+        var keepPartial = false
         // 失败或取消时的清理回调
         var cleanup: (() -> Unit)? = null
         try {
@@ -145,12 +160,19 @@ class SongDownloadWorker(
             val displayName = "${sanitizeFileName("$artistName - $songName")}.$extension"
             val mimeType = mimeTypeFor(extension)
 
-            val tempFile = File(applicationContext.cacheDir, "dl_${songId}_${System.currentTimeMillis()}.$extension")
-            localTemp = tempFile
-            val downloadedSize = downloadToFile(tempFile, url)
+            val partialFile = partialFile(applicationContext, songId, level, item.size)
+            partial = partialFile
+            val downloadedSize = downloadToFile(partialFile, url, item.size)
             if (downloadedSize == null) {
                 return fail("下载中断")
             }
+
+            // 下载完成后改名，标签写入与拷贝在独立文件上进行，断点文件只存原始数据
+            val tempFile = File(applicationContext.cacheDir, "dl_${songId}_${System.currentTimeMillis()}.$extension")
+            if (!partialFile.renameTo(tempFile)) {
+                partialFile.copyTo(tempFile, overwrite = true)
+            }
+            localTemp = tempFile
 
             // 写入音频元数据、封面与内嵌歌词
             runCatching { writeTags(tempFile, extension) }
@@ -224,24 +246,28 @@ class SongDownloadWorker(
             // 升级音质后旧文件已被新记录取代，删除以免残留重复歌曲
             existingRecord?.mediaStoreUri
                 ?.takeIf { it != finalUri.toString() }
-                ?.let(::deleteReplacedFile)
+                ?.let { downloadPreferences.deleteFile(it) }
 
+            persistState(PersistedTaskState.SUCCEEDED)
             onTerminalSuccess()
             return Result.success()
         } catch (e: CancellationException) {
-            // 任务取消时清理文件
+            // 暂停、取消或系统中断：清理目标文件，保留断点文件；用户取消时由管理器删除断点
             cleanup?.invoke()
+            keepPartial = true
             throw e
         } catch (e: Exception) {
             AppLogger.e(TAG, "下载异常 songId=$songId", e)
             cleanup?.invoke()
             return if (runAttemptCount < MAX_ATTEMPTS) {
+                keepPartial = true
                 Result.retry()
             } else {
                 fail(if (e is IOException) "网络异常，请检查网络后重试" else "下载异常", e.message ?: "下载异常")
             }
         } finally {
             localTemp?.delete()
+            if (!keepPartial) partial?.delete()
         }
     }
 
@@ -260,6 +286,12 @@ class SongDownloadWorker(
         }
     }
 
+    // 结束状态写入任务存储，WorkManager 清理已结束任务后面板仍能展示
+    private suspend fun persistState(state: PersistedTaskState, failureReason: String? = null, skipped: Boolean = false) {
+        runCatching { taskStore.markState(setOf(id.toString()), state, failureReason, skipped) }
+            .onFailure { AppLogger.w(TAG, "记录下载任务状态失败 songId=$songId", it) }
+    }
+
     // 已下载跳过时的通知，批量任务计入批次进度
     private fun onTerminalSkipped() {
         val tag = batchTag
@@ -270,8 +302,9 @@ class SongDownloadWorker(
         }
     }
 
-    // 终态失败：发通知并带上用户可读的原因与排查用的详情
-    private fun fail(reason: String, detail: String = reason): Result {
+    // 终态失败：记录状态、发通知并带上用户可读的原因与排查用的详情
+    private suspend fun fail(reason: String, detail: String = reason): Result {
+        persistState(PersistedTaskState.FAILED, failureReason = reason)
         onTerminalFailure(reason)
         return Result.failure(workDataOf(KEY_ERROR to detail, KEY_REASON to reason))
     }
@@ -392,18 +425,6 @@ class SongDownloadWorker(
         applicationContext.contentResolver.update(uri, values, null, null) > 0
     }.onFailure { AppLogger.w(TAG, "同名文件不可覆盖，改为新建 uri=$uri", it) }.getOrDefault(false)
 
-    // 删除被新音质取代的旧文件
-    private fun deleteReplacedFile(uriString: String) {
-        val uri = Uri.parse(uriString)
-        runCatching {
-            if (isDefaultDownloadDirectoryUri(uriString)) {
-                applicationContext.contentResolver.delete(uri, null, null)
-            } else {
-                DocumentsContract.deleteDocument(applicationContext.contentResolver, uri)
-            }
-        }.onFailure { AppLogger.w(TAG, "删除旧音质文件失败 uri=$uriString", it) }
-    }
-
     private fun finalizePendingMediaStoreEntry(uri: Uri) {
         val values = ContentValues().apply { put(MediaStore.Audio.Media.IS_PENDING, 0) }
         applicationContext.contentResolver.update(uri, values, null, null)
@@ -481,19 +502,34 @@ class SongDownloadWorker(
         }
     }.getOrNull()
 
-    // 流式下载到临时文件
-    private suspend fun downloadToFile(file: File, url: String): Long? = withContext(Dispatchers.IO) {
-        val request = Request.Builder().url(url).build()
+    // 流式下载到断点文件；已有部分数据且服务端支持 Range 时从断点续传
+    private suspend fun downloadToFile(file: File, url: String, expectedSize: Long): Long? = withContext(Dispatchers.IO) {
+        val existing = if (file.exists()) file.length() else 0L
+        if (expectedSize > 0 && existing == expectedSize) {
+            return@withContext existing
+        }
+        val resumeFrom = if (expectedSize > 0 && existing in 1 until expectedSize) existing else 0L
+        val request = Request.Builder()
+            .url(url)
+            .apply { if (resumeFrom > 0) header("Range", "bytes=$resumeFrom-") }
+            .build()
         downloadClient.newCall(request).execute().use { response ->
             if (!response.isSuccessful) {
                 AppLogger.e(TAG, "下载 HTTP 失败 code=${response.code} songId=$songId")
                 return@withContext null
             }
             val body = response.body ?: return@withContext null
-            val total = body.contentLength()
-            var written = 0L
+            val append = resumeFrom > 0 && response.code == 206 &&
+                contentRangeStart(response.header("Content-Range")) == resumeFrom
+            if (resumeFrom > 0) {
+                AppLogger.i(TAG, if (append) "断点续传 from=$resumeFrom songId=$songId" else "服务端未按断点返回，从头下载 songId=$songId")
+            }
+            val start = if (append) resumeFrom else 0L
+            val bodyLength = body.contentLength()
+            val total = if (bodyLength > 0) start + bodyLength else expectedSize
+            var written = start
             var lastProgress = -1
-            file.outputStream().use { out ->
+            FileOutputStream(file, append).use { out ->
                 body.byteStream().use { input ->
                     val buffer = ByteArray(64 * 1024)
                     while (true) {
@@ -518,6 +554,10 @@ class SongDownloadWorker(
             if (total > 0 && written != total) null else written
         }
     }
+
+    // 解析 "bytes 100-199/200" 的起始偏移
+    private fun contentRangeStart(header: String?): Long? =
+        header?.removePrefix("bytes")?.trim()?.substringBefore('-')?.toLongOrNull()
 
     // 拷贝文件至目标 Uri
     private suspend fun copyFileToUri(file: File, uri: Uri, mode: String = "w"): Boolean = withContext(Dispatchers.IO) {

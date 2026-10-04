@@ -8,12 +8,17 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -39,6 +44,7 @@ import com.lin0721.linmusic.core.model.getQualityDisplayName
 import com.lin0721.linmusic.core.player.rememberQueueItemCoverUrl
 import com.lin0721.linmusic.core.ui.components.CoverPlaceholder
 import com.lin0721.linmusic.core.ui.components.SecondaryScreenScaffold
+import com.lin0721.linmusic.core.ui.components.ToastManager
 import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.theme.DownloadFailedRed
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
@@ -61,6 +67,11 @@ fun DownloadsScreen(
     val downloads by viewModel.downloads.collectAsStateWithLifecycle()
     val tasks by viewModel.tasks.collectAsStateWithLifecycle()
     var sheetTab by remember { mutableStateOf<DownloadManagerTab?>(null) }
+    var deleteTarget by remember { mutableStateOf<DownloadRecord?>(null) }
+
+    LaunchedEffect(viewModel) {
+        viewModel.toastEvent.collect { ToastManager.showToast(it) }
+    }
 
     SecondaryScreenScaffold(title = "下载管理", onBack = onBack) {
         LazyColumn(
@@ -95,7 +106,11 @@ fun DownloadsScreen(
                         DownloadedHeader(records = records, onPlayAll = { viewModel.play() })
                     }
                     items(records, key = { it.songId }) { record ->
-                        DownloadedSongRow(record = record, onClick = { viewModel.play(record) })
+                        DownloadedSongRow(
+                            record = record,
+                            onClick = { viewModel.play(record) },
+                            onDeleteClick = { deleteTarget = record }
+                        )
                     }
                 }
             }
@@ -105,13 +120,34 @@ fun DownloadsScreen(
     sheetTab?.let { tab ->
         DownloadManagerSheet(onDismiss = { sheetTab = null }, initialTab = tab)
     }
+
+    deleteTarget?.let { record ->
+        AlertDialog(
+            onDismissRequest = { deleteTarget = null },
+            title = { Text("删除下载", fontWeight = FontWeight.Bold) },
+            text = { Text("确定删除「${record.displayName()}」吗？本地文件将一并删除。") },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.delete(record)
+                    deleteTarget = null
+                }) {
+                    Text("删除", color = NeteaseRed)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { deleteTarget = null }) {
+                    Text("取消", color = TextGray)
+                }
+            }
+        )
+    }
 }
 
 @Composable
 private fun TaskOverviewCard(tasks: List<DownloadTask>, onClick: (DownloadManagerTab) -> Unit) {
     val counts = tasks.counts()
     val tab = when {
-        counts.active > 0 -> DownloadManagerTab.ACTIVE
+        counts.unfinished > 0 -> DownloadManagerTab.ACTIVE
         counts.failed > 0 -> DownloadManagerTab.FAILED
         else -> DownloadManagerTab.SUCCEEDED
     }
@@ -134,6 +170,7 @@ private fun TaskOverviewCard(tasks: List<DownloadTask>, onClick: (DownloadManage
                     tasks.isEmpty() -> "暂无下载任务"
                     else -> buildList {
                         if (counts.active > 0) add("进行中 ${counts.active}")
+                        if (counts.paused > 0) add("已暂停 ${counts.paused}")
                         if (counts.failed > 0) add("失败 ${counts.failed}")
                         if (counts.succeeded > 0) add("已完成 ${counts.succeeded}")
                     }.joinToString(" · ")
@@ -191,7 +228,7 @@ private fun DownloadedHeader(records: List<DownloadRecord>, onPlayAll: () -> Uni
 }
 
 @Composable
-private fun DownloadedSongRow(record: DownloadRecord, onClick: () -> Unit) {
+private fun DownloadedSongRow(record: DownloadRecord, onClick: () -> Unit, onDeleteClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -237,6 +274,9 @@ private fun DownloadedSongRow(record: DownloadRecord, onClick: () -> Unit) {
                     overflow = TextOverflow.Ellipsis
                 )
             }
+        }
+        IconButton(onClick = onDeleteClick) {
+            Icon(Icons.Outlined.Delete, contentDescription = "删除下载", tint = MutedText, modifier = Modifier.size(20.dp))
         }
     }
 }

@@ -11,6 +11,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Pause
+import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -58,7 +60,7 @@ enum class DownloadManagerTab(val label: String) {
     FAILED("失败");
 
     fun matches(task: DownloadTask): Boolean = when (this) {
-        ACTIVE -> task.isActive
+        ACTIVE -> task.isUnfinished
         SUCCEEDED -> task.status == DownloadTaskStatus.SUCCEEDED
         FAILED -> task.status == DownloadTaskStatus.FAILED
     }
@@ -71,9 +73,11 @@ internal data class DownloadCounts(
     val failed: Int,
     val running: Int,
     val waiting: Int,
+    val paused: Int,
     val runningFraction: Float
 ) {
     val active: Int get() = running + waiting
+    val unfinished: Int get() = active + paused
     val settled: Int get() = succeeded + failed
 }
 
@@ -85,6 +89,7 @@ internal fun List<DownloadTask>.counts(): DownloadCounts {
         failed = count { it.status == DownloadTaskStatus.FAILED },
         running = running.size,
         waiting = count { it.status == DownloadTaskStatus.WAITING },
+        paused = count { it.status == DownloadTaskStatus.PAUSED },
         runningFraction = running.sumOf { it.progress.coerceIn(0, 100) } / 100f
     )
 }
@@ -138,7 +143,8 @@ fun DownloadManagerSheet(
 
             SummaryCard(
                 counts = counts,
-                onCancelAll = { scope.launch { manager.cancel(tasks) } },
+                onPauseAll = { scope.launch { manager.pause(tasks) } },
+                onResumeAll = { scope.launch { manager.resume(tasks) } },
                 onRetryFailed = { scope.launch { manager.retry(tasks) } },
                 onClearSucceeded = {
                     scope.launch { manager.dismiss(tasks.filter { it.status == DownloadTaskStatus.SUCCEEDED }) }
@@ -151,7 +157,7 @@ fun DownloadManagerSheet(
             ) {
                 DownloadManagerTab.entries.forEach { entry ->
                     val count = when (entry) {
-                        DownloadManagerTab.ACTIVE -> counts.active
+                        DownloadManagerTab.ACTIVE -> counts.unfinished
                         DownloadManagerTab.SUCCEEDED -> counts.succeeded
                         DownloadManagerTab.FAILED -> counts.failed
                     }
@@ -184,6 +190,8 @@ fun DownloadManagerSheet(
                                 label = label,
                                 tasks = groupTasks,
                                 tab = tab,
+                                onPause = { scope.launch { manager.pause(groupTasks) } },
+                                onResume = { scope.launch { manager.resume(groupTasks) } },
                                 onCancel = { scope.launch { manager.cancel(groupTasks) } },
                                 onRetry = { scope.launch { manager.retry(groupTasks) } }
                             )
@@ -191,6 +199,8 @@ fun DownloadManagerSheet(
                         items(groupTasks, key = { it.meta.workId }) { task ->
                             TaskRow(
                                 task = task,
+                                onPause = { scope.launch { manager.pause(listOf(task)) } },
+                                onResume = { scope.launch { manager.resume(listOf(task)) } },
                                 onCancel = { scope.launch { manager.cancel(listOf(task)) } },
                                 onRetry = { scope.launch { manager.retry(listOf(task)) } }
                             )
@@ -205,7 +215,8 @@ fun DownloadManagerSheet(
 @Composable
 private fun SummaryCard(
     counts: DownloadCounts,
-    onCancelAll: () -> Unit,
+    onPauseAll: () -> Unit,
+    onResumeAll: () -> Unit,
     onRetryFailed: () -> Unit,
     onClearSucceeded: () -> Unit
 ) {
@@ -232,12 +243,16 @@ private fun SummaryCard(
         Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             LegendDot(DownloadedGreen, "完成 ${counts.succeeded}")
             LegendDot(Color.White, "下载中 ${counts.running}")
-            LegendDot(PendingGray, "等待 ${counts.waiting}")
+            LegendDot(PendingGray, if (counts.paused > 0) "等待 ${counts.waiting} · 暂停 ${counts.paused}" else "等待 ${counts.waiting}")
             LegendDot(DownloadFailedRed, "失败 ${counts.failed}")
         }
         Spacer(Modifier.height(12.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            ActionPill("全部取消", enabled = counts.active > 0, onClick = onCancelAll, modifier = Modifier.weight(1f))
+            if (counts.active == 0 && counts.paused > 0) {
+                ActionPill("全部继续", enabled = true, onClick = onResumeAll, modifier = Modifier.weight(1f))
+            } else {
+                ActionPill("全部暂停", enabled = counts.active > 0, onClick = onPauseAll, modifier = Modifier.weight(1f))
+            }
             ActionPill(
                 text = if (counts.failed > 0) "重试失败 ${counts.failed}" else "重试失败",
                 enabled = counts.failed > 0,
@@ -332,6 +347,8 @@ private fun GroupHeader(
     label: String,
     tasks: List<DownloadTask>,
     tab: DownloadManagerTab,
+    onPause: () -> Unit,
+    onResume: () -> Unit,
     onCancel: () -> Unit,
     onRetry: () -> Unit
 ) {
@@ -353,7 +370,14 @@ private fun GroupHeader(
             Text(text = "${tasks.size} 首", color = MutedText, fontSize = 12.sp)
         }
         when {
-            tab == DownloadManagerTab.ACTIVE && tasks.size > 1 -> TextAction("全部取消", Color.White, onCancel)
+            tab == DownloadManagerTab.ACTIVE && tasks.size > 1 -> {
+                if (tasks.any { it.isActive }) {
+                    TextAction("暂停", Color.White, onPause)
+                } else {
+                    TextAction("继续", Color.White, onResume)
+                }
+                TextAction("取消", MutedText, onCancel)
+            }
             tab == DownloadManagerTab.FAILED && tasks.size > 1 -> TextAction("全部重试", DownloadFailedRed, onRetry)
         }
     }
@@ -373,7 +397,13 @@ private fun TextAction(text: String, color: Color, onClick: () -> Unit) {
 }
 
 @Composable
-private fun TaskRow(task: DownloadTask, onCancel: () -> Unit, onRetry: () -> Unit) {
+private fun TaskRow(
+    task: DownloadTask,
+    onPause: () -> Unit,
+    onResume: () -> Unit,
+    onCancel: () -> Unit,
+    onRetry: () -> Unit
+) {
     val meta = task.meta
     Row(
         modifier = Modifier
@@ -439,13 +469,26 @@ private fun TaskRow(task: DownloadTask, onCancel: () -> Unit, onRetry: () -> Uni
         }
         Spacer(Modifier.width(8.dp))
         when (task.status) {
-            DownloadTaskStatus.RUNNING, DownloadTaskStatus.WAITING -> {
+            DownloadTaskStatus.RUNNING, DownloadTaskStatus.WAITING, DownloadTaskStatus.PAUSED -> {
                 Text(
-                    text = if (task.status == DownloadTaskStatus.RUNNING) "${task.progress}%" else "等待中",
+                    text = when (task.status) {
+                        DownloadTaskStatus.RUNNING -> "${task.progress}%"
+                        DownloadTaskStatus.PAUSED -> "已暂停"
+                        else -> "等待中"
+                    },
                     color = if (task.status == DownloadTaskStatus.RUNNING) Color.White else MutedText,
                     fontSize = 12.sp
                 )
-                IconButton(onClick = onCancel) {
+                if (task.status == DownloadTaskStatus.PAUSED) {
+                    IconButton(onClick = onResume) {
+                        Icon(Icons.Rounded.PlayArrow, contentDescription = "继续下载", tint = Color.White, modifier = Modifier.size(20.dp))
+                    }
+                } else {
+                    IconButton(onClick = onPause) {
+                        Icon(Icons.Rounded.Pause, contentDescription = "暂停下载", tint = Color.White, modifier = Modifier.size(20.dp))
+                    }
+                }
+                IconButton(onClick = onCancel, modifier = Modifier.size(36.dp)) {
                     Icon(Icons.Rounded.Close, contentDescription = "取消下载", tint = MutedText, modifier = Modifier.size(18.dp))
                 }
             }

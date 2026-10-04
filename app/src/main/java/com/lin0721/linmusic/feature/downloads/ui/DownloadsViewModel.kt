@@ -9,10 +9,14 @@ import com.lin0721.linmusic.core.download.SongDownloadManager
 import com.lin0721.linmusic.core.player.PlayerManager
 import com.lin0721.linmusic.core.player.QueueItem
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 // 侧边栏「下载管理」页：下载任务概览与已下载歌曲
 class DownloadsViewModel(
@@ -32,6 +36,17 @@ class DownloadsViewModel(
 
     val tasks: StateFlow<List<DownloadTask>> = songDownloadManager.observeTasks()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    private val _toastEvent = MutableSharedFlow<String>(extraBufferCapacity = 1)
+    val toastEvent: SharedFlow<String> = _toastEvent.asSharedFlow()
+
+    // 删除已下载歌曲及其本地文件
+    fun delete(record: DownloadRecord) {
+        viewModelScope.launch {
+            val deleted = downloadPreferences.deleteDownload(record)
+            _toastEvent.emit(if (deleted) "已删除「${record.displayName()}」" else "删除失败，可在系统文件管理中删除")
+        }
+    }
 
     // 以已下载歌曲为播放队列，从点击项开始播；已下载歌曲由播放器优先走本地文件
     fun play(record: DownloadRecord? = null) {

@@ -11,6 +11,7 @@ import androidx.work.WorkManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
@@ -19,7 +20,24 @@ import java.util.UUID
 import java.util.concurrent.TimeUnit
 
 // 下载管理面板中的任务状态
-enum class DownloadTaskStatus { WAITING, RUNNING, SUCCEEDED, FAILED }
+enum class DownloadTaskStatus { WAITING, RUNNING, PAUSED, SUCCEEDED, FAILED }
+
+// 合并 WorkManager 实时状态与持久化状态；WorkManager 清理已结束任务后以持久化状态为准，
+// 返回 null 表示该任务不展示（已取消或未实际入队）
+internal fun resolveTaskStatus(workState: WorkInfo.State?, persisted: PersistedTaskState?): DownloadTaskStatus? =
+    when (workState) {
+        WorkInfo.State.RUNNING -> DownloadTaskStatus.RUNNING
+        WorkInfo.State.ENQUEUED, WorkInfo.State.BLOCKED -> DownloadTaskStatus.WAITING
+        WorkInfo.State.SUCCEEDED -> DownloadTaskStatus.SUCCEEDED
+        WorkInfo.State.FAILED -> DownloadTaskStatus.FAILED
+        WorkInfo.State.CANCELLED -> if (persisted == PersistedTaskState.PAUSED) DownloadTaskStatus.PAUSED else null
+        null -> when (persisted) {
+            PersistedTaskState.PAUSED -> DownloadTaskStatus.PAUSED
+            PersistedTaskState.SUCCEEDED -> DownloadTaskStatus.SUCCEEDED
+            PersistedTaskState.FAILED -> DownloadTaskStatus.FAILED
+            null -> null
+        }
+    }
 
 // 下载管理面板中的一条任务
 data class DownloadTask(
@@ -30,6 +48,9 @@ data class DownloadTask(
     val skipped: Boolean
 ) {
     val isActive: Boolean get() = status == DownloadTaskStatus.WAITING || status == DownloadTaskStatus.RUNNING
+
+    // 未结束：进行中或已暂停
+    val isUnfinished: Boolean get() = isActive || status == DownloadTaskStatus.PAUSED
 }
 
 // 歌曲下载任务调度管理器
@@ -45,11 +66,18 @@ class SongDownloadManager(
         private const val TAG_SONG_PREFIX = "song_id:"
         // 任务元数据先于 WorkManager 落库，清理时给刚创建的记录留出宽限
         private const val META_GRACE_MS = 60_000L
+        // 长期未继续的断点文件按此时长清理
+        private const val PARTIAL_MAX_AGE_MS = 7L * 24 * 60 * 60 * 1000
+        private const val CANCEL_SETTLE_MS = 1_000L
         private fun uniqueWorkName(songId: Long) = "song_download_$songId"
     }
 
     private val workManager get() = WorkManager.getInstance(context)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    init {
+        scope.launch { deleteStalePartials() }
+    }
 
     suspend fun isDownloaded(songId: Long): Boolean = downloadPreferences.isDownloaded(songId)
 
@@ -108,47 +136,82 @@ class SongDownloadManager(
         combine(taskStore.tasks, workManager.getWorkInfosByTagFlow(TAG_DOWNLOAD)) { metas, infos ->
             val infoById = infos.associateBy { it.id.toString() }
             metas.mapNotNull { meta ->
-                val info = infoById[meta.workId] ?: return@mapNotNull null
-                val status = when (info.state) {
-                    WorkInfo.State.RUNNING -> DownloadTaskStatus.RUNNING
-                    WorkInfo.State.SUCCEEDED -> DownloadTaskStatus.SUCCEEDED
-                    WorkInfo.State.FAILED -> DownloadTaskStatus.FAILED
-                    WorkInfo.State.CANCELLED -> return@mapNotNull null
-                    else -> DownloadTaskStatus.WAITING
-                }
+                val info = infoById[meta.workId]
+                val status = resolveTaskStatus(info?.state, meta.state) ?: return@mapNotNull null
                 DownloadTask(
                     meta = meta,
                     status = status,
-                    progress = info.progress.getInt(SongDownloadWorker.KEY_PROGRESS_PERCENT, 0),
-                    failureReason = info.outputData.getString(SongDownloadWorker.KEY_REASON),
-                    skipped = info.outputData.getBoolean(SongDownloadWorker.KEY_SKIPPED, false)
+                    progress = info?.progress?.getInt(SongDownloadWorker.KEY_PROGRESS_PERCENT, 0) ?: 0,
+                    failureReason = info?.outputData?.getString(SongDownloadWorker.KEY_REASON) ?: meta.failureReason,
+                    skipped = info?.outputData?.getBoolean(SongDownloadWorker.KEY_SKIPPED, false) == true || meta.skipped
                 )
             }
         }
 
     // 重新下载失败的任务，沿用原音质与所属批次
-    suspend fun retry(tasks: List<DownloadTask>) {
-        val requests = tasks.filter { it.status == DownloadTaskStatus.FAILED }.map { task ->
+    suspend fun retry(tasks: List<DownloadTask>) =
+        restart(tasks.filter { it.status == DownloadTaskStatus.FAILED })
+
+    // 继续已暂停的任务，已下载的部分由断点续传接上
+    suspend fun resume(tasks: List<DownloadTask>) =
+        restart(tasks.filter { it.status == DownloadTaskStatus.PAUSED })
+
+    // 暂停进行中的任务：先记录暂停状态再取消，Worker 会保留断点文件
+    suspend fun pause(tasks: List<DownloadTask>) {
+        val active = tasks.filter { it.isActive }
+        if (active.isEmpty()) return
+        taskStore.markState(active.mapTo(HashSet()) { it.meta.workId }, PersistedTaskState.PAUSED)
+        active.forEach { workManager.cancelWorkById(UUID.fromString(it.meta.workId)) }
+    }
+
+    // 取消未结束的任务，并删除断点文件
+    suspend fun cancel(tasks: List<DownloadTask>) {
+        val unfinished = tasks.filter { it.isUnfinished }
+        if (unfinished.isEmpty()) return
+        taskStore.remove(unfinished.mapTo(HashSet()) { it.meta.workId })
+        unfinished.forEach { workManager.cancelWorkById(UUID.fromString(it.meta.workId)) }
+        // 等待 Worker 响应取消后再删，避免其仍在写入；放在管理器作用域，面板关闭也不影响清理
+        scope.launch {
+            delay(CANCEL_SETTLE_MS)
+            unfinished.forEach { task -> SongDownloadWorker.partialFilesOf(context, task.meta.songId).forEach { it.delete() } }
+        }
+    }
+
+    // 从列表移除已结束的任务，不影响已下载的文件
+    suspend fun dismiss(tasks: List<DownloadTask>) {
+        taskStore.remove(tasks.filterNot { it.isUnfinished }.mapTo(HashSet()) { it.meta.workId })
+    }
+
+    private suspend fun restart(tasks: List<DownloadTask>) {
+        if (tasks.isEmpty()) return
+        val requests = tasks.map { task ->
             val meta = task.meta
             meta to buildRequest(meta.toTrackInfo(), meta.level, meta.batchTag, meta.batchLabel)
         }
-        if (requests.isEmpty()) return
-        taskStore.add(requests.map { (meta, request) -> meta.copy(workId = request.id.toString(), createdAt = System.currentTimeMillis()) })
+        val now = System.currentTimeMillis()
+        taskStore.add(
+            requests.map { (meta, request) ->
+                meta.copy(
+                    workId = request.id.toString(),
+                    createdAt = now,
+                    state = null,
+                    failureReason = null,
+                    skipped = false,
+                    finishedAt = 0
+                )
+            }
+        )
         requests.forEach { (meta, request) ->
             workManager.enqueueUniqueWork(uniqueWorkName(meta.songId), ExistingWorkPolicy.REPLACE, request)
         }
     }
 
-    // 取消进行中的任务
-    suspend fun cancel(tasks: List<DownloadTask>) {
-        val active = tasks.filter { it.isActive }
-        active.forEach { workManager.cancelWorkById(UUID.fromString(it.meta.workId)) }
-        taskStore.remove(active.mapTo(HashSet()) { it.meta.workId })
-    }
-
-    // 从列表移除已结束的任务，不影响已下载的文件
-    suspend fun dismiss(tasks: List<DownloadTask>) {
-        taskStore.remove(tasks.filterNot { it.isActive }.mapTo(HashSet()) { it.meta.workId })
+    // 清理长期未继续的断点文件
+    private fun deleteStalePartials() {
+        val threshold = System.currentTimeMillis() - PARTIAL_MAX_AGE_MS
+        context.cacheDir.listFiles { file -> file.name.startsWith("dl_") && file.name.endsWith(".part") }
+            ?.filter { it.lastModified() < threshold }
+            ?.forEach { it.delete() }
     }
 
     fun observeBatch(batchTag: String): Flow<List<WorkInfo>> = workManager.getWorkInfosByTagFlow(batchTag)

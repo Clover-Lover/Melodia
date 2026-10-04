@@ -30,13 +30,16 @@ class DownloadCountsTest {
             task(2, DownloadTaskStatus.SUCCEEDED),
             task(3, DownloadTaskStatus.FAILED),
             task(4, DownloadTaskStatus.RUNNING, progress = 50),
-            task(5, DownloadTaskStatus.WAITING)
+            task(5, DownloadTaskStatus.WAITING),
+            task(6, DownloadTaskStatus.PAUSED)
         ).counts()
-        assertEquals(5, counts.total)
+        assertEquals(6, counts.total)
         assertEquals(2, counts.succeeded)
         assertEquals(1, counts.failed)
         assertEquals(3, counts.settled)
         assertEquals(2, counts.active)
+        assertEquals(1, counts.paused)
+        assertEquals(3, counts.unfinished)
         assertEquals(0.5f, counts.runningFraction, 0.0001f)
     }
 
@@ -53,7 +56,9 @@ class DownloadCountsTest {
     fun `分类筛选`() {
         val waiting = task(1, DownloadTaskStatus.WAITING)
         val failed = task(2, DownloadTaskStatus.FAILED)
+        val paused = task(3, DownloadTaskStatus.PAUSED)
         assertEquals(true, DownloadManagerTab.ACTIVE.matches(waiting))
+        assertEquals(true, DownloadManagerTab.ACTIVE.matches(paused))
         assertEquals(false, DownloadManagerTab.ACTIVE.matches(failed))
         assertEquals(true, DownloadManagerTab.FAILED.matches(failed))
     }

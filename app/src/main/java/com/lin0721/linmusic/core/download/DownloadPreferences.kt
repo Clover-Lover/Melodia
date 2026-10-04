@@ -2,6 +2,7 @@ package com.lin0721.linmusic.core.download
 
 import android.content.Context
 import android.net.Uri
+import android.provider.DocumentsContract
 import android.provider.MediaStore
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -100,6 +101,25 @@ class DownloadPreferences(private val context: Context) {
         runCatching {
             context.contentResolver.openInputStream(Uri.parse(uriString))?.use { true } ?: false
         }.getOrDefault(false)
+    }
+
+    // 删除下载文件；非本应用创建的 MediaStore 文件无删除权限时返回 false
+    suspend fun deleteFile(uriString: String): Boolean = withContext(Dispatchers.IO) {
+        runCatching {
+            val uri = Uri.parse(uriString)
+            if (isDefaultDownloadDirectoryUri(uriString)) {
+                context.contentResolver.delete(uri, null, null) > 0
+            } else {
+                DocumentsContract.deleteDocument(context.contentResolver, uri)
+            }
+        }.onFailure { AppLogger.w(TAG, "删除下载文件失败 uri=$uriString", it) }.getOrDefault(false)
+    }
+
+    // 删除已下载歌曲：文件删除成功或文件已不存在时一并移除记录
+    suspend fun deleteDownload(record: DownloadRecord): Boolean {
+        val deleted = deleteFile(record.mediaStoreUri) || !fileExists(record.mediaStoreUri)
+        if (deleted) removeRecord(record.songId)
+        return deleted
     }
 
     // 添加或更新下载记录

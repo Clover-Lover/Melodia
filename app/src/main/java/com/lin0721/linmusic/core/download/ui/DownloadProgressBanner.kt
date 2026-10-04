@@ -11,6 +11,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.ErrorOutline
+import androidx.compose.material.icons.rounded.PauseCircleOutline
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -29,6 +30,7 @@ import com.lin0721.linmusic.core.ui.components.MiniStatusBanner
 import com.lin0721.linmusic.core.ui.theme.DownloadFailedRed
 import com.lin0721.linmusic.core.ui.theme.DownloadedGreen
 import com.lin0721.linmusic.core.ui.theme.NeteaseRed
+import com.lin0721.linmusic.core.ui.theme.TextGray
 import kotlinx.coroutines.delay
 import org.koin.compose.koinInject
 
@@ -62,7 +64,7 @@ fun DownloadProgressBanner(modifier: Modifier = Modifier) {
 
     val sessionTasks = tasks.filter { it.meta.workId in sessionIds || it.meta.workId in activeIds }
     val counts = sessionTasks.counts()
-    val allSucceeded = activeIds.isEmpty() && sessionTasks.isNotEmpty() && counts.failed == 0
+    val allSucceeded = activeIds.isEmpty() && sessionTasks.isNotEmpty() && counts.failed == 0 && counts.paused == 0
     LaunchedEffect(allSucceeded) {
         if (allSucceeded) {
             delay(SUMMARY_DISPLAY_MS)
@@ -109,6 +111,22 @@ fun DownloadProgressBanner(modifier: Modifier = Modifier) {
 }
 
 private fun buildBannerContent(tasks: List<DownloadTask>, counts: DownloadCounts): DownloadBannerContent {
+    if (counts.active == 0 && counts.paused > 0) {
+        return DownloadBannerContent(
+            icon = Icons.Rounded.PauseCircleOutline,
+            iconTint = TextGray,
+            title = "下载已暂停",
+            subtitle = buildString {
+                append("剩余 ${counts.paused} 首")
+                if (counts.failed > 0) append("，失败 ${counts.failed} 首")
+                append("，点击管理")
+            },
+            counts = counts,
+            trailingText = "${counts.settled}/${counts.total}",
+            closable = true,
+            sheetTab = DownloadManagerTab.ACTIVE
+        )
+    }
     if (counts.active == 0) {
         val hasFailure = counts.failed > 0
         return DownloadBannerContent(
