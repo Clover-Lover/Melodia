@@ -18,57 +18,66 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.work.WorkInfo
-import com.lin0721.linmusic.core.download.DownloadWorkSnapshot
+import com.lin0721.linmusic.core.download.DownloadTask
+import com.lin0721.linmusic.core.download.DownloadTaskStatus
 import com.lin0721.linmusic.core.download.SongDownloadManager
 import com.lin0721.linmusic.core.ui.components.MiniStatusBanner
+import com.lin0721.linmusic.core.ui.theme.DownloadFailedRed
+import com.lin0721.linmusic.core.ui.theme.DownloadedGreen
+import com.lin0721.linmusic.core.ui.theme.NeteaseRed
 import kotlinx.coroutines.delay
 import org.koin.compose.koinInject
-import java.util.UUID
 
 private const val SUMMARY_DISPLAY_MS = 2500L
 
 private data class DownloadBannerContent(
     val icon: ImageVector,
+    val iconTint: Color,
     val title: String,
     val subtitle: String?,
-    val progress: Float?,
+    val counts: DownloadCounts?,
     val trailingText: String?,
-    val isSummary: Boolean
+    val closable: Boolean,
+    val sheetTab: DownloadManagerTab
 )
 
-// 下载进度横幅，按一轮下载聚合进度，结束后短暂展示汇总
+// 下载进度横幅：按一轮下载聚合进度，点击打开下载管理面板；
+// 全部成功时短暂展示汇总后收起，有失败时常驻直到用户关闭
 @Composable
 fun DownloadProgressBanner(modifier: Modifier = Modifier) {
     val songDownloadManager: SongDownloadManager = koinInject()
-    val worksFlow = remember(songDownloadManager) { songDownloadManager.observeUserDownloads() }
-    val works by worksFlow
-        .collectAsStateWithLifecycle(initialValue = emptyList())
+    val tasksFlow = remember(songDownloadManager) { songDownloadManager.observeTasks() }
+    val tasks by tasksFlow.collectAsStateWithLifecycle(initialValue = emptyList())
 
-    // 只收录进行中的任务，排除历史已完成任务
-    var sessionIds by remember { mutableStateOf(emptySet<UUID>()) }
-    val activeIds = works.filterNot { it.state.isFinished }.map { it.workId }.toSet()
+    // 只收录本轮进行过的任务，排除历史已完成任务
+    var sessionIds by remember { mutableStateOf(emptySet<String>()) }
+    val activeIds = tasks.filter { it.isActive }.mapTo(HashSet()) { it.meta.workId }
     LaunchedEffect(activeIds) {
-        if (activeIds.isNotEmpty()) {
-            sessionIds = sessionIds + activeIds
-        } else if (sessionIds.isNotEmpty()) {
+        if (activeIds.isNotEmpty()) sessionIds = sessionIds + activeIds
+    }
+
+    val sessionTasks = tasks.filter { it.meta.workId in sessionIds || it.meta.workId in activeIds }
+    val counts = sessionTasks.counts()
+    val allSucceeded = activeIds.isEmpty() && sessionTasks.isNotEmpty() && counts.failed == 0
+    LaunchedEffect(allSucceeded) {
+        if (allSucceeded) {
             delay(SUMMARY_DISPLAY_MS)
             sessionIds = emptySet()
         }
     }
 
-    val sessionWorks = works.filter {
-        (it.workId in sessionIds || it.workId in activeIds) && it.state != WorkInfo.State.CANCELLED
-    }
-    val content = sessionWorks.takeIf { it.isNotEmpty() }?.let(::buildBannerContent)
-
+    val content = sessionTasks.takeIf { it.isNotEmpty() }?.let { buildBannerContent(it, counts) }
     var lastContent by remember { mutableStateOf<DownloadBannerContent?>(null) }
     if (content != null) lastContent = content
 
-    val animatedProgress by animateFloatAsState(
-        targetValue = lastContent?.progress ?: 0f,
+    var sheetTab by remember { mutableStateOf<DownloadManagerTab?>(null) }
+
+    val animatedRunning by animateFloatAsState(
+        targetValue = lastContent?.counts?.runningFraction ?: 0f,
         animationSpec = tween(300),
         label = "downloadProgress"
     )
@@ -82,62 +91,70 @@ fun DownloadProgressBanner(modifier: Modifier = Modifier) {
         val shown = lastContent ?: return@AnimatedVisibility
         MiniStatusBanner(
             icon = shown.icon,
+            iconTint = shown.iconTint,
             title = shown.title,
             subtitle = shown.subtitle,
-            progress = shown.progress?.let { animatedProgress },
+            progressContent = shown.counts?.let { bannerCounts ->
+                { DownloadSegmentedProgress(counts = bannerCounts.copy(runningFraction = animatedRunning), height = 4.dp) }
+            },
             trailingText = shown.trailingText,
-            onClose = if (shown.isSummary) ({ sessionIds = emptySet() }) else null
+            onClick = { sheetTab = shown.sheetTab },
+            onClose = if (shown.closable) ({ sessionIds = emptySet() }) else null
         )
+    }
+
+    sheetTab?.let { tab ->
+        DownloadManagerSheet(onDismiss = { sheetTab = null }, initialTab = tab)
     }
 }
 
-private fun buildBannerContent(works: List<DownloadWorkSnapshot>): DownloadBannerContent {
-    val total = works.size
-    val succeeded = works.count { it.state == WorkInfo.State.SUCCEEDED }
-    val failed = works.count { it.state == WorkInfo.State.FAILED }
-    val settled = succeeded + failed
-    val running = works.firstOrNull { it.state == WorkInfo.State.RUNNING }
-
-    if (settled >= total) {
-        val summary = buildString {
-            append("成功 $succeeded 首")
-            if (failed > 0) append("，失败 $failed 首")
-        }
+private fun buildBannerContent(tasks: List<DownloadTask>, counts: DownloadCounts): DownloadBannerContent {
+    if (counts.active == 0) {
+        val hasFailure = counts.failed > 0
         return DownloadBannerContent(
-            icon = if (failed == 0) Icons.Rounded.CheckCircle else Icons.Rounded.ErrorOutline,
-            title = if (failed == 0) "下载完成" else "下载结束",
-            subtitle = if (total == 1 && failed == 0) "已保存到 Music/Melodia" else summary,
-            progress = null,
+            icon = if (hasFailure) Icons.Rounded.ErrorOutline else Icons.Rounded.CheckCircle,
+            iconTint = if (hasFailure) DownloadFailedRed else DownloadedGreen,
+            title = if (hasFailure) "下载结束" else "下载完成",
+            subtitle = when {
+                hasFailure -> "成功 ${counts.succeeded} 首，失败 ${counts.failed} 首，点击查看"
+                counts.total == 1 -> "已保存到 Music/Melodia"
+                else -> "共 ${counts.total} 首已保存"
+            },
+            counts = null,
             trailingText = null,
-            isSummary = true
+            closable = true,
+            sheetTab = if (hasFailure) DownloadManagerTab.FAILED else DownloadManagerTab.SUCCEEDED
         )
     }
 
-    val runningName = running?.songName?.ifBlank { null }
-    val runningFraction = (running?.progress ?: 0).coerceIn(0, 100) / 100f
-    val overall = ((settled + runningFraction) / total).coerceIn(0f, 1f)
-
-    if (total == 1) {
+    val running = tasks.firstOrNull { it.status == DownloadTaskStatus.RUNNING }
+    if (counts.total == 1) {
+        val task = tasks.first()
         return DownloadBannerContent(
             icon = Icons.Rounded.Download,
-            title = if (running == null) "等待下载…" else "正在下载 ${runningName ?: "歌曲"}",
-            subtitle = null,
-            progress = overall,
-            trailingText = "${(overall * 100).toInt()}%",
-            isSummary = false
+            iconTint = NeteaseRed,
+            title = if (running == null) "等待下载 ${task.meta.songName}" else "正在下载 ${task.meta.songName}",
+            subtitle = task.meta.artistName.ifBlank { null },
+            counts = counts,
+            trailingText = "${task.progress.coerceIn(0, 100)}%",
+            closable = false,
+            sheetTab = DownloadManagerTab.ACTIVE
         )
     }
 
+    val activeLabels = tasks.filter { it.isActive }.map { it.meta.batchLabel ?: "单曲" }.distinct()
     val subtitle = buildString {
-        append("第 ${(settled + 1).coerceAtMost(total)}/$total 首")
-        if (failed > 0) append(" · 失败 $failed")
+        append(if (activeLabels.size == 1) activeLabels.first() else "${activeLabels.size} 个下载任务")
+        if (counts.failed > 0) append(" · 失败 ${counts.failed}")
     }
     return DownloadBannerContent(
         icon = Icons.Rounded.Download,
-        title = if (runningName != null) "正在下载 $runningName" else "准备下载 $total 首歌曲",
+        iconTint = NeteaseRed,
+        title = running?.let { "正在下载 ${it.meta.songName}" } ?: "等待下载 ${counts.active} 首歌曲",
         subtitle = subtitle,
-        progress = overall,
-        trailingText = "$settled/$total",
-        isSummary = false
+        counts = counts,
+        trailingText = "${counts.settled}/${counts.total}",
+        closable = false,
+        sheetTab = DownloadManagerTab.ACTIVE
     )
 }

@@ -12,17 +12,24 @@ data class DownloadTrackInfo(
     val albumYear: Int = 0
 )
 
-// 批量入队结果，已下载过同等或更高音质的歌曲会被跳过
+// 批量入队结果：已下载过同等或更高音质、或已在下载队列中的歌曲不会重复入队
 data class BatchEnqueueResult(
     val enqueuedCount: Int,
-    val skippedCount: Int
+    val skippedCount: Int,
+    val queuedCount: Int = 0
 )
 
 // 批量下载入队结果提示文案
-fun BatchEnqueueResult.toToastMessage(): String = when {
-    enqueuedCount == 0 && skippedCount > 0 -> "$skippedCount 首歌曲均已下载，无需重复下载"
-    skippedCount > 0 -> "已将 $enqueuedCount 首歌曲加入下载队列，跳过 $skippedCount 首已下载"
-    else -> "已将 $enqueuedCount 首歌曲加入下载队列"
+fun BatchEnqueueResult.toToastMessage(): String {
+    val notes = buildList {
+        if (skippedCount > 0) add("跳过 $skippedCount 首已下载")
+        if (queuedCount > 0) add("$queuedCount 首已在队列中")
+    }.joinToString("，")
+    return when {
+        enqueuedCount == 0 && notes.isNotEmpty() -> "没有需要下载的歌曲：$notes"
+        notes.isNotEmpty() -> "已将 $enqueuedCount 首歌曲加入下载队列，$notes"
+        else -> "已将 $enqueuedCount 首歌曲加入下载队列"
+    }
 }
 
 // 时间戳转年份

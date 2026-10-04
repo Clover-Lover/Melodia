@@ -31,6 +31,7 @@ import android.os.ParcelFileDescriptor
 import com.kyant.taglib.Picture
 import com.kyant.taglib.TagLib
 import java.io.File
+import java.io.IOException
 import android.content.Context
 
 private const val TAG = "SongDownloadWorker"
@@ -60,6 +61,8 @@ class SongDownloadWorker(
         const val KEY_ALBUM_YEAR = "album_year"
         const val KEY_LEVEL = "level"
         const val KEY_ERROR = "error"
+        // 面向用户的失败原因，供下载管理面板展示
+        const val KEY_REASON = "reason"
         const val KEY_SKIPPED = "skipped"
         const val KEY_BATCH_TAG = "batch_tag"
         const val KEY_BATCH_LABEL = "batch_label"
@@ -127,19 +130,16 @@ class SongDownloadWorker(
             val item = response.data
             val url = item?.url
             if (!response.isSuccess || url.isNullOrBlank()) {
-                onTerminalFailure("获取下载链接失败")
-                return Result.failure(workDataOf(KEY_ERROR to "获取下载链接失败，code=${response.code}"))
+                return fail("获取下载链接失败", "获取下载链接失败，code=${response.code}")
             }
             if (item.freeTrialInfo != null) {
-                onTerminalFailure("该音质仅支持试听，需要 VIP/购买后才能完整下载")
-                return Result.failure(workDataOf(KEY_ERROR to "仅试听版本"))
+                return fail("该音质仅支持试听，需要 VIP/购买后才能完整下载", "仅试听版本")
             }
 
             val actualEncodeType = (item.type ?: item.encodeType)?.lowercase()
             // 校验是否因权限不足被静默降级为压缩格式
             if (level in LOSSLESS_AND_ABOVE && actualEncodeType in COMPRESSED_ENCODE_TYPES) {
-                onTerminalFailure("需要更高会员等级才能下载该音质")
-                return Result.failure(workDataOf(KEY_ERROR to "音质权限不足"))
+                return fail("需要更高会员等级才能下载该音质", "音质权限不足")
             }
             val extension = (actualEncodeType ?: "mp3")
             val displayName = "${sanitizeFileName("$artistName - $songName")}.$extension"
@@ -149,8 +149,7 @@ class SongDownloadWorker(
             localTemp = tempFile
             val downloadedSize = downloadToFile(tempFile, url)
             if (downloadedSize == null) {
-                onTerminalFailure("下载中断")
-                return Result.failure(workDataOf(KEY_ERROR to "下载中断"))
+                return fail("下载中断")
             }
 
             // 写入音频元数据、封面与内嵌歌词
@@ -162,8 +161,7 @@ class SongDownloadWorker(
             val finalUri: Uri? = if (customFolderUri != null) {
                 val directory = resolveCustomDirectory(customFolderUri)
                 if (directory == null) {
-                    onTerminalFailure("自定义下载目录不可用，请到设置里重新选择")
-                    return Result.failure(workDataOf(KEY_ERROR to "自定义下载目录不可用"))
+                    return fail("自定义下载目录不可用，请到设置里重新选择", "自定义下载目录不可用")
                 }
                 val reusableDoc = findReusableDocument(directory, displayName)
                 if (reusableDoc != null) {
@@ -173,8 +171,7 @@ class SongDownloadWorker(
                     val finalName = uniqueNameIn(directory, displayName)
                     val doc = runCatching { directory.createFile(mimeType, finalName) }.getOrNull()
                     if (doc == null) {
-                        onTerminalFailure("创建本地文件失败")
-                        return Result.failure(workDataOf(KEY_ERROR to "SAF createFile 失败"))
+                        return fail("创建本地文件失败", "SAF createFile 失败")
                     }
                     cleanup = { doc.delete() }
                     if (copyFileToUri(tempFile, doc.uri)) {
@@ -193,8 +190,7 @@ class SongDownloadWorker(
                 } else {
                     val uri = insertPendingMediaStoreEntry(displayName, mimeType)
                     if (uri == null) {
-                        onTerminalFailure("创建本地文件失败")
-                        return Result.failure(workDataOf(KEY_ERROR to "MediaStore insert 失败"))
+                        return fail("创建本地文件失败", "MediaStore insert 失败")
                     }
                     cleanup = { applicationContext.contentResolver.delete(uri, null, null) }
                     if (copyFileToUri(tempFile, uri)) {
@@ -208,8 +204,7 @@ class SongDownloadWorker(
 
             if (finalUri == null) {
                 cleanup?.invoke()
-                onTerminalFailure("下载中断")
-                return Result.failure(workDataOf(KEY_ERROR to "下载中断"))
+                return fail("下载中断")
             }
 
             // 记录实际下发的音质档位
@@ -243,8 +238,7 @@ class SongDownloadWorker(
             return if (runAttemptCount < MAX_ATTEMPTS) {
                 Result.retry()
             } else {
-                onTerminalFailure(e.message ?: "下载异常")
-                Result.failure(workDataOf(KEY_ERROR to (e.message ?: "下载异常")))
+                fail(if (e is IOException) "网络异常，请检查网络后重试" else "下载异常", e.message ?: "下载异常")
             }
         } finally {
             localTemp?.delete()
@@ -274,6 +268,12 @@ class SongDownloadWorker(
         } else {
             onTerminalSuccess()
         }
+    }
+
+    // 终态失败：发通知并带上用户可读的原因与排查用的详情
+    private fun fail(reason: String, detail: String = reason): Result {
+        onTerminalFailure(reason)
+        return Result.failure(workDataOf(KEY_ERROR to detail, KEY_REASON to reason))
     }
 
     private fun onTerminalFailure(reason: String) {

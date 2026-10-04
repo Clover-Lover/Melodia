@@ -119,6 +119,9 @@ val LibraryBlueGreenGradient = listOf(
 // 已下载标识翠绿色
 val DownloadedGreen = Color(0xFF10B981)
 
+// 下载失败标识红色，比品牌红更亮，深色背景上作文字仍可读
+val DownloadFailedRed = Color(0xFFFF6B6B)
+
 // SVIP 标识金色
 val SvipGold = Color(0xFFD4A017)
 

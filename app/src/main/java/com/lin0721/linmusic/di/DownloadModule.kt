@@ -1,6 +1,7 @@
 package com.lin0721.linmusic.di
 
 import com.lin0721.linmusic.core.download.DownloadNotificationHelper
+import com.lin0721.linmusic.core.download.DownloadTaskStore
 import com.lin0721.linmusic.core.download.DownloadWorkerFactory
 import com.lin0721.linmusic.core.download.SongDownloadManager
 import com.lin0721.linmusic.core.download.SongDownloader
@@ -39,6 +40,8 @@ val downloadModule = module {
         )
     }
 
-    single { SongDownloadManager(context = get(), downloadPreferences = get()) }
+    single { DownloadTaskStore(context = get()) }
+
+    single { SongDownloadManager(context = get(), downloadPreferences = get(), taskStore = get()) }
     single<SongDownloader> { get<SongDownloadManager>() }
 }
