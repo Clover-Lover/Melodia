@@ -398,7 +398,8 @@ fun MelodiaApp() {
                         ) {
                             CompositionLocalProvider(LocalMelodiaSystemBarsConsumed provides isPanelDocked) {
                                 MelodiaNavHost(
-                                    currentScreen = navigation.currentScreen,
+                                    currentEntry = navigation.currentEntry,
+                                    liveEntryIds = navigation.liveEntryIds,
                                     homeViewModel = viewModel,
                                     homeTab = navigation.homeTab,
                                     showMusicNewWorks = navigation.showMusicNewWorks,

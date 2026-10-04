@@ -63,6 +63,14 @@ class ProfileViewModel(
 
     private var playlistOffset = 0
 
+    // 页面重新进入组合（如从详情页返回）时复用已有数据，仅 uid 变化或加载失败时才请求
+    fun loadIfNeeded(uid: Long) {
+        val state = _uiState.value
+        val inProgressOrLoaded = state is ProfileUiState.Loading || state is ProfileUiState.Success
+        if (this.uid == uid && inProgressOrLoaded) return
+        load(uid)
+    }
+
     // 由 ProfileScreen 的 LaunchedEffect(uid) 调用，uid 变化时会重新触发
     fun load(uid: Long) {
         this.uid = uid

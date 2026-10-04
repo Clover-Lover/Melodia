@@ -50,7 +50,7 @@ fun ProfileScreen(
 
     // uid 变化（比如从一个人的主页跳到另一个人的主页）时重新加载，避免复用上一个人的数据
     LaunchedEffect(uid) {
-        viewModel.load(uid)
+        viewModel.loadIfNeeded(uid)
     }
 
     LaunchedEffect(viewModel) {

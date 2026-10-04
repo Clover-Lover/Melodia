@@ -216,7 +216,7 @@ fun PlaylistScreen(
         viewModel.toastEvent.collect { com.lin0721.linmusic.core.ui.components.ToastManager.showToast(it) }
     }
     LaunchedEffect(playlistId, isAlbum) {
-        viewModel.loadPlaylist(playlistId, isAlbum)
+        viewModel.loadPlaylistIfNeeded(playlistId, isAlbum)
         if (playlistId == -1L) {
             viewModel.loadHistoryDates()
         }

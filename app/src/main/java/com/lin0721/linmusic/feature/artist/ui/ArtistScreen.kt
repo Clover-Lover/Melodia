@@ -51,7 +51,7 @@ fun ArtistScreen(
         viewModel.toastEvent.collect { com.lin0721.linmusic.core.ui.components.ToastManager.showToast(it) }
     }
     LaunchedEffect(artistId) {
-        viewModel.loadArtistData(artistId)
+        viewModel.loadArtistDataIfNeeded(artistId)
     }
 
     Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {

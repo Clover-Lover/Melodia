@@ -53,7 +53,7 @@ fun PlaylistPage(
     modifier: Modifier = Modifier
 ) {
     LaunchedEffect(playlistId, isAlbum) {
-        viewModel.loadPlaylist(playlistId, isAlbum)
+        viewModel.loadPlaylistIfNeeded(playlistId, isAlbum)
     }
     val uiState by viewModel.uiState.collectAsState()
     val nowPlaying by controller.nowPlaying.collectAsState()

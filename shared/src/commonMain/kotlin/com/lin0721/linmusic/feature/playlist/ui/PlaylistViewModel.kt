@@ -131,7 +131,18 @@ class PlaylistViewModel(
         }
     }
 
+    private var requestedPlaylistId: Long? = null
+
+    // 页面重新进入组合（如从详情页返回）时复用已有数据，仅未加载或失败时才请求
+    fun loadPlaylistIfNeeded(id: Long, isAlbum: Boolean = false) {
+        val state = _uiState.value
+        val inProgressOrLoaded = state is PlaylistUiState.Loading || state is PlaylistUiState.Success
+        if (requestedPlaylistId == id && isAlbumMode == isAlbum && inProgressOrLoaded) return
+        loadPlaylist(id, isAlbum)
+    }
+
     fun loadPlaylist(id: Long, isAlbum: Boolean = false) {
+        requestedPlaylistId = id
         isAlbumMode = isAlbum
         _uiState.value = PlaylistUiState.Loading
         allRecommendedTracks = emptyList()

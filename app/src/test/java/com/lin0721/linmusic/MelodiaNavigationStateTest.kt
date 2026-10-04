@@ -240,4 +240,87 @@ class MelodiaNavigationStateTest {
         assertEquals(com.lin0721.linmusic.feature.home.ui.TAB_ALL, nav.homeTab)
         assertFalse(nav.canGoBackToHomeAll)
     }
+
+    @Test
+    fun `栈里重复出现的同一目标拥有不同的栈帧 id`() = inSnapshot {
+        val nav = MelodiaNavigationState()
+        nav.openArtist(1L)
+        val first = nav.currentEntry
+        nav.openPlaylist(2L, false)
+        nav.openArtist(1L)
+        val second = nav.currentEntry
+
+        assertEquals(first.screen, second.screen)
+        assertTrue(first.id != second.id)
+    }
+
+    @Test
+    fun `出栈后栈帧 id 不再存活，其余仍存活`() = inSnapshot {
+        val nav = MelodiaNavigationState()
+        nav.openArtist(1L)
+        val artistId = nav.currentEntry.id
+        nav.openPlaylist(2L, true)
+        val playlistId = nav.currentEntry.id
+
+        nav.navigateBack()
+
+        assertTrue(artistId in nav.liveEntryIds)
+        assertFalse(playlistId in nav.liveEntryIds)
+    }
+
+    @Test
+    fun `各 tab 的栈帧 id 互不重复`() = inSnapshot {
+        val nav = MelodiaNavigationState()
+        nav.openTab(Screen.Library)
+        nav.openArtist(1L)
+        nav.openTab(Screen.Home)
+
+        val ids = nav.liveEntryIds
+        assertEquals(4, ids.size)
+    }
+
+    @Test
+    fun `快照恢复后保留栈帧 id 且后续分配不重复`() = inSnapshot {
+        val nav = MelodiaNavigationState()
+        nav.openArtist(1L)
+        nav.openPlaylist(2L, false)
+        val before = nav.liveEntryIds
+        val currentId = nav.currentEntry.id
+
+        val snapshot = nav.toSnapshot()
+        val restored = MelodiaNavigationState(
+            initialHomeStack = snapshot.homeStack,
+            initialSearchStack = snapshot.searchStack,
+            initialLibraryStack = snapshot.libraryStack,
+            initialActiveTab = Screen.Home,
+            initialHomeIds = snapshot.homeIds,
+            initialSearchIds = snapshot.searchIds,
+            initialLibraryIds = snapshot.libraryIds,
+            initialNextEntryId = snapshot.nextEntryId
+        )
+
+        assertEquals(before, restored.liveEntryIds)
+        assertEquals(currentId, restored.currentEntry.id)
+        restored.openArtist(9L)
+        assertFalse(restored.currentEntry.id in before)
+    }
+
+    @Test
+    fun `旧版本快照缺少栈帧 id 时重新分配`() = inSnapshot {
+        val legacy = Json { ignoreUnknownKeys = true }.decodeFromString(
+            NavigationSnapshot.serializer(),
+            """{"homeStack":[{"type":"com.lin0721.linmusic.Screen.Home"}],"searchStack":[{"type":"com.lin0721.linmusic.Screen.Search"}],"libraryStack":[{"type":"com.lin0721.linmusic.Screen.Library"}],"activeTabIndex":0,"homeTab":0}"""
+        )
+        val restored = MelodiaNavigationState(
+            initialHomeStack = legacy.homeStack,
+            initialSearchStack = legacy.searchStack,
+            initialLibraryStack = legacy.libraryStack,
+            initialHomeIds = legacy.homeIds,
+            initialSearchIds = legacy.searchIds,
+            initialLibraryIds = legacy.libraryIds,
+            initialNextEntryId = legacy.nextEntryId
+        )
+
+        assertEquals(3, restored.liveEntryIds.size)
+    }
 }
