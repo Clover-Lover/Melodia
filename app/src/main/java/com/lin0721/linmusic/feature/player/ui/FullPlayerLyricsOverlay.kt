@@ -41,7 +41,8 @@ fun FullPlayerLyricsOverlay(
     onPlayPrevious: () -> Unit,
     onToggleShuffle: () -> Unit,
     onToggleRepeat: () -> Unit,
-    onMoreClick: () -> Unit
+    onMoreClick: () -> Unit,
+    onControlsVisibilityChange: (Boolean) -> Unit = {}
 ) {
     var isDragClosed by remember { mutableStateOf(false) }
 
@@ -99,7 +100,8 @@ fun FullPlayerLyricsOverlay(
             playMode = playMode,
             onToggleShuffle = onToggleShuffle,
             onToggleRepeat = onToggleRepeat,
-            onMoreClick = onMoreClick
+            onMoreClick = onMoreClick,
+            onControlsVisibilityChange = onControlsVisibilityChange
         )
     }
 }

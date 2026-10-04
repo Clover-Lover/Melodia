@@ -102,7 +102,8 @@ fun FullPlayerScreen(
     // 铺开过程中两套排版各按最终宽度排一次、交叉淡入淡出；竖屏全屏沿用竖排列表，按比例放宽并居中
     sidebarFullscreenProgress: (() -> Float)? = null,
     fullscreenContentWidth: Dp = Dp.Unspecified,
-    onLyricsFullScreenChange: (Boolean) -> Unit = {}
+    onLyricsFullScreenChange: (Boolean) -> Unit = {},
+    onLyricsControlsVisibilityChange: (Boolean) -> Unit = {}
 ) {
     if (currentTrack == null) return
 
@@ -141,10 +142,14 @@ fun FullPlayerScreen(
 
     LaunchedEffect(isLyricsFullScreen) {
         onLyricsFullScreenChange(isLyricsFullScreen)
+        if (!isLyricsFullScreen) {
+            onLyricsControlsVisibilityChange(true)
+        }
     }
     DisposableEffect(Unit) {
         onDispose {
             onLyricsFullScreenChange(false)
+            onLyricsControlsVisibilityChange(true)
         }
     }
     var showMoreOptionsSheet by remember { mutableStateOf(false) }
@@ -738,6 +743,7 @@ fun FullPlayerScreen(
                 viewModel.seekToTime(timeMs)
             },
             onClose = { isLyricsFullScreen = false },
+            onControlsVisibilityChange = onLyricsControlsVisibilityChange,
             onTogglePlay = onTogglePlay,
             onPlayNext = viewModel.playerManager::playNext,
             onPlayPrevious = viewModel.playerManager::playPrevious,

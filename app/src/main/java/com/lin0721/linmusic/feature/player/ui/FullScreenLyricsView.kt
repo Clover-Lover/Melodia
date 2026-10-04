@@ -77,7 +77,8 @@ fun FullScreenLyricsView(
     playMode: PlayMode,
     onToggleShuffle: () -> Unit,
     onToggleRepeat: () -> Unit,
-    onMoreClick: () -> Unit
+    onMoreClick: () -> Unit,
+    onControlsVisibilityChange: (Boolean) -> Unit = {}
 ) {
     val lazyListState = rememberLazyListState()
     val scope = rememberCoroutineScope()
@@ -134,6 +135,16 @@ fun FullScreenLyricsView(
             areControlsVisible = true
         } else {
             scheduleAutoHide()
+        }
+    }
+
+    LaunchedEffect(areControlsVisible) {
+        onControlsVisibilityChange(areControlsVisible)
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            onControlsVisibilityChange(true)
         }
     }
     val context = LocalContext.current

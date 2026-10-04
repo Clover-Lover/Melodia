@@ -208,6 +208,7 @@ fun MelodiaApp() {
     // mini 栏爱心按钮触发的"收藏到歌单"弹层，非 null 时显示
     var miniCollectSongId by remember { mutableStateOf<Long?>(null) }
     var isLyricsFullScreen by remember { mutableStateOf(false) }
+    var isLyricsControlsVisible by remember { mutableStateOf(true) }
 
     val context = LocalContext.current
     val window = (context as? ComponentActivity)?.window
@@ -215,8 +216,14 @@ fun MelodiaApp() {
         window?.let { WindowCompat.getInsetsController(it, it.decorView) }
     }
 
-    DisposableEffect(isLyricsFullScreen, insetsController) {
-        if (isLyricsFullScreen) {
+    val shouldHideSystemBars = if (windowSizeClass == MelodiaWindowSizeClass.Expanded) {
+        isLyricsFullScreen
+    } else {
+        isLyricsFullScreen && !isLyricsControlsVisible
+    }
+
+    DisposableEffect(shouldHideSystemBars, insetsController) {
+        if (shouldHideSystemBars) {
             insetsController?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
             insetsController?.hide(WindowInsetsCompat.Type.systemBars())
         } else {
@@ -614,7 +621,11 @@ fun MelodiaApp() {
                 }
                 playerSheet.animateTo(false, 0f)
             },
-            onLyricsFullScreenChange = { isLyricsFullScreen = it },
+            onLyricsFullScreenChange = {
+                isLyricsFullScreen = it
+                if (!it) isLyricsControlsVisible = true
+            },
+            onLyricsControlsVisibilityChange = { isLyricsControlsVisible = it },
             modifier = Modifier.zIndex(1f)
         )
 
