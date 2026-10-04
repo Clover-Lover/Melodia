@@ -52,7 +52,7 @@ class SearchRepositoryImpl(
                     val songs = result.songs ?: emptyList()
                     val filtered = contentFilter.filterBlockedArtists(songs) { it.ar.map { a -> a.id } }
                     // 屏蔽过滤后本页为空时强制 hasMore=false，避免翻页死循环
-                    val hasMore = if (filtered.isEmpty()) false else (offset + songs.size < result.songCount)
+                    val hasMore = if (filtered.isEmpty() || songs.isEmpty()) false else (offset + songs.size < result.songCount)
                     SearchPageResult(
                         filtered.map { SearchResultItem.SongItem(it) },
                         result.songCount,
@@ -62,28 +62,31 @@ class SearchRepositoryImpl(
                 }
                 SearchType.ALBUM -> {
                     val albums = result.albums ?: emptyList()
+                    val hasMore = albums.isNotEmpty() && (offset + albums.size < result.albumCount)
                     SearchPageResult(
                         albums.map { SearchResultItem.AlbumItem(it) },
                         result.albumCount,
-                        offset + albums.size < result.albumCount,
+                        hasMore,
                         rawFetchedCount = albums.size
                     )
                 }
                 SearchType.ARTIST -> {
                     val artists = result.artists ?: emptyList()
+                    val hasMore = artists.isNotEmpty() && (offset + artists.size < result.artistCount)
                     SearchPageResult(
                         artists.map { SearchResultItem.ArtistItem(it) },
                         result.artistCount,
-                        offset + artists.size < result.artistCount,
+                        hasMore,
                         rawFetchedCount = artists.size
                     )
                 }
                 SearchType.PLAYLIST -> {
                     val playlists = result.playlists ?: emptyList()
+                    val hasMore = playlists.isNotEmpty() && (offset + playlists.size < result.playlistCount)
                     SearchPageResult(
                         playlists.map { SearchResultItem.PlaylistItem(it) },
                         result.playlistCount,
-                        offset + playlists.size < result.playlistCount,
+                        hasMore,
                         rawFetchedCount = playlists.size
                     )
                 }
@@ -111,6 +114,7 @@ class SearchRepositoryImpl(
 
         val artists = contentFilter.filterBlockedArtists(entityData?.artists.orEmpty()) { listOf(it.id) }
             .filter { it.name.isNotBlank() }
+            .distinctBy { it.id }
             .take(MAX_ARTIST_SUGGESTIONS)
             .map { artist ->
                 SearchSuggestion.ArtistMatch(
@@ -121,6 +125,7 @@ class SearchRepositoryImpl(
             }
         val albums = contentFilter.filterBlockedArtists(entityData?.albums.orEmpty()) { listOfNotNull(it.artist?.id) }
             .filter { it.name.isNotBlank() }
+            .distinctBy { it.id }
             .take(MAX_ALBUM_SUGGESTIONS)
             .map { album ->
                 SearchSuggestion.AlbumMatch(id = album.id, text = album.name, artistName = album.artist?.name.orEmpty())

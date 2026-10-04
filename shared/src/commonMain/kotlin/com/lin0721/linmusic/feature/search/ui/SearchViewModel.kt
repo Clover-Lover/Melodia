@@ -373,9 +373,11 @@ class SearchViewModel(
                 val limit = 30
                 val tracks = provider.search(keyword, offset, limit)
                 val currentList = if (isLoadMore) {
-                    ((stateFlow.value as? ExternalSearchUiState.Success)?.tracks ?: emptyList()) + tracks
+                    val existing = (stateFlow.value as? ExternalSearchUiState.Success)?.tracks.orEmpty()
+                    val existingIds = existing.mapTo(hashSetOf()) { it.id }
+                    existing + tracks.filter { it.id !in existingIds }
                 } else {
-                    tracks
+                    tracks.distinctBy { it.id }
                 }
                 externalOffset[platform] = offset + tracks.size
                 if (currentList.isEmpty()) {
@@ -383,7 +385,7 @@ class SearchViewModel(
                 } else {
                     stateFlow.value = ExternalSearchUiState.Success(
                         tracks = currentList,
-                        hasMore = tracks.size >= limit,
+                        hasMore = tracks.isNotEmpty() && tracks.size >= limit,
                         isLoadingMore = false
                     )
                 }
@@ -481,9 +483,11 @@ class SearchViewModel(
             result.onSuccess { page ->
                 offsetByType[type] = offset + page.rawFetchedCount
                 val currentItems = if (isLoadMore) {
-                    (stateFlow.value as? SearchResultsUiState.Success)?.items.orEmpty() + page.items
+                    val existing = (stateFlow.value as? SearchResultsUiState.Success)?.items.orEmpty()
+                    val existingKeys = existing.mapTo(hashSetOf()) { it.stableKey }
+                    existing + page.items.filter { it.stableKey !in existingKeys }
                 } else {
-                    page.items
+                    page.items.distinctBy { it.stableKey }
                 }
 
                 stateFlow.value = if (currentItems.isEmpty()) {
@@ -492,7 +496,7 @@ class SearchViewModel(
                     SearchResultsUiState.Success(
                         items = currentItems,
                         totalCount = page.totalCount,
-                        hasMore = page.hasMore,
+                        hasMore = page.hasMore && page.items.isNotEmpty(),
                         isLoadingMore = false
                     )
                 }

@@ -7,10 +7,28 @@ import com.lin0721.linmusic.core.model.Track
 
 // 分类型搜索结果条目，按 SearchType 承载对应的共享领域模型，不新建重复模型
 sealed interface SearchResultItem {
-    data class SongItem(val track: Track) : SearchResultItem
-    data class AlbumItem(val album: Album) : SearchResultItem
-    data class ArtistItem(val artist: Artist) : SearchResultItem
-    data class PlaylistItem(val playlist: PlaylistDetail) : SearchResultItem
+    val id: Long
+    val stableKey: String
+
+    data class SongItem(val track: Track) : SearchResultItem {
+        override val id: Long get() = track.id
+        override val stableKey: String get() = "song_${track.id}"
+    }
+
+    data class AlbumItem(val album: Album) : SearchResultItem {
+        override val id: Long get() = album.id
+        override val stableKey: String get() = "album_${album.id}"
+    }
+
+    data class ArtistItem(val artist: Artist) : SearchResultItem {
+        override val id: Long get() = artist.id
+        override val stableKey: String get() = "artist_${artist.id}"
+    }
+
+    data class PlaylistItem(val playlist: PlaylistDetail) : SearchResultItem {
+        override val id: Long get() = playlist.id
+        override val stableKey: String get() = "playlist_${playlist.id}"
+    }
 }
 
 // 单个 SearchType 的分页搜索结果

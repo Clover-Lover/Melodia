@@ -249,14 +249,6 @@ private fun ExternalSearchResultsList(
     }
 }
 
-private val SearchResultItem.stableKey: String
-    get() = when (this) {
-        is SearchResultItem.SongItem -> "song_${track.id}"
-        is SearchResultItem.AlbumItem -> "album_${album.id}"
-        is SearchResultItem.ArtistItem -> "artist_${artist.id}"
-        is SearchResultItem.PlaylistItem -> "playlist_${playlist.id}"
-    }
-
 // 分类型搜索结果列表
 @Composable
 private fun SearchResultsList(
