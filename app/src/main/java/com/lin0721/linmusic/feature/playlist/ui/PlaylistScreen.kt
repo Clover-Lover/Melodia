@@ -765,8 +765,10 @@ fun PlaylistScreen(
 
         if (showMoreMenuSheet && successState != null) {
             val playlist = successState.playlist
+            val moreMenuSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
             ModalBottomSheet(
                 onDismissRequest = { showMoreMenuSheet = false },
+                sheetState = moreMenuSheetState,
                 containerColor = MaterialTheme.colorScheme.background,
                 shape = BottomSheetShape,
                 dragHandle = { MelodiaDragHandle() }
