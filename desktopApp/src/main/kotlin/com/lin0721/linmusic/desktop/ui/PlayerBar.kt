@@ -24,6 +24,7 @@ import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.automirrored.rounded.VolumeDown
 import androidx.compose.material.icons.automirrored.rounded.VolumeOff
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.Fullscreen
@@ -94,6 +95,9 @@ fun PlayerBar(
     val position by controller.currentPosition.collectAsState()
     val duration by controller.duration.collectAsState()
     val songDetail by playerViewModel.songDetailState.collectAsState()
+    val podcast by playerViewModel.podcastState.collectAsState()
+    val collectState by playerViewModel.collectState.collectAsState()
+    var collectSongId by remember { mutableStateOf<Long?>(null) }
     val hasTrack = nowPlaying != null
     val notSupported = { navigator.showMessage(NOT_SUPPORTED_MESSAGE) }
 
@@ -116,21 +120,49 @@ fun PlayerBar(
                     Text(track.title, color = DesktopColors.TextPrimary, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     NowPlayingArtists(track, playerViewModel, 12.sp)
                 }
-                BarIconButton(
-                    icon = if (songDetail.isLiked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
-                    description = if (songDetail.isLiked) "从喜欢的音乐中移除" else "添加到喜欢的音乐",
-                    active = songDetail.isLiked,
-                    size = SideButtonSize, iconSize = SideIconSize,
-                    modifier = Modifier.padding(start = 4.dp),
-                    onClick = {
-                        if (navigator.isLoggedIn) playerViewModel.toggleLike() else navigator.showMessage("请先登录账号")
+                if (podcast.isPodcast) {
+                    // 播客：＋ 弹出选歌单对话框，♡ 直接订阅所属电台
+                    BarIconButton(
+                        icon = Icons.Rounded.Add,
+                        description = "收藏到歌单",
+                        size = SideButtonSize, iconSize = SideIconSize,
+                        modifier = Modifier.padding(start = 4.dp),
+                        onClick = {
+                            val songId = track.songId?.takeIf { it > 0 }
+                            if (!navigator.isLoggedIn) {
+                                navigator.showMessage("请先登录账号")
+                            } else if (songId != null) {
+                                collectSongId = songId
+                                playerViewModel.prepareCollectDialog(songId)
+                            }
+                        }
+                    )
+                    if (podcast.canSubscribe) {
+                        BarIconButton(
+                            icon = if (podcast.subscribed) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                            description = if (podcast.subscribed) "取消订阅电台" else "订阅电台",
+                            active = podcast.subscribed,
+                            size = SideButtonSize, iconSize = SideIconSize,
+                            onClick = playerViewModel::toggleSubscribe
+                        )
                     }
-                )
+                } else {
+                    BarIconButton(
+                        icon = if (songDetail.isLiked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                        description = if (songDetail.isLiked) "从喜欢的音乐中移除" else "添加到喜欢的音乐",
+                        active = songDetail.isLiked,
+                        size = SideButtonSize, iconSize = SideIconSize,
+                        modifier = Modifier.padding(start = 4.dp),
+                        onClick = {
+                            if (navigator.isLoggedIn) playerViewModel.toggleLike() else navigator.showMessage("请先登录账号")
+                        }
+                    )
+                }
             }
         }
         Column(Modifier.weight(0.4f), horizontalAlignment = Alignment.CenterHorizontally) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                BarIconButton(
+                if (!podcast.isPodcast) BarIconButton(
                     Icons.Rounded.Shuffle,
                     "随机播放",
                     enabled = hasTrack,
@@ -153,7 +185,7 @@ fun PlayerBar(
                     }
                 }
                 BarIconButton(Icons.Rounded.SkipNext, "下一首", enabled = hasTrack, onClick = controller::playNext)
-                BarIconButton(
+                if (!podcast.isPodcast) BarIconButton(
                     if (playMode == PlayMode.SINGLE_LOOP) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,
                     "循环模式",
                     enabled = hasTrack,
@@ -165,7 +197,7 @@ fun PlayerBar(
             ProgressRow(position, duration, enabled = hasTrack && duration > 0, onSeek = controller::seekTo)
         }
         Row(Modifier.weight(0.33f), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
-            BarIconButton(
+            if (!podcast.isPodcast) BarIconButton(
                 Icons.Rounded.Lyrics,
                 if (lyricVisible) "关闭桌面歌词" else "开启桌面歌词",
                 active = lyricVisible,
@@ -180,6 +212,22 @@ fun PlayerBar(
             BarIconButton(Icons.Rounded.PictureInPictureAlt, "迷你播放器", size = SideButtonSize, iconSize = SideIconSize, onClick = notSupported)
             BarIconButton(Icons.Rounded.Fullscreen, "全屏", size = SideButtonSize, iconSize = SideIconSize, onClick = notSupported)
         }
+    }
+
+    collectSongId?.let { songId ->
+        CollectToPlaylistDialog(
+            songId = songId,
+            state = collectState,
+            onSave = { items ->
+                playerViewModel.savePlaylistCollection(songId, items)
+                collectSongId = null
+            },
+            onCreate = { name ->
+                playerViewModel.createPlaylistAndAddSong(name, songId)
+                collectSongId = null
+            },
+            onDismiss = { collectSongId = null }
+        )
     }
 }
 

@@ -9,6 +9,10 @@ import com.lin0721.linmusic.feature.create.data.CreateRepository
 import com.lin0721.linmusic.feature.create.data.CreateRepositoryImpl
 import com.lin0721.linmusic.feature.podcast.data.PodcastRepository
 import com.lin0721.linmusic.feature.podcast.data.PodcastRepositoryImpl
+import com.lin0721.linmusic.feature.podcast.ui.PodcastPlayerController
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import com.lin0721.linmusic.feature.music.data.MusicRepository
 import com.lin0721.linmusic.feature.music.data.MusicRepositoryImpl
 import com.lin0721.linmusic.feature.home.data.HomeRepository
@@ -67,6 +71,8 @@ val repositoryModule = module {
     singleOf(::HomeRepositoryImpl) { bind<HomeRepository>() }
     singleOf(::MusicRepositoryImpl) { bind<MusicRepository>() }
     singleOf(::PodcastRepositoryImpl) { bind<PodcastRepository>() }
+    // 播放器里的播客订阅状态，迷你条与全屏播放页共用，随进程存活
+    single { PodcastPlayerController(CoroutineScope(SupervisorJob() + Dispatchers.Main), get(), get(), get(), get()) }
 
     // 搜索数据仓储（feature/search）
     singleOf(::SearchRepositoryImpl) { bind<SearchRepository>() }

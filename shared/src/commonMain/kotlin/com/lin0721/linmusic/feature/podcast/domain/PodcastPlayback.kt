@@ -14,14 +14,16 @@ fun PodcastProgram.toQueueItem(): QueueItem = QueueItem(
     songId = songId,
     title = name,
     artist = podcastSubtitle(radioName, djName),
-    coverUrl = coverUrl
+    coverUrl = coverUrl,
+    radioId = radioId
 )
 
 fun PodcastProgressEntry.toQueueItem(): QueueItem = QueueItem(
     songId = songId,
     title = title,
     artist = subtitle,
-    coverUrl = coverUrl
+    coverUrl = coverUrl,
+    radioId = radioId
 )
 
 // 听完或没有记录从头播，否则从上次进度续播

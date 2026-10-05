@@ -4,6 +4,7 @@ import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material3.Icon
@@ -19,6 +20,7 @@ import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.ui.components.MelodiaIconButton
 import com.lin0721.linmusic.core.ui.theme.InfoCardRadius
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
+import com.lin0721.linmusic.feature.podcast.ui.PodcastPlayerState
 
 // 封面下方的歌名歌手行，右侧带收藏按钮
 @Composable
@@ -27,7 +29,11 @@ fun SongInfo(
     artist: String,
     isLiked: Boolean,
     onToggleLike: () -> Unit,
-    onArtistClick: (() -> Unit)? = null
+    onArtistClick: (() -> Unit)? = null,
+    // 播客节目：♡ 直接订阅所属电台，＋ 弹出选歌单面板
+    podcast: PodcastPlayerState = PodcastPlayerState(),
+    onToggleSubscribe: () -> Unit = {},
+    onCollectClick: () -> Unit = {}
 ) {
     Row(
         modifier = Modifier
@@ -56,7 +62,28 @@ fun SongInfo(
                 modifier = if (onArtistClick != null) Modifier.clickable(onClick = onArtistClick) else Modifier
             )
         }
-        MelodiaIconButton(
+        if (podcast.isPodcast) {
+            Row(modifier = Modifier.offset(x = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                MelodiaIconButton(onClick = onCollectClick) {
+                    Icon(
+                        Icons.Default.Add,
+                        contentDescription = "收藏到歌单",
+                        tint = Color.White,
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
+                if (podcast.canSubscribe) {
+                    MelodiaIconButton(onClick = onToggleSubscribe) {
+                        Icon(
+                            if (podcast.subscribed) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                            contentDescription = if (podcast.subscribed) "取消订阅电台" else "订阅电台",
+                            tint = Color.White,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
+                }
+            }
+        } else MelodiaIconButton(
             onClick = onToggleLike,
             modifier = Modifier.offset(x = 10.dp)
         ) {

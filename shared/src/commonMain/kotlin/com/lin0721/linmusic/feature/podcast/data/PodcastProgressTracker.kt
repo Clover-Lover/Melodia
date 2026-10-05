@@ -41,7 +41,8 @@ class PodcastProgressTracker(
                     coverUrl = it.coverUrl,
                     positionMs = position,
                     durationMs = duration,
-                    isPlaying = playing
+                    isPlaying = playing,
+                    radioId = it.radioId
                 )
             }
         }

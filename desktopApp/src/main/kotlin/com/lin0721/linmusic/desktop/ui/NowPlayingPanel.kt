@@ -82,6 +82,7 @@ fun NowPlayingPanel(
     val track = nowPlaying ?: return
     val detailState by playerViewModel.songDetailState.collectAsState()
     val currentLyricIndex by playerViewModel.currentLyricIndex.collectAsState()
+    val podcast by playerViewModel.podcastState.collectAsState()
 
     val scrollState = rememberScrollState()
     HoverScrollbarBox(scrollState) {
@@ -100,12 +101,14 @@ fun NowPlayingPanel(
                 modifier = Modifier.padding(top = 16.dp)
             )
             NowPlayingArtists(track, playerViewModel, 14.sp)
-            LyricPreviewCard(
-                lines = detailState.lyrics,
-                isLoading = detailState.isLyricsLoading,
-                currentIndex = currentLyricIndex,
-                modifier = Modifier.padding(top = 16.dp)
-            )
+            if (!podcast.isPodcast) {
+                LyricPreviewCard(
+                    lines = detailState.lyrics,
+                    isLoading = detailState.isLyricsLoading,
+                    currentIndex = currentLyricIndex,
+                    modifier = Modifier.padding(top = 16.dp)
+                )
+            }
         }
     }
 }
@@ -142,6 +145,7 @@ private fun PanelHeader(
 ) {
     val playContext by controller.playContext.collectAsState()
     val sleepRemaining by controller.sleepTimerRemaining.collectAsState()
+    val podcast by playerViewModel.podcastState.collectAsState()
     var menuOpen by remember { mutableStateOf(false) }
     val isIntelligence = playContext == CONTEXT_INTELLIGENCE
     val isRoaming = playContext == SimilarRoamingController.CONTEXT_ROAMING
@@ -159,7 +163,11 @@ private fun PanelHeader(
                 )
             }
         }
-        PanelTitle(track, controller, playerViewModel, Modifier.weight(1f))
+        if (podcast.isPodcast) {
+            PodcastPanelTitle(podcast.radioId, podcast.radioName, Modifier.weight(1f))
+        } else {
+            PanelTitle(track, controller, playerViewModel, Modifier.weight(1f))
+        }
         if (sleepActive) {
             Icon(Icons.Rounded.Bedtime, "睡眠定时", tint = DesktopColors.Accent, modifier = Modifier.size(16.dp))
             Text(
@@ -180,7 +188,8 @@ private fun PanelHeader(
                     containerColor = DesktopColors.Surface
                 ) {
                     val songId = track.songId
-                    MenuItem(
+                    // 播客没有心动模式与相似漫游
+                    if (!podcast.isPodcast) MenuItem(
                         Icons.Rounded.Favorite,
                         if (isIntelligence) "退出心动模式" else "心动模式",
                         enabled = isIntelligence || songId != null
@@ -192,7 +201,7 @@ private fun PanelHeader(
                             playerViewModel.startIntelligenceMode(songId, track.title, track.artist, track.artworkUri.orEmpty())
                         }
                     }
-                    MenuItem(
+                    if (!podcast.isPodcast) MenuItem(
                         Icons.Rounded.Radio,
                         if (isRoaming) "退出相似歌曲漫游" else "相似歌曲漫游",
                         enabled = isRoaming || songId != null
@@ -204,7 +213,7 @@ private fun PanelHeader(
                             playerViewModel.startSimilarSongsRoaming(songId, track.title, track.artist, track.artworkUri.orEmpty())
                         }
                     }
-                    HorizontalDivider(color = DesktopColors.SurfaceLight)
+                    if (!podcast.isPodcast) HorizontalDivider(color = DesktopColors.SurfaceLight)
                     Text(
                         if (sleepActive) "睡眠定时（剩余 ${formatCountdown(sleepRemaining)}）" else "睡眠定时",
                         color = DesktopColors.TextGray,
@@ -227,6 +236,25 @@ private fun PanelHeader(
             }
         }
     }
+}
+
+// 播客节目的面板标题：电台名，点击进入电台详情
+@Composable
+private fun PodcastPanelTitle(radioId: Long, radioName: String, modifier: Modifier) {
+    val navigator = LocalDesktopNavigator.current
+    Text(
+        radioName.ifBlank { "播客" },
+        color = DesktopColors.TextPrimary,
+        fontWeight = FontWeight.Bold,
+        fontSize = 15.sp,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = if (radioId > 0) {
+            modifier.clip(RoundedCornerShape(4.dp)).pointerHoverIcon(PointerIcon.Hand).clickable { navigator.openRadio(radioId) }
+        } else {
+            modifier
+        }
+    )
 }
 
 private class TitleTarget(val isAlbum: Boolean, val id: Long, val name: String)

@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AddBox
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LibraryMusic
@@ -74,6 +75,9 @@ import kotlinx.coroutines.delay
 
 //悬浮播放控制卡片
 
+// 迷你条左侧动作：歌曲收藏到歌单、播客订阅电台，无法订阅时隐藏
+enum class MiniPlayerLikeMode { Collect, Subscribe, Hidden }
+
 @Composable
 fun MiniPlayerCard(
     currentTrack: MediaItem?,
@@ -93,6 +97,7 @@ fun MiniPlayerCard(
     onCancelPendingSkip: () -> Boolean = { false },
     isLiked: Boolean = false,
     onLikeClick: () -> Unit = {},
+    likeMode: MiniPlayerLikeMode = MiniPlayerLikeMode.Collect,
     expanded: Boolean = false
 ) {
     if (currentTrack == null) return
@@ -240,14 +245,21 @@ fun MiniPlayerCard(
                 )
 
                 Row(horizontalArrangement = Arrangement.spacedBy((-2).dp)) {
-                    // 收藏到歌单按钮：图标跟着"是否已在我喜欢的音乐里"变化，具体收藏到哪些歌单由弹层里的勾选决定
-                    MelodiaIconButton(onClick = onLikeClick) {
-                        Icon(
-                            imageVector = if (isLiked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
-                            contentDescription = "收藏到歌单",
-                            tint = Color.White,
-                            modifier = Modifier.size(24.dp)
-                        )
+                    // 歌曲：＋ 弹出选歌单面板，已在我喜欢的音乐里时着主色；播客：♡ 直接订阅电台
+                    if (likeMode != MiniPlayerLikeMode.Hidden) {
+                        val subscribe = likeMode == MiniPlayerLikeMode.Subscribe
+                        MelodiaIconButton(onClick = onLikeClick) {
+                            Icon(
+                                imageVector = when {
+                                    !subscribe -> Icons.Default.Add
+                                    isLiked -> Icons.Rounded.Favorite
+                                    else -> Icons.Rounded.FavoriteBorder
+                                },
+                                contentDescription = if (subscribe) "订阅电台" else "收藏到歌单",
+                                tint = if (!subscribe && isLiked) MaterialTheme.colorScheme.primary else Color.White,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
                     }
                     // 播放/暂停按钮
                     MelodiaIconButton(onClick = onTogglePlay, style = MelodiaPress.Transport) {

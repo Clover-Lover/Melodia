@@ -29,7 +29,9 @@ data class PodcastProgressEntry(
     val coverUrl: String,
     val durationMs: Long,
     val positionMs: Long,
-    val updatedAtMs: Long
+    val updatedAtMs: Long,
+    // 所属电台 id，旧记录没有这个字段时为 0
+    val radioId: Long = 0
 ) {
     val isFinished: Boolean
         get() = durationMs > 0 && (
@@ -52,7 +54,8 @@ data class PodcastPlaybackSnapshot(
     val coverUrl: String,
     val positionMs: Long,
     val durationMs: Long,
-    val isPlaying: Boolean
+    val isPlaying: Boolean,
+    val radioId: Long = 0
 )
 
 // 决定何时把进度落盘的纯逻辑，不碰 IO 与时钟，便于测试
@@ -108,7 +111,8 @@ class PodcastProgressRecorder {
             coverUrl = snapshot.coverUrl,
             durationMs = snapshot.durationMs,
             positionMs = snapshot.positionMs,
-            updatedAtMs = nowMs
+            updatedAtMs = nowMs,
+            radioId = snapshot.radioId
         )
     }
 

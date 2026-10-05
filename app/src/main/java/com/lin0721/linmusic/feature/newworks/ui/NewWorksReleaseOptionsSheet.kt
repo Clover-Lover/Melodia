@@ -14,9 +14,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
-import androidx.compose.material.icons.rounded.AddCircleOutline
-import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.FileDownload
+import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -109,7 +109,7 @@ fun NewWorksReleaseOptionsSheet(
             )
 
             OptionRow(
-                if (inLibrary) Icons.Rounded.CheckCircle else Icons.Rounded.AddCircleOutline,
+                if (inLibrary) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
                 if (inLibrary) "从音乐库移除" else "添加到音乐库"
             ) {
                 onDismiss()

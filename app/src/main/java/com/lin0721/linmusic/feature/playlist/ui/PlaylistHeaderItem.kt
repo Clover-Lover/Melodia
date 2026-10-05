@@ -11,8 +11,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Comment
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.MoreVert
@@ -260,8 +260,8 @@ fun PlaylistHeaderItem(
                             if (!isLikedSongsPlaylistView && !isOwnedPlaylist) {
                                 MelodiaIconButton(onClick = onSubscribeClick) {
                                     Icon(
-                                        imageVector = if (isSubscribed) Icons.Default.Check else Icons.Default.Add,
-                                        contentDescription = if (isSubscribed) "已收藏" else "收藏",
+                                        imageVector = if (isSubscribed) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                                        contentDescription = if (isSubscribed) "取消收藏" else "收藏",
                                         tint = if (isSubscribed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                                         modifier = Modifier.size(24.dp)
                                     )

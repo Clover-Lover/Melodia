@@ -57,12 +57,16 @@ class FakePlaybackController : PlaybackController {
     override val currentPosition: StateFlow<Long> = MutableStateFlow(0L)
     override val duration: StateFlow<Long> = MutableStateFlow(0L)
     override val sleepTimerRemaining: StateFlow<Long> = MutableStateFlow(0L)
-    override val playContext: StateFlow<String?> = MutableStateFlow(null)
+    // 测试里直接改写这两个，模拟播放器切歌与切换播放上下文
+    val mutablePlayContext = MutableStateFlow<String?>(null)
+    val mutableQueueItem = MutableStateFlow<QueueItem?>(null)
+
+    override val playContext: StateFlow<String?> = mutablePlayContext
     override val playSource: StateFlow<PlaySource?> = MutableStateFlow(null)
     override val currentIndex: StateFlow<Int> = MutableStateFlow(0)
     override val playMode: StateFlow<PlayMode> = MutableStateFlow(PlayMode.LIST_LOOP)
     override val queue: StateFlow<List<QueueItem>> = MutableStateFlow(emptyList())
-    override val currentQueueItem: StateFlow<QueueItem?> = MutableStateFlow(null)
+    override val currentQueueItem: StateFlow<QueueItem?> = mutableQueueItem
     override val previousQueueItem: StateFlow<QueueItem?> = MutableStateFlow(null)
     override val nextQueueItem: StateFlow<QueueItem?> = MutableStateFlow(null)
 

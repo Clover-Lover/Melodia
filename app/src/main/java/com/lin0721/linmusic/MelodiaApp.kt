@@ -69,6 +69,7 @@ import com.lin0721.linmusic.core.ui.components.ToastManager
 import com.lin0721.linmusic.core.ui.interaction.pressable
 import com.lin0721.linmusic.core.ui.theme.ScreenSlideDurationMs
 import com.lin0721.linmusic.core.ui.components.MiniPlayerCard
+import com.lin0721.linmusic.core.ui.components.MiniPlayerLikeMode
 import com.lin0721.linmusic.feature.recognition.service.PlaybackRecognitionState
 import com.lin0721.linmusic.feature.recognition.ui.RecognitionScreen
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
@@ -138,7 +139,29 @@ fun MelodiaApp() {
     val userProfile by viewModel.userProfile.collectAsStateWithLifecycle()
     val collectState by viewModel.collectState.collectAsStateWithLifecycle()
     val likedSongIds by viewModel.likedSongIds.collectAsStateWithLifecycle()
-    val isMiniPlayerLiked = currentTrack?.mediaId?.toLongOrNull()?.let { it in likedSongIds } ?: false
+    // mini 栏＋按钮触发的"收藏到歌单"弹层，非 null 时显示
+    var miniCollectSongId by remember { mutableStateOf<Long?>(null) }
+    val podcastState by viewModel.podcastState.collectAsStateWithLifecycle()
+    val miniPlayerLikeMode = when {
+        !podcastState.isPodcast -> MiniPlayerLikeMode.Collect
+        podcastState.canSubscribe -> MiniPlayerLikeMode.Subscribe
+        else -> MiniPlayerLikeMode.Hidden
+    }
+    val isMiniPlayerLiked = if (podcastState.isPodcast) {
+        podcastState.subscribed
+    } else {
+        currentTrack?.mediaId?.toLongOrNull()?.let { it in likedSongIds } ?: false
+    }
+    val onMiniPlayerLikeClick: () -> Unit = {
+        if (podcastState.isPodcast) {
+            viewModel.toggleSubscribe()
+        } else {
+            currentTrack?.mediaId?.toLongOrNull()?.let { songId ->
+                miniCollectSongId = songId
+                viewModel.prepareCollectDialog(songId)
+            }
+        }
+    }
 
     val playerSheet = rememberMelodiaPlayerSheetState()
     val navigation = rememberMelodiaNavigationState()
@@ -205,8 +228,6 @@ fun MelodiaApp() {
     // 原始系统栏高度，双卡片模式下两张卡片据此避让；此处在任何 consumeWindowInsets 之外，读到的是完整值
     val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val navigationBarBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-    // mini 栏爱心按钮触发的"收藏到歌单"弹层，非 null 时显示
-    var miniCollectSongId by remember { mutableStateOf<Long?>(null) }
     var isLyricsFullScreen by remember { mutableStateOf(false) }
     var isLyricsControlsVisible by remember { mutableStateOf(true) }
 
@@ -465,13 +486,8 @@ fun MelodiaApp() {
                             onMiniPlayerPrevious = { viewModel.playerManager.skipToPrevious() },
                             onCancelPendingSkip = { viewModel.playerManager.cancelPendingSkip() },
                             isMiniPlayerLiked = isMiniPlayerLiked,
-                            onMiniPlayerLikeClick = {
-                                val songId = currentTrack?.mediaId?.toLongOrNull()
-                                if (songId != null) {
-                                    miniCollectSongId = songId
-                                    viewModel.prepareCollectDialog(songId)
-                                }
-                            },
+                            onMiniPlayerLikeClick = onMiniPlayerLikeClick,
+                            miniPlayerLikeMode = miniPlayerLikeMode,
                             onCreateDismiss = { showCreateSheet = false },
                             onNavigate = { navigation.openTab(it) },
                             onCreateClick = { showCreateSheet = !showCreateSheet },
@@ -668,13 +684,8 @@ fun MelodiaApp() {
                         onPrevious = { viewModel.playerManager.skipToPrevious() },
                         onCancelPendingSkip = { viewModel.playerManager.cancelPendingSkip() },
                         isLiked = isMiniPlayerLiked,
-                        onLikeClick = {
-                            val songId = currentTrack?.mediaId?.toLongOrNull()
-                            if (songId != null) {
-                                miniCollectSongId = songId
-                                viewModel.prepareCollectDialog(songId)
-                            }
-                        },
+                        onLikeClick = onMiniPlayerLikeClick,
+                        likeMode = miniPlayerLikeMode,
                         modifier = modifier
                     )
                 }
