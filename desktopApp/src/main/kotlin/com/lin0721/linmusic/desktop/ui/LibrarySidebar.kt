@@ -633,7 +633,7 @@ internal fun LibraryIconButton(icon: ImageVector, description: String, filled: B
 private fun LoginPrompt(onLoginClick: () -> Unit) {
     Column(
         Modifier.fillMaxWidth().padding(16.dp).clip(RoundedCornerShape(8.dp))
-            .background(DesktopColors.Surface).padding(16.dp)
+            .background(DesktopColors.CardSurface).padding(16.dp)
     ) {
         Text("登录后查看你的歌单", color = DesktopColors.TextPrimary, fontWeight = FontWeight.Bold)
         Spacer(Modifier.padding(top = 4.dp))

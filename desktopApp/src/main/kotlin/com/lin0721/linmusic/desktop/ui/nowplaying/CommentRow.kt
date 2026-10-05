@@ -184,7 +184,7 @@ private fun CommentMenu(
     onReply: () -> Unit,
     onDelete: () -> Unit
 ) {
-    DropdownMenu(expanded = expanded, onDismissRequest = onDismiss, containerColor = DesktopColors.Surface) {
+    DropdownMenu(expanded = expanded, onDismissRequest = onDismiss, containerColor = DesktopColors.PopupSurface) {
         MenuEntry(Icons.Rounded.ContentCopy, "复制") { onDismiss(); onCopy() }
         if (canReply) MenuEntry(Icons.AutoMirrored.Rounded.Reply, "回复") { onDismiss(); onReply() }
         if (canDelete) MenuEntry(Icons.Rounded.Delete, "删除", DesktopColors.Accent) { onDismiss(); onDelete() }

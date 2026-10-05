@@ -366,7 +366,7 @@ private fun ReleaseMenu(
         onDismissRequest = { if (subMenu == SubMenu.None) onDismiss() },
         modifier = Modifier.width(MenuWidth),
         shape = RoundedCornerShape(12.dp),
-        containerColor = DesktopColors.Surface,
+        containerColor = DesktopColors.PopupSurface,
         shadowElevation = 16.dp
     ) {
         MenuEntry(
@@ -390,7 +390,7 @@ private fun ReleaseMenu(
                 modifier = Modifier.width(MenuWidth),
                 offset = DpOffset(MenuWidth - 12.dp, 0.dp),
                 shape = RoundedCornerShape(12.dp),
-                containerColor = DesktopColors.Surface,
+                containerColor = DesktopColors.PopupSurface,
                 shadowElevation = 16.dp
             ) {
                 MenuEntry("新建歌单", Icons.AutoMirrored.Rounded.PlaylistAdd) {
@@ -425,7 +425,7 @@ private fun ReleaseMenu(
                 modifier = Modifier.width(MenuWidth),
                 offset = DpOffset(MenuWidth - 12.dp, 0.dp),
                 shape = RoundedCornerShape(12.dp),
-                containerColor = DesktopColors.Surface,
+                containerColor = DesktopColors.PopupSurface,
                 shadowElevation = 16.dp
             ) {
                 MenuEntry("复制链接", null) {

@@ -275,7 +275,7 @@ fun SettingsPage(modifier: Modifier = Modifier) {
 @Composable
 private fun SettingsCard(title: String, content: @Composable ColumnScope.() -> Unit) {
     Column(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(DesktopColors.Surface).padding(20.dp),
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(DesktopColors.CardSurface).padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Text(title, color = DesktopColors.TextPrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold)
@@ -322,7 +322,7 @@ private fun QualitySelector(current: String, onSelect: (String) -> Unit) {
             Text(QualityOptions.firstOrNull { it.first == current }?.second ?: current, color = DesktopColors.TextPrimary)
             Icon(Icons.Rounded.ArrowDropDown, null, tint = DesktopColors.TextGray)
         }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }, containerColor = DesktopColors.Surface) {
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }, containerColor = DesktopColors.PopupSurface) {
             QualityOptions.forEach { (value, label) ->
                 DropdownMenuItem(
                     text = { Text(label, color = if (value == current) DesktopColors.Accent else DesktopColors.TextPrimary) },

@@ -225,7 +225,7 @@ private fun PanelHeader(
                 DropdownMenu(
                     expanded = menuOpen,
                     onDismissRequest = { menuOpen = false },
-                    containerColor = DesktopColors.Surface
+                    containerColor = DesktopColors.PopupSurface
                 ) {
                     val songId = track.songId
                     // 播客没有心动模式与相似漫游

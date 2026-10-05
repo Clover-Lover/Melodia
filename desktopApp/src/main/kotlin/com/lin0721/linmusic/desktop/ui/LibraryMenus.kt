@@ -116,7 +116,7 @@ private fun LibraryPopupMenu(
         modifier = Modifier.width(menuWidth),
         offset = DpOffset(anchorWidth - menuWidth, MenuGap),
         shape = RoundedCornerShape(12.dp),
-        containerColor = DesktopColors.Surface,
+        containerColor = DesktopColors.PopupSurface,
         shadowElevation = 16.dp,
         content = content
     )
@@ -296,7 +296,7 @@ internal fun CreatePlaylistDialog(onDismiss: () -> Unit, onCreate: (String) -> U
     AlertDialog(
         onDismissRequest = onDismiss,
         shape = AlertDialogDefaults.shape,
-        containerColor = DesktopColors.Surface,
+        containerColor = DesktopColors.PopupSurface,
         title = { Text("新建歌单", color = DesktopColors.TextPrimary) },
         text = {
             Column(Modifier.width(320.dp)) {

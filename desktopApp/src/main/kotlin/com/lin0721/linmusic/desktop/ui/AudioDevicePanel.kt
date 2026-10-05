@@ -92,7 +92,7 @@ fun AudioDevicePanel(
 @Composable
 private fun CurrentDeviceCard(device: AudioDevice) {
     Row(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(DesktopColors.Surface).padding(14.dp),
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(DesktopColors.CardSurface).padding(14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(device.icon(), null, tint = DesktopColors.Accent, modifier = Modifier.size(26.dp))

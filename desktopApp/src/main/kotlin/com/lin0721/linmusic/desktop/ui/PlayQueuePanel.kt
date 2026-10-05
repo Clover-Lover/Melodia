@@ -117,7 +117,7 @@ fun PlayQueuePanel(
         AlertDialog(
             onDismissRequest = { showClearConfirm = false },
             shape = AlertDialogDefaults.shape,
-            containerColor = DesktopColors.Surface,
+            containerColor = DesktopColors.PopupSurface,
             title = { Text("清空播放队列", color = DesktopColors.TextPrimary) },
             text = { Text("确定要清空播放队列吗？当前播放的歌曲会保留。", color = DesktopColors.TextGray, fontSize = 13.sp) },
             confirmButton = {

@@ -199,7 +199,7 @@ private fun TrackMenu(
         expanded = expanded,
         onDismissRequest = onDismiss,
         offset = offset,
-        containerColor = DesktopColors.Surface
+        containerColor = DesktopColors.PopupSurface
     ) {
         TrackMenuItem(Icons.AutoMirrored.Rounded.QueueMusic, "下一首播放") {
             onDismiss()

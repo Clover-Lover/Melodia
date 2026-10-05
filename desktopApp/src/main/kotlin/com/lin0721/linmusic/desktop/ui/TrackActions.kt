@@ -113,7 +113,7 @@ internal fun CollectToPlaylistDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         shape = AlertDialogDefaults.shape,
-        containerColor = DesktopColors.Surface,
+        containerColor = DesktopColors.PopupSurface,
         title = { Text("收藏到歌单", color = DesktopColors.TextPrimary) },
         text = {
             Column(Modifier.width(380.dp)) {

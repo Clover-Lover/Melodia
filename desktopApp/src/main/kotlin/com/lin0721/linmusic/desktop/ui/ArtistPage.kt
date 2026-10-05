@@ -382,7 +382,7 @@ private fun AlbumCard(album: ArtistAlbum, onClick: () -> Unit) {
 private fun AboutSection(briefDesc: String, similar: List<ArtistInfo>, onArtistClick: (ArtistInfo) -> Unit) {
     Column(Modifier.fillMaxWidth().padding(horizontal = ContentPadding, vertical = 8.dp)) {
         Column(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(DesktopColors.Surface).padding(20.dp)
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(DesktopColors.CardSurface).padding(20.dp)
         ) {
             Text("简介", color = DesktopColors.TextPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
             Text(

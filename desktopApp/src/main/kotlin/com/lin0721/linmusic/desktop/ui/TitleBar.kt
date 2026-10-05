@@ -161,7 +161,7 @@ private fun AvatarMenu(
                 Icon(Icons.Rounded.Person, "账户", tint = DesktopColors.TextGray, modifier = Modifier.size(20.dp))
             }
         }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }, containerColor = DesktopColors.Surface) {
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }, containerColor = DesktopColors.PopupSurface) {
             if (userProfile != null) {
                 Text(
                     userProfile.nickname,
@@ -274,7 +274,7 @@ private fun NavArrow(icon: ImageVector, description: String, enabled: Boolean, o
 private fun WindowButton(
     icon: ImageVector,
     description: String,
-    hoverColor: Color = DesktopColors.Surface,
+    hoverColor: Color = DesktopColors.PaneHover,
     onClick: () -> Unit
 ) {
     var hovered by remember { mutableStateOf(false) }

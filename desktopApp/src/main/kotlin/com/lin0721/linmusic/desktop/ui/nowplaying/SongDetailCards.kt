@@ -81,7 +81,7 @@ private fun DetailRowView(row: DetailRow, onClick: (() -> Unit)?) {
                     Modifier
                 }
             )
-            .background(if (onClick != null && hovered) Color.White.copy(alpha = 0.08f) else Color.Transparent)
+            .background(if (onClick != null && hovered) DesktopColors.PaneHover else Color.Transparent)
             .padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -114,7 +114,7 @@ private fun CreatorsDialog(roles: List<SongWikiCreatorRole>, onDismiss: () -> Un
     AlertDialog(
         onDismissRequest = onDismiss,
         shape = AlertDialogDefaults.shape,
-        containerColor = DesktopColors.Surface,
+        containerColor = DesktopColors.PopupSurface,
         title = { Text("制作信息", color = DesktopColors.TextPrimary) },
         text = {
             Column(Modifier.width(320.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
