@@ -5,7 +5,12 @@ import com.lin0721.linmusic.core.preferences.FullPlayerCardSetting
 import com.lin0721.linmusic.feature.player.ui.PlayerSongDetailState
 
 // 已在桌面端实现的卡片；未实现的卡片不参与出现顺序，避免它们的加载状态挡住后面的卡片
-val SupportedInfoCards: Set<FullPlayerCard> = setOf(FullPlayerCard.LYRICS, FullPlayerCard.SONG_DETAIL, FullPlayerCard.MUSIC_MEMORY)
+val SupportedInfoCards: Set<FullPlayerCard> = setOf(
+    FullPlayerCard.LYRICS,
+    FullPlayerCard.SONG_DETAIL,
+    FullPlayerCard.MUSIC_MEMORY,
+    FullPlayerCard.ABOUT_ARTIST
+)
 
 // 按用户配置的顺序与显隐算出当前要展示的卡片：前一张可见卡片还没出结论（在加载中）时，
 // 后面的卡片哪怕数据先到也一律不展示，避免顺序被网络到达时机打乱、插到已展示内容上方
@@ -28,7 +33,7 @@ fun visibleInfoCards(
         )
         FullPlayerCard.ABOUT_ARTIST -> Pair(
             !songState.isArtistDetailLoading,
-            songState.artistDetail != null || songState.artists.any { it.artistDetail != null }
+            validAboutArtists(songState.artists).isNotEmpty()
         )
         FullPlayerCard.ARTIST_ALBUMS -> Pair(!songState.isArtistAlbumsLoading, songState.artistAlbums.isNotEmpty())
         FullPlayerCard.SIMILAR_ARTISTS -> Pair(!songState.isSimilarArtistsLoading, songState.similarArtists.isNotEmpty())

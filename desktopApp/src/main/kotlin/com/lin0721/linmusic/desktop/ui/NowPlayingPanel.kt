@@ -53,6 +53,7 @@ import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.PlaybackController.Companion.CONTEXT_INTELLIGENCE
 import com.lin0721.linmusic.core.player.SimilarRoamingController
 import com.lin0721.linmusic.core.preferences.FullPlayerCard
+import com.lin0721.linmusic.desktop.ui.nowplaying.AboutArtistCard
 import com.lin0721.linmusic.desktop.ui.nowplaying.InfoCardEnter
 import com.lin0721.linmusic.desktop.ui.nowplaying.LyricsCard
 import com.lin0721.linmusic.desktop.ui.nowplaying.MusicMemoryCard
@@ -85,6 +86,7 @@ fun NowPlayingPanel(
     val currentLyricIndex by playerViewModel.currentLyricIndex.collectAsState()
     val podcast by playerViewModel.podcastState.collectAsState()
 
+    val navigator = LocalDesktopNavigator.current
     val cardLayout by playerViewModel.fullPlayerCardLayout.collectAsState()
     val base = rememberCoverBase(track.artworkUri)
     val gradientEndPx = with(LocalDensity.current) { CoverGradientHeight.toPx() }
@@ -117,6 +119,14 @@ fun NowPlayingPanel(
                                 FullPlayerCard.LYRICS -> LyricsCard(detailState.lyrics, currentLyricIndex, base)
                                 FullPlayerCard.SONG_DETAIL -> detailState.songWiki?.let { SongDetailCard(it, detailState.songDetail) }
                                 FullPlayerCard.MUSIC_MEMORY -> detailState.songWiki?.musicMemory?.let { MusicMemoryCard(it) }
+                                FullPlayerCard.ABOUT_ARTIST -> AboutArtistCard(
+                                    artists = detailState.artists,
+                                    selectedIndex = detailState.selectedArtistIndex,
+                                    onSelectArtist = playerViewModel::selectArtist,
+                                    onToggleFollow = { artistId ->
+                                        if (navigator.isLoggedIn) playerViewModel.toggleArtistFollow(artistId) else navigator.showMessage("请先登录账号")
+                                    }
+                                )
                                 else -> Unit
                             }
                         }
