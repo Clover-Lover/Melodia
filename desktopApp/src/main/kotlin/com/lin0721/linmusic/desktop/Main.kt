@@ -20,6 +20,11 @@ import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.type
+import com.lin0721.linmusic.desktop.ui.rememberFullscreenState
 import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.desktop.di.desktopPlatformModule
@@ -158,13 +163,22 @@ fun main() {
             size = DpSize(1280.dp, 800.dp),
             position = WindowPosition(Alignment.Center)
         )
+        val fullscreen = rememberFullscreenState(windowState)
         Window(
             onCloseRequest = closeMainWindow,
             visible = isMainVisible,
             state = windowState,
             title = "Melodia",
             icon = appIcon,
-            undecorated = true
+            undecorated = true,
+            onPreviewKeyEvent = { event ->
+                if (fullscreen.isFullscreen && event.key == Key.Escape && event.type == KeyEventType.KeyDown) {
+                    fullscreen.exit()
+                    true
+                } else {
+                    false
+                }
+            }
         ) {
             LaunchedEffect(Unit) {
                 window.minimumSize = Dimension(960, 600)
@@ -175,9 +189,10 @@ fun main() {
                     window.toFront()
                 }
             }
-            WindowChromeEffect(maximized = windowState.placement == WindowPlacement.Maximized)
+            // 全屏与最大化一样不要圆角和边框线
+            WindowChromeEffect(maximized = windowState.placement != WindowPlacement.Floating)
             MelodiaDesktopTheme {
-                MelodiaDesktopApp(windowState = windowState, onClose = closeMainWindow)
+                MelodiaDesktopApp(windowState = windowState, fullscreen = fullscreen, onClose = closeMainWindow)
             }
         }
 

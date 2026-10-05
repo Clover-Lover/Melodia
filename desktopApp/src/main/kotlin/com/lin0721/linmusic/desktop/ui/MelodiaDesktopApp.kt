@@ -69,7 +69,7 @@ import kotlinx.coroutines.runBlocking
 import org.koin.core.context.GlobalContext
 
 @Composable
-fun WindowScope.MelodiaDesktopApp(windowState: WindowState, onClose: () -> Unit) {
+fun WindowScope.MelodiaDesktopApp(windowState: WindowState, fullscreen: FullscreenState, onClose: () -> Unit) {
     val koin = remember { GlobalContext.get() }
     val homeViewModel = remember { koin.get<HomeViewModel>() }
     val musicViewModel = remember { koin.get<MusicViewModel>() }
@@ -92,6 +92,7 @@ fun WindowScope.MelodiaDesktopApp(windowState: WindowState, onClose: () -> Unit)
     var showNewWorks by rememberSaveable { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val isMaximized = windowState.placement == WindowPlacement.Maximized
+    val isFullscreen = fullscreen.isFullscreen
     val nowPlaying by playbackController.nowPlaying.collectAsState()
     // 初值为关闭：读到已保存的开启状态后，侧栏随动画展开
     val nowPlayingOpen by desktopPreferences.nowPlayingPanelOpen.collectAsState(initial = false)
@@ -196,7 +197,8 @@ fun WindowScope.MelodiaDesktopApp(windowState: WindowState, onClose: () -> Unit)
     CompositionLocalProvider(LocalDesktopNavigator provides navigator) {
         Box(Modifier.fillMaxSize().background(DesktopColors.WindowBackground)) {
             Column(Modifier.fillMaxSize()) {
-                TitleBar(
+                // 全屏时收起自绘标题栏，Esc 或底栏按钮退出
+                if (!isFullscreen) TitleBar(
                     backStack = backStack,
                     isMaximized = isMaximized,
                     userProfile = userProfile,
@@ -425,12 +427,14 @@ fun WindowScope.MelodiaDesktopApp(windowState: WindowState, onClose: () -> Unit)
                     devicesOpen = dockOpen && dockOverlay == DockOverlay.Devices,
                     // 占位播放器没有输出设备能力时不显示按钮
                     onToggleDevices = mpvController?.let { { toggleOverlay(DockOverlay.Devices) } },
+                    isFullscreen = isFullscreen,
+                    onToggleFullscreen = fullscreen::toggle,
                     lyricVisible = showDesktopLyric,
                     onToggleLyric = { scope.launch { settingsPreferences.saveShowDesktopLrc(!showDesktopLyric) } }
                 )
             }
             SnackbarHost(snackbarHostState, Modifier.align(Alignment.BottomCenter).padding(bottom = 96.dp))
-            WindowResizeHandles(enabled = !isMaximized)
+            WindowResizeHandles(enabled = !isMaximized && !isFullscreen)
         }
     }
 
