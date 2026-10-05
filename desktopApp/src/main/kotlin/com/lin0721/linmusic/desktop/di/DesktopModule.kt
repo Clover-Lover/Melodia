@@ -40,6 +40,8 @@ import com.lin0721.linmusic.feature.podcast.ui.PodcastViewModel
 import com.lin0721.linmusic.feature.profile.ui.ProfileViewModel
 import com.lin0721.linmusic.core.source.AudioSourceProvider
 import com.lin0721.linmusic.core.source.SourcePreferences
+import com.lin0721.linmusic.feature.podcast.data.PodcastProgressPreferences
+import com.lin0721.linmusic.feature.podcast.data.PodcastSeenPreferences
 import com.lin0721.linmusic.feature.search.data.SearchHistoryPreferences
 import com.lin0721.linmusic.feature.search.ui.PlaylistCategoryViewModel
 import com.lin0721.linmusic.feature.search.ui.SearchViewModel
@@ -72,6 +74,8 @@ val desktopPlatformModule = module {
     single { SourcePreferences(store(PreferencesStores.SOURCE)) }
     single { SearchHistoryPreferences(store(PreferencesStores.SEARCH_HISTORY)) }
     single { PlaybackPreferences(store(PreferencesStores.PLAYBACK)) }
+    single { PodcastProgressPreferences(store(PreferencesStores.PODCAST)) }
+    single { PodcastSeenPreferences(store(PreferencesStores.PODCAST)) }
     single { DesktopPreferences(store(DesktopPreferences.STORE_NAME)) }
     single { GlobalHotkeys() }
     single { SmtcSession() }

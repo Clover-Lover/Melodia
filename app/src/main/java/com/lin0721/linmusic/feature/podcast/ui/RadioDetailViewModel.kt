@@ -6,6 +6,7 @@ import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.core.network.AppString
 import com.lin0721.linmusic.core.network.ResourceProvider
 import com.lin0721.linmusic.core.network.toUserMessage
+import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.PlayerManager
 import com.lin0721.linmusic.core.player.QueueItem
 import com.lin0721.linmusic.feature.podcast.data.PodcastRepository
@@ -152,6 +153,6 @@ class RadioDetailViewModel(
                 coverUrl = program.coverUrl
             )
         }
-        playerManager.playQueue(queue, index.coerceIn(queue.indices), playContext = "radio_${current.detail.id}")
+        playerManager.playQueue(queue, index.coerceIn(queue.indices), playContext = PlaybackController.CONTEXT_PODCAST)
     }
 }

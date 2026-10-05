@@ -41,6 +41,10 @@ import com.lin0721.linmusic.di.networkModule
 import com.lin0721.linmusic.di.repositoryModule
 import com.lin0721.linmusic.di.sourceModule
 import com.lin0721.linmusic.feature.player.ui.PlayerViewModel
+import com.lin0721.linmusic.feature.podcast.data.PodcastProgressTracker
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
@@ -56,6 +60,8 @@ fun main() {
         modules(desktopPlatformModule, networkModule, repositoryModule, sourceModule, desktopViewModelModule)
     }.koin
     val controller = koin.get<PlaybackController>()
+    // 进程内常驻记录播客收听进度
+    PodcastProgressTracker(controller, koin.get()).start(CoroutineScope(SupervisorJob() + Dispatchers.Default))
     val mpvController = controller as? MpvPlaybackController
     val settingsPreferences = koin.get<SettingsPreferences>()
     val playerViewModel = koin.get<PlayerViewModel>()

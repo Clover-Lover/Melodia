@@ -17,6 +17,8 @@ import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.core.preferences.get
 import com.lin0721.linmusic.core.source.SourcePreferences
 import com.lin0721.linmusic.feature.cloud.upload.CloudUploadManager
+import com.lin0721.linmusic.feature.podcast.data.PodcastProgressPreferences
+import com.lin0721.linmusic.feature.podcast.data.PodcastSeenPreferences
 import com.lin0721.linmusic.feature.search.data.SearchHistoryPreferences
 import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
@@ -31,6 +33,8 @@ val localModule = module {
     single<NetworkStateProvider> { AndroidNetworkStateProvider(androidContext()) }
     single<LibraryPreferences> { AndroidLibraryPreferences(androidContext()) }
     single { SearchHistoryPreferences(PreferencesStores.get(androidContext(), PreferencesStores.SEARCH_HISTORY)) }
+    single { PodcastProgressPreferences(PreferencesStores.get(androidContext(), PreferencesStores.PODCAST)) }
+    single { PodcastSeenPreferences(PreferencesStores.get(androidContext(), PreferencesStores.PODCAST)) }
     single<XeapiKeyStore> { XeapiKeyStoreImpl(PreferencesStores.get(androidContext(), PreferencesStores.XEAPI_KEY)) }
     single { DownloadPreferences(androidContext()) }
     // 云盘上传队列状态源，依赖 Android Uri，留在应用层

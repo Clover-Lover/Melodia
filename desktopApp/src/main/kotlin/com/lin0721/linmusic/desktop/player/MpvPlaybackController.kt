@@ -164,7 +164,13 @@ class MpvPlaybackController(
         _duration.value = lastTrack.durationMs
     }
 
-    override fun playQueue(items: List<QueueItem>, startIndex: Int, playContext: String?, source: PlaySource?) {
+    override fun playQueue(
+        items: List<QueueItem>,
+        startIndex: Int,
+        playContext: String?,
+        source: PlaySource?,
+        startPositionMs: Long
+    ) {
         if (items.isEmpty()) return
 
         if (playContext == SimilarRoamingController.CONTEXT_ROAMING) {
@@ -189,7 +195,7 @@ class MpvPlaybackController(
             roaming.prefetchOnPlay(target.songId, index)
             return
         }
-        playIndex(index)
+        playIndex(index, startPositionMs.coerceAtLeast(0L))
     }
 
     override fun playAudio(

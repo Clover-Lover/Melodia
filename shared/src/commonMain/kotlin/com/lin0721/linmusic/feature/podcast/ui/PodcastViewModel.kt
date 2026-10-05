@@ -134,6 +134,6 @@ class PodcastViewModel(
                 coverUrl = program.coverUrl
             )
         }
-        playbackController.playQueue(queue, index.coerceIn(queue.indices), playContext = "podcast")
+        playbackController.playQueue(queue, index.coerceIn(queue.indices), playContext = PlaybackController.CONTEXT_PODCAST)
     }
 }

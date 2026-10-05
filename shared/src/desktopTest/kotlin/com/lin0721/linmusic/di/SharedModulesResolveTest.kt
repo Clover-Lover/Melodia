@@ -34,6 +34,8 @@ import com.lin0721.linmusic.feature.playlist.domain.UpdatePlaylistCoverUseCase
 import com.lin0721.linmusic.feature.podcast.data.PodcastRepositoryImpl
 import com.lin0721.linmusic.feature.profile.data.ProfileRepositoryImpl
 import com.lin0721.linmusic.feature.recent.data.RecentRepositoryImpl
+import com.lin0721.linmusic.feature.podcast.data.PodcastProgressPreferences
+import com.lin0721.linmusic.feature.podcast.data.PodcastSeenPreferences
 import com.lin0721.linmusic.feature.search.data.SearchHistoryPreferences
 import com.lin0721.linmusic.feature.search.data.SearchRepositoryImpl
 import com.lin0721.linmusic.feature.settings.data.SettingsRepositoryImpl
@@ -56,6 +58,8 @@ class SharedModulesResolveTest {
             single { SettingsPreferences(store(PreferencesStores.SETTINGS)) }
             single { PlaybackPreferences(store(PreferencesStores.PLAYBACK)) }
             single { SearchHistoryPreferences(store(PreferencesStores.SEARCH_HISTORY)) }
+            single { PodcastProgressPreferences(store(PreferencesStores.PODCAST)) }
+            single { PodcastSeenPreferences(store(PreferencesStores.PODCAST)) }
             single<XeapiKeyStore> { XeapiKeyStoreImpl(store(PreferencesStores.XEAPI_KEY)) }
             single { ContentFilter(get()) }
             single { ResourceProvider() }
@@ -73,6 +77,7 @@ class SharedModulesResolveTest {
                 SettingsRepositoryImpl::class, CreateRepositoryImpl::class, CreatePlaylistAndAddSongUseCase::class,
                 UpdatePlaylistCoverUseCase::class, SongCollectDelegate::class, SyncProfileAfterLoginUseCase::class,
                 LoadLikedSongIdsUseCase::class, PlaylistMutationBus::class, ProfileRepositoryImpl::class,
+                PodcastProgressPreferences::class, PodcastSeenPreferences::class,
             ).forEach { assertNotNull(it.simpleName, koin.get<Any>(it)) }
         } finally {
             koin.close()

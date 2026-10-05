@@ -285,7 +285,13 @@ class PlayerManager(
     }
 
     // 设置队列并从指定位置开始播放
-    override fun playQueue(items: List<QueueItem>, startIndex: Int, playContext: String?, source: PlaySource?) {
+    override fun playQueue(
+        items: List<QueueItem>,
+        startIndex: Int,
+        playContext: String?,
+        source: PlaySource?,
+        startPositionMs: Long
+    ) {
         if (items.isEmpty()) return
 
         if (playContext == SimilarRoamingController.CONTEXT_ROAMING) {
@@ -315,7 +321,7 @@ class PlayerManager(
             return
         }
 
-        fetchUrlAndPlay(currentIndex)
+        fetchUrlAndPlay(currentIndex, startPositionMs.coerceAtLeast(0L))
     }
 
     // 单曲播放（向后兼容，创建 1 项队列）
