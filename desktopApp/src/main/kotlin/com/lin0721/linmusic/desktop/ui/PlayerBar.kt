@@ -26,6 +26,7 @@ import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.Fullscreen
+import androidx.compose.material.icons.rounded.FullscreenExit
 import androidx.compose.material.icons.rounded.PictureInPictureAlt
 import androidx.compose.material.icons.rounded.Repeat
 import androidx.compose.material.icons.rounded.RepeatOne
@@ -36,17 +37,21 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -68,7 +73,7 @@ private val SideButtonSize = 32.dp
 
 // 右侧与红心按钮的图标比切歌按钮的字形占格更满，缩小图标才能看起来一样大
 private val SideIconSize = 20.dp
-private val VolumeSliderWidth = 88.dp
+private val VolumeSliderWidth = 120.dp
 private const val NOT_SUPPORTED_MESSAGE = "暂未支持"
 
 @Composable
@@ -83,6 +88,8 @@ fun PlayerBar(
     onToggleQueue: () -> Unit,
     devicesOpen: Boolean,
     onToggleDevices: (() -> Unit)?,
+    isFullscreen: Boolean,
+    onToggleFullscreen: () -> Unit,
     lyricVisible: Boolean,
     onToggleLyric: () -> Unit,
     modifier: Modifier = Modifier
@@ -205,38 +212,80 @@ fun PlayerBar(
             // 占位播放器没有音量能力时不显示
             if (volume != null) VolumeControl(volume, onVolumeChange)
             BarIconButton(Icons.Rounded.PictureInPictureAlt, "迷你播放器", size = SideButtonSize, iconSize = SideIconSize, onClick = notSupported)
-            BarIconButton(Icons.Rounded.Fullscreen, "全屏", size = SideButtonSize, iconSize = SideIconSize, onClick = notSupported)
+            BarIconButton(
+                if (isFullscreen) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen,
+                if (isFullscreen) "退出全屏" else "全屏",
+                size = SideButtonSize, iconSize = SideIconSize,
+                onClick = onToggleFullscreen
+            )
         }
     }
 }
 
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 private fun VolumeControl(volume: Int, onVolumeChange: (Int) -> Unit) {
     // 静音前的音量，再点一次恢复
     var lastAudible by remember { mutableStateOf(if (volume > 0) volume else 100) }
-    BarIconButton(
-        icon = when {
-            volume == 0 -> Icons.AutoMirrored.Rounded.VolumeOff
-            volume < 50 -> Icons.AutoMirrored.Rounded.VolumeDown
-            else -> Icons.AutoMirrored.Rounded.VolumeUp
-        },
-        description = if (volume == 0) "取消静音" else "静音",
-        size = SideButtonSize, iconSize = SideIconSize,
-        onClick = {
-            if (volume > 0) {
-                lastAudible = volume
-                onVolumeChange(0)
-            } else {
-                onVolumeChange(lastAudible)
+    var scrollDeltaAccumulator by remember { mutableStateOf(0f) }
+
+    LaunchedEffect(volume) {
+        if (volume > 0) {
+            lastAudible = volume
+        }
+    }
+
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.onPointerEvent(PointerEventType.Scroll) { event ->
+            val deltaY = event.changes.firstOrNull()?.scrollDelta?.y ?: return@onPointerEvent
+            if (deltaY == 0f) return@onPointerEvent
+            event.changes.forEach { it.consume() }
+
+            scrollDeltaAccumulator += deltaY
+            val steps = scrollDeltaAccumulator.toInt()
+            if (steps != 0) {
+                scrollDeltaAccumulator -= steps
+                val newVolume = if (steps < 0) {
+                    if (volume == 0) {
+                        val base = if (lastAudible > 0) lastAudible else 0
+                        (base + (-steps - 1) * 5 + if (base == 0) 5 else 0).coerceIn(0, 100)
+                    } else {
+                        (volume - steps * 5).coerceIn(0, 100)
+                    }
+                } else {
+                    (volume - steps * 5).coerceIn(0, 100)
+                }
+                if (newVolume != volume) {
+                    onVolumeChange(newVolume)
+                }
             }
         }
-    )
-    PlayerSlider(
-        value = volume / 100f,
-        onValueChange = { onVolumeChange((it * 100).roundToInt()) },
-        modifier = Modifier.width(VolumeSliderWidth),
-        previewLabel = { "${(it * 100).roundToInt()}%" }
-    )
+    ) {
+        BarIconButton(
+            icon = when {
+                volume == 0 -> Icons.AutoMirrored.Rounded.VolumeOff
+                volume < 50 -> Icons.AutoMirrored.Rounded.VolumeDown
+                else -> Icons.AutoMirrored.Rounded.VolumeUp
+            },
+            description = if (volume == 0) "取消静音" else "静音",
+            size = SideButtonSize, iconSize = SideIconSize,
+            onClick = {
+                if (volume > 0) {
+                    lastAudible = volume
+                    onVolumeChange(0)
+                } else {
+                    onVolumeChange(lastAudible)
+                }
+            }
+        )
+        PlayerSlider(
+            value = volume / 100f,
+            onValueChange = { onVolumeChange((it * 100).roundToInt()) },
+            modifier = Modifier.width(VolumeSliderWidth),
+            previewLabel = { "${(it * 100).roundToInt()}%" }
+        )
+    }
 }
 
 @Composable
