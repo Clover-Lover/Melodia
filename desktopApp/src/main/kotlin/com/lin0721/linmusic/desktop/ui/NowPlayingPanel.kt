@@ -55,6 +55,8 @@ import com.lin0721.linmusic.core.player.SimilarRoamingController
 import com.lin0721.linmusic.core.preferences.FullPlayerCard
 import com.lin0721.linmusic.desktop.ui.nowplaying.InfoCardEnter
 import com.lin0721.linmusic.desktop.ui.nowplaying.LyricsCard
+import com.lin0721.linmusic.desktop.ui.nowplaying.MusicMemoryCard
+import com.lin0721.linmusic.desktop.ui.nowplaying.SongDetailCard
 import com.lin0721.linmusic.desktop.ui.nowplaying.rememberCoverBase
 import com.lin0721.linmusic.desktop.ui.nowplaying.smoothVerticalGradient
 import com.lin0721.linmusic.desktop.ui.nowplaying.visibleInfoCards
@@ -113,6 +115,8 @@ fun NowPlayingPanel(
                         InfoCardEnter(Modifier.padding(top = 16.dp)) {
                             when (card) {
                                 FullPlayerCard.LYRICS -> LyricsCard(detailState.lyrics, currentLyricIndex, base)
+                                FullPlayerCard.SONG_DETAIL -> detailState.songWiki?.let { SongDetailCard(it, detailState.songDetail) }
+                                FullPlayerCard.MUSIC_MEMORY -> detailState.songWiki?.musicMemory?.let { MusicMemoryCard(it) }
                                 else -> Unit
                             }
                         }
