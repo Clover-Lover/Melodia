@@ -1,9 +1,12 @@
 package com.lin0721.linmusic.desktop.ui
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.TooltipArea
 import androidx.compose.foundation.background
@@ -44,6 +47,12 @@ import kotlinx.coroutines.delay
 
 private const val PEEK_DELAY_MS = 120L
 private const val TOOLTIP_DELAY_MS = 400
+private const val OVERLAY_FADE_MS = 150
+
+// 覆盖在“正在播放”之上的面板，关闭后露出下层的正在播放页
+enum class DockOverlay {
+    Queue
+}
 
 // 侧栏宽度状态：width 随动画变化；稳定宽度不含悬停预览，内容区据此排版
 @Stable
@@ -84,6 +93,26 @@ fun rememberNowPlayingDockState(hasTrack: Boolean, open: Boolean, openWidth: Dp,
     return NowPlayingDockState(width, settled, openWidth, peeking)
 }
 
+// 独立成函数以脱离外层 RowScope，否则 AnimatedVisibility 会解析到被 DSL 作用域屏蔽的扩展版本
+@Composable
+private fun QueueOverlay(visible: Boolean, controller: PlaybackController, onClose: () -> Unit) {
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn(tween(OVERLAY_FADE_MS)),
+        exit = fadeOut(tween(OVERLAY_FADE_MS))
+    ) {
+        PlayQueuePanel(
+            controller = controller,
+            onClose = onClose,
+            // 不透明底并吞掉点击，避免操作穿透到下层的正在播放页
+            modifier = Modifier.background(DesktopColors.Pane).clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null
+            ) {}
+        )
+    }
+}
+
 // 右侧“正在播放”栏：无曲目时不存在，关闭后收成右边缘的窄条，悬停预览、点击展开。
 // 三种宽度由同一个元素过渡，面板内容始终按完整宽度排版并被裁剪
 @OptIn(ExperimentalFoundationApi::class)
@@ -92,6 +121,8 @@ fun NowPlayingDock(
     state: NowPlayingDockState,
     hasTrack: Boolean,
     open: Boolean,
+    overlay: DockOverlay?,
+    onCloseOverlay: () -> Unit,
     onOpenChange: (Boolean) -> Unit,
     controller: PlaybackController,
     playerViewModel: PlayerViewModel,
@@ -154,6 +185,11 @@ fun NowPlayingDock(
                         playerViewModel = playerViewModel,
                         hovered = hovered && !collapsed,
                         onClose = { onOpenChange(false) }
+                    )
+                    QueueOverlay(
+                        visible = open && overlay == DockOverlay.Queue,
+                        controller = controller,
+                        onClose = onCloseOverlay
                     )
                 }
                 if (collapsed) {

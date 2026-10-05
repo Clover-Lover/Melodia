@@ -83,6 +83,8 @@ fun PlayerBar(
     onVolumeChange: (Int) -> Unit,
     nowPlayingOpen: Boolean,
     onToggleNowPlaying: () -> Unit,
+    queueOpen: Boolean,
+    onToggleQueue: () -> Unit,
     lyricVisible: Boolean,
     onToggleLyric: () -> Unit,
     modifier: Modifier = Modifier
@@ -188,7 +190,15 @@ fun PlayerBar(
                 size = SideButtonSize, iconSize = SideIconSize,
                 onClick = onToggleLyric
             )
-            BarIconButton(Icons.AutoMirrored.Rounded.QueueMusic, "播放队列", size = SideButtonSize, iconSize = SideIconSize, onClick = notSupported)
+            BarIconButton(
+                Icons.AutoMirrored.Rounded.QueueMusic,
+                "播放队列",
+                enabled = hasTrack,
+                active = queueOpen,
+                showDot = true,
+                size = SideButtonSize, iconSize = SideIconSize,
+                onClick = onToggleQueue
+            )
             BarIconButton(Icons.Rounded.SpeakerGroup, "连接设备", size = SideButtonSize, iconSize = SideIconSize, onClick = notSupported)
             // 占位播放器没有音量能力时不显示
             if (volume != null) VolumeControl(volume, onVolumeChange)

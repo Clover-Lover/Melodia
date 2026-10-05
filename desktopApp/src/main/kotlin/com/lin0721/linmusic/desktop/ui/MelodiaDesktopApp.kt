@@ -127,6 +127,18 @@ fun WindowScope.MelodiaDesktopApp(windowState: WindowState, onClose: () -> Unit)
     val setDockOpen: (Boolean) -> Unit = { open ->
         if (isLibraryExpanded) expandedDockOpen = open else setNowPlayingOpen(open)
     }
+    var dockOverlay by remember { mutableStateOf<DockOverlay?>(null) }
+    // 右侧栏收起后覆盖面板一并撤掉，下次展开回到正在播放页
+    LaunchedEffect(dockOpen) { if (!dockOpen) dockOverlay = null }
+    // 覆盖面板已显示则关掉它；否则展开右侧栏并把面板盖上去
+    val toggleOverlay: (DockOverlay) -> Unit = { target ->
+        if (dockOpen && dockOverlay == target) {
+            dockOverlay = null
+        } else {
+            dockOverlay = target
+            setDockOpen(true)
+        }
+    }
     val searchInput by searchViewModel.inputState.collectAsState()
     val discovery by searchViewModel.discoveryState.collectAsState()
     val defaultKeyword = (discovery as? DiscoveryUiState.Success)?.defaultKeyword.orEmpty()
@@ -368,6 +380,8 @@ fun WindowScope.MelodiaDesktopApp(windowState: WindowState, onClose: () -> Unit)
                                 state = dockState,
                                 hasTrack = nowPlaying != null,
                                 open = dockOpen,
+                                overlay = dockOverlay,
+                                onCloseOverlay = { dockOverlay = null },
                                 onOpenChange = setDockOpen,
                                 controller = playbackController,
                                 playerViewModel = playerViewModel,
@@ -399,8 +413,13 @@ fun WindowScope.MelodiaDesktopApp(windowState: WindowState, onClose: () -> Unit)
                     playerViewModel = playerViewModel,
                     volume = volume,
                     onVolumeChange = { mpvController?.setVolume(it) },
-                    nowPlayingOpen = dockOpen,
-                    onToggleNowPlaying = { setDockOpen(!dockOpen) },
+                    nowPlayingOpen = dockOpen && dockOverlay == null,
+                    // 盖着覆盖面板时点封面是撤掉面板露出正在播放页，而不是收起右侧栏
+                    onToggleNowPlaying = {
+                        if (dockOpen && dockOverlay != null) dockOverlay = null else setDockOpen(!dockOpen)
+                    },
+                    queueOpen = dockOpen && dockOverlay == DockOverlay.Queue,
+                    onToggleQueue = { toggleOverlay(DockOverlay.Queue) },
                     lyricVisible = showDesktopLyric,
                     onToggleLyric = { scope.launch { settingsPreferences.saveShowDesktopLrc(!showDesktopLyric) } }
                 )
