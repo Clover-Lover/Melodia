@@ -59,9 +59,10 @@ private const val TAG = "DesktopModule"
 private fun createPlaybackController(
     repository: PlaybackRepository,
     settingsPreferences: SettingsPreferences,
-    playbackPreferences: PlaybackPreferences
+    playbackPreferences: PlaybackPreferences,
+    desktopPreferences: DesktopPreferences
 ): PlaybackController = try {
-    MpvPlaybackController(repository, settingsPreferences, playbackPreferences, CoroutineScope(SupervisorJob() + Dispatchers.Main))
+    MpvPlaybackController(repository, settingsPreferences, playbackPreferences, desktopPreferences, CoroutineScope(SupervisorJob() + Dispatchers.Main))
 } catch (e: LinkageError) {
     AppLogger.e(TAG, "libmpv 加载失败，播放不可用", e)
     SilentPlaybackController()
@@ -90,7 +91,7 @@ val desktopPlatformModule = module {
     single<NetworkStateProvider> { NetworkStateProvider { true } }
     single<LibraryPreferences> { DesktopLibraryPreferences() }
     single<SongDownloader> { UnsupportedSongDownloader() }
-    single<PlaybackController> { createPlaybackController(get(), get(), get()) }
+    single<PlaybackController> { createPlaybackController(get(), get(), get(), get()) }
     // 桌面第一版没有本地音乐，只取在线歌词
     single { LyricsResolver(get(), readLocalLyrics = { null }, localUriOf = { null }) }
 }

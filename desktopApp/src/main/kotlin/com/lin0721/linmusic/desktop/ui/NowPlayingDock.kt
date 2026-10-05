@@ -38,6 +38,7 @@ import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.lin0721.linmusic.core.player.PlaybackController
+import com.lin0721.linmusic.desktop.player.AudioOutputControl
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.desktop.ui.theme.DesktopDimens
 import com.lin0721.linmusic.feature.player.ui.PlayerViewModel
@@ -48,7 +49,8 @@ private const val OVERLAY_FADE_MS = 150
 
 // 覆盖在“正在播放”之上的面板，关闭后露出下层的正在播放页
 enum class DockOverlay {
-    Queue
+    Queue,
+    Devices
 }
 
 // 侧栏宽度状态：width 随动画变化；稳定宽度不含悬停预览，内容区据此排版
@@ -90,19 +92,17 @@ fun rememberNowPlayingDockState(hasTrack: Boolean, open: Boolean, openWidth: Dp,
     return NowPlayingDockState(width, settled, openWidth, peeking)
 }
 
-// 独立成函数以脱离外层 RowScope，否则 AnimatedVisibility 会解析到被 DSL 作用域屏蔽的扩展版本
+// 独立成函数以脱离外层 RowScope，否则 AnimatedVisibility 会解析到被 DSL 作用域屏蔽的扩展版本；
+// 不透明底并吞掉点击，避免操作穿透到下层的正在播放页
 @Composable
-private fun QueueOverlay(visible: Boolean, controller: PlaybackController, onClose: () -> Unit) {
+private fun OverlayLayer(visible: Boolean, content: @Composable (Modifier) -> Unit) {
     AnimatedVisibility(
         visible = visible,
         enter = fadeIn(tween(OVERLAY_FADE_MS)),
         exit = fadeOut(tween(OVERLAY_FADE_MS))
     ) {
-        PlayQueuePanel(
-            controller = controller,
-            onClose = onClose,
-            // 不透明底并吞掉点击，避免操作穿透到下层的正在播放页
-            modifier = Modifier.background(DesktopColors.Pane).clickable(
+        content(
+            Modifier.background(DesktopColors.Pane).clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null
             ) {}
@@ -118,6 +118,7 @@ fun NowPlayingDock(
     hasTrack: Boolean,
     open: Boolean,
     overlay: DockOverlay?,
+    audioOutput: AudioOutputControl?,
     onCloseOverlay: () -> Unit,
     onOpenChange: (Boolean) -> Unit,
     controller: PlaybackController,
@@ -182,11 +183,14 @@ fun NowPlayingDock(
                         hovered = hovered && !collapsed,
                         onClose = { onOpenChange(false) }
                     )
-                    QueueOverlay(
-                        visible = open && overlay == DockOverlay.Queue,
-                        controller = controller,
-                        onClose = onCloseOverlay
-                    )
+                    OverlayLayer(visible = open && overlay == DockOverlay.Queue) { modifier ->
+                        PlayQueuePanel(controller = controller, onClose = onCloseOverlay, modifier = modifier)
+                    }
+                    if (audioOutput != null) {
+                        OverlayLayer(visible = open && overlay == DockOverlay.Devices) { modifier ->
+                            AudioDevicePanel(control = audioOutput, onClose = onCloseOverlay, modifier = modifier)
+                        }
+                    }
                 }
                 if (collapsed) {
                     // 收起与预览态下面板内容不响应点击，整块都是展开入口

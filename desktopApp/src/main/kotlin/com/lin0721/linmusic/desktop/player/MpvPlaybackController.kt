@@ -8,6 +8,7 @@ import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.PlaybackController.Companion.CONTEXT_INTELLIGENCE
 import com.lin0721.linmusic.core.player.PlaybackPreferences
 import com.lin0721.linmusic.core.player.PlaybackQueue
+import com.lin0721.linmusic.desktop.platform.DesktopPreferences
 import com.lin0721.linmusic.core.player.PlaybackState
 import com.lin0721.linmusic.core.player.PlaybackStateStore
 import com.lin0721.linmusic.core.player.QueueItem
@@ -56,8 +57,9 @@ class MpvPlaybackController(
     private val repository: PlaybackRepository,
     settingsPreferences: SettingsPreferences,
     private val preferences: PlaybackPreferences,
+    private val desktopPreferences: DesktopPreferences,
     private val scope: CoroutineScope
-) : PlaybackController, MpvEngine.Listener {
+) : PlaybackController, AudioOutputControl, MpvEngine.Listener {
 
     private val playbackQueue = PlaybackQueue()
     private val stateStore = PlaybackStateStore(scope, preferences)
@@ -101,6 +103,12 @@ class MpvPlaybackController(
     private val _volume = MutableStateFlow(100)
     val volume: StateFlow<Int> = _volume.asStateFlow()
 
+    private val _audioDevices = MutableStateFlow<List<AudioDevice>>(emptyList())
+    override val audioDevices: StateFlow<List<AudioDevice>> = _audioDevices.asStateFlow()
+
+    private val _audioDevice = MutableStateFlow(AUTO_AUDIO_DEVICE)
+    override val audioDevice: StateFlow<String> = _audioDevice.asStateFlow()
+
     // 桌面端专用提示（取地址失败等），由界面层弹出
     private val _messages = MutableSharedFlow<String>(extraBufferCapacity = 8)
     val messages: SharedFlow<String> = _messages.asSharedFlow()
@@ -129,6 +137,37 @@ class MpvPlaybackController(
                 onTick()
             }
         }
+        scope.launch { restoreAudioDevice() }
+    }
+
+    // 保存的设备已不在系统列表里时保持跟随系统默认，偏好不清除，设备插回后下次启动仍可用
+    private suspend fun restoreAudioDevice() {
+        val saved = desktopPreferences.audioDevice.first()
+        _audioDevices.value = engine.audioDevices()
+        if (saved == AUTO_AUDIO_DEVICE || _audioDevices.value.none { it.name == saved }) return
+        if (engine.setAudioDevice(saved)) _audioDevice.value = saved
+    }
+
+    override fun refreshAudioDevices() {
+        val devices = engine.audioDevices()
+        // 读取失败时返回空列表，不据此判断设备已断开
+        if (devices.isEmpty()) return
+        _audioDevices.value = devices
+        val current = _audioDevice.value
+        if (current != AUTO_AUDIO_DEVICE && devices.none { it.name == current } && engine.setAudioDevice(AUTO_AUDIO_DEVICE)) {
+            _audioDevice.value = AUTO_AUDIO_DEVICE
+            _messages.tryEmit("输出设备已断开，已切回系统默认")
+        }
+    }
+
+    override fun setAudioDevice(name: String) {
+        if (name == _audioDevice.value) return
+        if (!engine.setAudioDevice(name)) {
+            _messages.tryEmit("切换输出设备失败")
+            return
+        }
+        _audioDevice.value = name
+        scope.launch { desktopPreferences.saveAudioDevice(name) }
     }
 
     // 恢复上次退出时的队列、播放模式与曲目进度，恢复后保持暂停

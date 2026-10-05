@@ -381,6 +381,7 @@ fun WindowScope.MelodiaDesktopApp(windowState: WindowState, onClose: () -> Unit)
                                 hasTrack = nowPlaying != null,
                                 open = dockOpen,
                                 overlay = dockOverlay,
+                                audioOutput = mpvController,
                                 onCloseOverlay = { dockOverlay = null },
                                 onOpenChange = setDockOpen,
                                 controller = playbackController,
@@ -420,6 +421,9 @@ fun WindowScope.MelodiaDesktopApp(windowState: WindowState, onClose: () -> Unit)
                     },
                     queueOpen = dockOpen && dockOverlay == DockOverlay.Queue,
                     onToggleQueue = { toggleOverlay(DockOverlay.Queue) },
+                    devicesOpen = dockOpen && dockOverlay == DockOverlay.Devices,
+                    // 占位播放器没有输出设备能力时不显示按钮
+                    onToggleDevices = mpvController?.let { { toggleOverlay(DockOverlay.Devices) } },
                     lyricVisible = showDesktopLyric,
                     onToggleLyric = { scope.launch { settingsPreferences.saveShowDesktopLrc(!showDesktopLyric) } }
                 )

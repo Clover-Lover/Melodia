@@ -1,6 +1,8 @@
 package com.lin0721.linmusic.desktop.player.mpv
 
 import com.lin0721.linmusic.core.log.AppLogger
+import com.lin0721.linmusic.desktop.player.AudioDevice
+import com.lin0721.linmusic.desktop.player.parseAudioDevices
 import com.sun.jna.Pointer
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.roundToLong
@@ -58,6 +60,17 @@ class MpvEngine(private val listener: Listener) {
     fun seekTo(positionMs: Long) = command("seek", (positionMs.coerceAtLeast(0) / 1000.0).toString(), "absolute")
 
     fun setVolume(percent: Int) = setProperty("volume", percent.coerceIn(0, 100).toString())
+
+    // node 类型属性按字符串读取得到 JSON；读不到返回 null
+    fun audioDevices(): List<AudioDevice> = getProperty("audio-device-list")?.let(::parseAudioDevices).orEmpty()
+
+    // 切换失败（设备不存在等）返回 false，原设备保持不变
+    fun setAudioDevice(name: String): Boolean {
+        if (!running.get()) return false
+        val code = mpv.mpv_set_property_string(ctx, "audio-device", name)
+        if (code < 0) AppLogger.w(TAG, "切换输出设备失败 $name：${mpv.mpv_error_string(code)}")
+        return code >= 0
+    }
 
     fun stop() = command("stop")
 
@@ -119,6 +132,16 @@ class MpvEngine(private val listener: Listener) {
         if (!running.get()) return
         val code = mpv.mpv_set_property_string(ctx, name, value)
         if (code < 0) AppLogger.w(TAG, "设置属性失败 $name=$value：${mpv.mpv_error_string(code)}")
+    }
+
+    private fun getProperty(name: String): String? {
+        if (!running.get()) return null
+        val pointer = mpv.mpv_get_property_string(ctx, name) ?: return null
+        return try {
+            pointer.getString(0, "UTF-8")
+        } finally {
+            mpv.mpv_free(pointer)
+        }
     }
 
     private fun command(vararg args: String) {

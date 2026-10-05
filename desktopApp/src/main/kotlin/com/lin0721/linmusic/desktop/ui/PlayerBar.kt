@@ -81,6 +81,8 @@ fun PlayerBar(
     onToggleNowPlaying: () -> Unit,
     queueOpen: Boolean,
     onToggleQueue: () -> Unit,
+    devicesOpen: Boolean,
+    onToggleDevices: (() -> Unit)?,
     lyricVisible: Boolean,
     onToggleLyric: () -> Unit,
     modifier: Modifier = Modifier
@@ -192,7 +194,14 @@ fun PlayerBar(
                 size = SideButtonSize, iconSize = SideIconSize,
                 onClick = onToggleQueue
             )
-            BarIconButton(PlayerBarIcons.Devices, "连接设备", size = SideButtonSize, iconSize = SideIconSize, onClick = notSupported)
+            if (onToggleDevices != null) BarIconButton(
+                PlayerBarIcons.Devices,
+                "输出设备",
+                active = devicesOpen,
+                showDot = true,
+                size = SideButtonSize, iconSize = SideIconSize,
+                onClick = onToggleDevices
+            )
             // 占位播放器没有音量能力时不显示
             if (volume != null) VolumeControl(volume, onVolumeChange)
             BarIconButton(Icons.Rounded.PictureInPictureAlt, "迷你播放器", size = SideButtonSize, iconSize = SideIconSize, onClick = notSupported)

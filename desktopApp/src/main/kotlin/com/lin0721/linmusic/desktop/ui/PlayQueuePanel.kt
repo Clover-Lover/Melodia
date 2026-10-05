@@ -228,22 +228,12 @@ private fun QueueHeader(
     onClose: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Text(
-            "播放队列",
-            color = DesktopColors.TextPrimary,
-            fontWeight = FontWeight.Bold,
-            fontSize = 15.sp,
-            modifier = Modifier.weight(1f)
-        )
+    OverlayPanelHeader("播放队列", "关闭播放队列", onClose, modifier) {
         Text("共 $queueSize 首", color = DesktopColors.TextGray, fontSize = 12.sp)
         if (queueSize > 1) {
             IconButton(onClick = onClear, modifier = Modifier.padding(start = 4.dp).size(HeaderButtonSize)) {
                 Icon(Icons.Rounded.DeleteOutline, "清空队列", tint = DesktopColors.TextGray, modifier = Modifier.size(20.dp))
             }
-        }
-        IconButton(onClick = onClose, modifier = Modifier.size(HeaderButtonSize)) {
-            Icon(Icons.Rounded.Close, "关闭播放队列", tint = DesktopColors.TextGray, modifier = Modifier.size(20.dp))
         }
     }
 }
