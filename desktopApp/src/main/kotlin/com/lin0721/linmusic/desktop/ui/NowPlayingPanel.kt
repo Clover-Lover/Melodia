@@ -115,7 +115,14 @@ fun NowPlayingPanel(
                     key(card) {
                         InfoCardEnter(Modifier.padding(top = 16.dp)) {
                             when (card) {
-                                FullPlayerCard.LYRICS -> LyricsCard(detailState.lyrics, currentLyricIndex, base)
+                                FullPlayerCard.LYRICS -> LyricsCard(
+                                    lines = detailState.lyrics,
+                                    currentIndex = currentLyricIndex,
+                                    base = base,
+                                    onSeek = playerViewModel::seekToTime,
+                                    onOpenFullscreen = { navigator.showMessage("暂未支持") },
+                                    onOpenLyricsView = { navigator.showMessage("暂未支持") }
+                                )
                                 FullPlayerCard.COMMENTS_PREVIEW -> CommentsPreviewCard(
                                     state = commentsState,
                                     onOpen = onOpenComments,
