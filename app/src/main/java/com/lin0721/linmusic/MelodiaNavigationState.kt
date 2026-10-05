@@ -217,10 +217,6 @@ class MelodiaNavigationState(
             if (willExitPlayerNav) {
                 resetPlayerNavigation()
             }
-            if (activeTab == Screen.Home && activeStack.size == 1) {
-                homeTab = TAB_ALL
-                showMusicNewWorks = false
-            }
             return willExitPlayerNav
         }
         // 已在当前 tab 的根页面

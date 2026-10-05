@@ -229,12 +229,67 @@ class MelodiaNavigationStateTest {
     }
 
     @Test
-    fun `从首页二级页面回退到栈底时重置分类为全部`() = inSnapshot {
+    fun `从首页音乐二级页面回退到栈底时保留音乐分类`() = inSnapshot {
         val nav = MelodiaNavigationState()
         nav.selectHomeTab(com.lin0721.linmusic.feature.home.ui.TAB_MUSIC)
         nav.openPlaylist(1L, false)
         assertEquals(Screen.Playlist(1L, false), nav.currentScreen)
 
+        // 第一次返回回到首页音乐分类
+        nav.navigateBack()
+        assertEquals(Screen.Home, nav.currentScreen)
+        assertEquals(com.lin0721.linmusic.feature.home.ui.TAB_MUSIC, nav.homeTab)
+        assertTrue(nav.canGoBackToHomeAll)
+
+        // 第二次返回切回全部
+        nav.navigateBack()
+        assertEquals(Screen.Home, nav.currentScreen)
+        assertEquals(com.lin0721.linmusic.feature.home.ui.TAB_ALL, nav.homeTab)
+        assertFalse(nav.canGoBackToHomeAll)
+    }
+
+    @Test
+    fun `从首页播客二级页面回退到栈底时保留播客分类`() = inSnapshot {
+        val nav = MelodiaNavigationState()
+        nav.selectHomeTab(com.lin0721.linmusic.feature.home.ui.TAB_PODCAST)
+        nav.navigateTo(Screen.PodcastCategory(100L, "分类"))
+        assertEquals(Screen.PodcastCategory(100L, "分类"), nav.currentScreen)
+
+        // 第一次返回回到播客分类
+        nav.navigateBack()
+        assertEquals(Screen.Home, nav.currentScreen)
+        assertEquals(com.lin0721.linmusic.feature.home.ui.TAB_PODCAST, nav.homeTab)
+        assertTrue(nav.canGoBackToHomeAll)
+
+        // 第二次返回切回全部
+        nav.navigateBack()
+        assertEquals(Screen.Home, nav.currentScreen)
+        assertEquals(com.lin0721.linmusic.feature.home.ui.TAB_ALL, nav.homeTab)
+        assertFalse(nav.canGoBackToHomeAll)
+    }
+
+    @Test
+    fun `从最新Feed进入二级页回退到栈底时保留最新展开态`() = inSnapshot {
+        val nav = MelodiaNavigationState()
+        nav.selectHomeTab(com.lin0721.linmusic.feature.home.ui.TAB_MUSIC)
+        nav.updateShowMusicNewWorks(true)
+        nav.openPlaylist(1L, true)
+        assertEquals(Screen.Playlist(1L, true), nav.currentScreen)
+
+        // 第一次返回保留最新Feed展开态
+        nav.navigateBack()
+        assertEquals(Screen.Home, nav.currentScreen)
+        assertEquals(com.lin0721.linmusic.feature.home.ui.TAB_MUSIC, nav.homeTab)
+        assertTrue(nav.showMusicNewWorks)
+        assertTrue(nav.canGoBackToHomeAll)
+
+        // 第二次返回收起最新
+        nav.navigateBack()
+        assertFalse(nav.showMusicNewWorks)
+        assertEquals(com.lin0721.linmusic.feature.home.ui.TAB_MUSIC, nav.homeTab)
+        assertTrue(nav.canGoBackToHomeAll)
+
+        // 第三次返回切回全部
         nav.navigateBack()
         assertEquals(Screen.Home, nav.currentScreen)
         assertEquals(com.lin0721.linmusic.feature.home.ui.TAB_ALL, nav.homeTab)
