@@ -1,5 +1,6 @@
 package com.lin0721.linmusic.desktop.ui.nowplaying
 
+import com.lin0721.linmusic.core.comment.ui.CommentsState
 import com.lin0721.linmusic.core.preferences.FullPlayerCard
 import com.lin0721.linmusic.core.preferences.FullPlayerCardSetting
 import com.lin0721.linmusic.feature.player.ui.PlayerSongDetailState
@@ -7,6 +8,7 @@ import com.lin0721.linmusic.feature.player.ui.PlayerSongDetailState
 // 已在桌面端实现的卡片；未实现的卡片不参与出现顺序，避免它们的加载状态挡住后面的卡片
 val SupportedInfoCards: Set<FullPlayerCard> = setOf(
     FullPlayerCard.LYRICS,
+    FullPlayerCard.COMMENTS_PREVIEW,
     FullPlayerCard.SONG_DETAIL,
     FullPlayerCard.MUSIC_MEMORY,
     FullPlayerCard.ABOUT_ARTIST,
@@ -19,7 +21,8 @@ val SupportedInfoCards: Set<FullPlayerCard> = setOf(
 fun visibleInfoCards(
     songState: PlayerSongDetailState,
     cardLayout: List<FullPlayerCardSetting>,
-    supported: Set<FullPlayerCard> = SupportedInfoCards
+    supported: Set<FullPlayerCard> = SupportedInfoCards,
+    commentsState: CommentsState = CommentsState.Success(emptyList(), emptyList(), 0)
 ): List<FullPlayerCard> {
     val lyrics = songState.lyrics
     val isPureMusic = lyrics.size == 1 && lyrics[0].text == "纯音乐"
@@ -27,7 +30,7 @@ fun visibleInfoCards(
     // 每张卡 (是否已出结论, 结论是否要展示)
     fun slotState(card: FullPlayerCard): Pair<Boolean, Boolean> = when (card) {
         FullPlayerCard.LYRICS -> Pair(!songState.isLyricsLoading, lyrics.isNotEmpty() && !isPureMusic)
-        FullPlayerCard.COMMENTS_PREVIEW -> Pair(true, false)
+        FullPlayerCard.COMMENTS_PREVIEW -> Pair(commentsState !is CommentsState.Loading, true)
         FullPlayerCard.SONG_DETAIL -> Pair(!songState.isSongWikiLoading, songState.songWiki != null)
         FullPlayerCard.MUSIC_MEMORY -> Pair(
             !songState.isSongWikiLoading,

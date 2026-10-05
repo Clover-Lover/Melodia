@@ -53,6 +53,7 @@ import com.lin0721.linmusic.core.player.SimilarRoamingController
 import com.lin0721.linmusic.core.preferences.FullPlayerCard
 import com.lin0721.linmusic.desktop.ui.nowplaying.AboutArtistCard
 import com.lin0721.linmusic.desktop.ui.nowplaying.ArtistAlbumsCard
+import com.lin0721.linmusic.desktop.ui.nowplaying.CommentsPreviewCard
 import com.lin0721.linmusic.desktop.ui.nowplaying.InfoCardEnter
 import com.lin0721.linmusic.desktop.ui.nowplaying.LyricsCard
 import com.lin0721.linmusic.desktop.ui.nowplaying.MusicMemoryCard
@@ -75,7 +76,8 @@ fun NowPlayingPanel(
     playerViewModel: PlayerViewModel,
     hovered: Boolean,
     onClose: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onOpenComments: () -> Unit = {}
 ) {
     val nowPlaying by controller.nowPlaying.collectAsState()
     val track = nowPlaying ?: return
@@ -85,6 +87,7 @@ fun NowPlayingPanel(
 
     val navigator = LocalDesktopNavigator.current
     val cardLayout by playerViewModel.fullPlayerCardLayout.collectAsState()
+    val commentsState by playerViewModel.commentsState.collectAsState()
     val base = rememberCoverBase(track.artworkUri)
 
     val scrollState = rememberScrollState()
@@ -105,12 +108,19 @@ fun NowPlayingPanel(
             )
             NowPlayingArtists(track, playerViewModel, 14.sp)
             if (!podcast.isPodcast) {
-                val cards = remember(detailState, cardLayout) { visibleInfoCards(detailState, cardLayout) }
+                val cards = remember(detailState, cardLayout, commentsState) {
+                    visibleInfoCards(detailState, cardLayout, commentsState = commentsState)
+                }
                 for (card in cards) {
                     key(card) {
                         InfoCardEnter(Modifier.padding(top = 16.dp)) {
                             when (card) {
                                 FullPlayerCard.LYRICS -> LyricsCard(detailState.lyrics, currentLyricIndex, base)
+                                FullPlayerCard.COMMENTS_PREVIEW -> CommentsPreviewCard(
+                                    state = commentsState,
+                                    onOpen = onOpenComments,
+                                    onRetry = playerViewModel::retryComments
+                                )
                                 FullPlayerCard.SONG_DETAIL -> detailState.songWiki?.let { SongDetailCard(it, detailState.songDetail) }
                                 FullPlayerCard.MUSIC_MEMORY -> detailState.songWiki?.musicMemory?.let { MusicMemoryCard(it) }
                                 FullPlayerCard.ARTIST_ALBUMS -> ArtistAlbumsCard(
