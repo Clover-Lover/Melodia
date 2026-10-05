@@ -76,8 +76,11 @@ class PlayerManager(
     private val _playWhenReady = MutableStateFlow(false)
     override val playWhenReady: StateFlow<Boolean> = _playWhenReady.asStateFlow()
 
+    // 播放器真实已加载的曲目，内部逻辑一律读它；对外的 currentTrack 在有待播曲目时优先显示待播曲目
     private val _currentTrack = MutableStateFlow<MediaItem?>(null)
-    val currentTrack: StateFlow<MediaItem?> = _currentTrack.asStateFlow()
+    private val pendingTrack = PendingTrackState<MediaItem> { it.mediaId }
+    private val _displayTrack = MutableStateFlow<MediaItem?>(null)
+    val currentTrack: StateFlow<MediaItem?> = _displayTrack.asStateFlow()
 
     // 与 currentTrack 同步写入，保证读取 value 时两者一致
     private val _nowPlaying = MutableStateFlow<NowPlaying?>(null)
@@ -579,6 +582,7 @@ class PlayerManager(
                 playbackQueue.setCurrentIndex(index)
                 saveQueueState()
                 progress.resetTo(startPosition, preserveDuration = startPosition > 0L)
+                if (playWhenReady) showPendingTrack(item)
                 val artworkUri = localMusicApi.coverUriFor(android.net.Uri.parse(localUri))?.toString()
                     ?: item.coverUrl
                 val mediaItem = item.toMediaItem(localUri, playbackQueue.playContext.value, artworkUri)
@@ -601,6 +605,7 @@ class PlayerManager(
 
             // 立即重置当前进度与时长；断点续播时保留已有时长避免进度条闪烁
             progress.resetTo(startPosition, preserveDuration = startPosition > 0L)
+            if (playWhenReady) showPendingTrack(item)
 
             roaming.prefetchOnPlay(item.songId, index)
 
@@ -645,6 +650,7 @@ class PlayerManager(
         pendingSkipFromIndex = null
         playbackQueue.setCurrentIndex(fromIndex)
         saveQueueState()
+        clearPendingTrack(restorePlayWhenReady = true)
         // resetTo() 已经把进度条乐观置零/清空时长，撤销后按播放器的真实位置纠正回来
         progress.setPosition(controllerHolder.currentPosition)
         progress.updateDurationFromController()
@@ -834,6 +840,13 @@ class PlayerManager(
 
     private fun setCurrentTrack(item: MediaItem?) {
         _currentTrack.value = item
+        pendingTrack.onRealTrack(item)
+        publishDisplayTrack()
+    }
+
+    private fun publishDisplayTrack() {
+        val item = pendingTrack.display(_currentTrack.value)
+        _displayTrack.value = item
         _nowPlaying.value = item?.let {
             NowPlaying(
                 mediaId = it.mediaId,
@@ -842,6 +855,21 @@ class PlayerManager(
                 artworkUri = it.mediaMetadata.artworkUri?.toString()
             )
         }
+    }
+
+    // 点击播放后立即显示目标曲目并置播放意图，不等播放地址返回
+    private fun showPendingTrack(item: QueueItem) {
+        val pending = item.toPendingMediaItem(playbackQueue.playContext.value)
+        if (!pendingTrack.show(pending, _currentTrack.value, _playWhenReady.value)) return
+        _playWhenReady.value = true
+        publishDisplayTrack()
+    }
+
+    // 失败或撤销时退回真实曲目；restorePlayWhenReady 为真时同时还原播放意图
+    private fun clearPendingTrack(restorePlayWhenReady: Boolean) {
+        val restore = pendingTrack.clear() ?: return
+        if (restorePlayWhenReady) _playWhenReady.value = restore
+        publishDisplayTrack()
     }
 
     fun release() {
@@ -904,6 +932,7 @@ class PlayerManager(
         if (consecutiveErrors >= 3 || playbackQueue.size <= 1) {
             AppLogger.e(TAG, "连续 $consecutiveErrors 次播放失败，放弃自动切歌 failedIndex=$failedIndex queueSize=${playbackQueue.size}")
             _playWhenReady.value = false
+            clearPendingTrack(restorePlayWhenReady = false)
             scope.launch {
                 Toast.makeText(context, "无法获取该歌曲的播放链接", Toast.LENGTH_SHORT).show()
             }

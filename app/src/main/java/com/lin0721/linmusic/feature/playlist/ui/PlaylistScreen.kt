@@ -96,7 +96,7 @@ fun PlaylistScreen(
 ) {
     val uiState      by viewModel.uiState.collectAsStateWithLifecycle()
     val currentTrack by viewModel.playerManager.nowPlaying.collectAsStateWithLifecycle()
-    val isPlaying by viewModel.playerManager.isPlaying.collectAsStateWithLifecycle()
+    val isPlaying by viewModel.playerManager.playWhenReady.collectAsStateWithLifecycle()
     val playMode by viewModel.playerManager.playMode.collectAsStateWithLifecycle()
     val playContext by viewModel.playerManager.playContext.collectAsStateWithLifecycle()
     val likedSongIds by viewModel.likedSongIds.collectAsStateWithLifecycle()
