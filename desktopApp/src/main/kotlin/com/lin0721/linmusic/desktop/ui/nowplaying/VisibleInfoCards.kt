@@ -9,7 +9,9 @@ val SupportedInfoCards: Set<FullPlayerCard> = setOf(
     FullPlayerCard.LYRICS,
     FullPlayerCard.SONG_DETAIL,
     FullPlayerCard.MUSIC_MEMORY,
-    FullPlayerCard.ABOUT_ARTIST
+    FullPlayerCard.ABOUT_ARTIST,
+    FullPlayerCard.ARTIST_ALBUMS,
+    FullPlayerCard.SIMILAR_ARTISTS
 )
 
 // 按用户配置的顺序与显隐算出当前要展示的卡片：前一张可见卡片还没出结论（在加载中）时，

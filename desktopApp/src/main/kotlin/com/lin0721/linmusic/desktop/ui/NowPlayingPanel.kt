@@ -54,9 +54,11 @@ import com.lin0721.linmusic.core.player.PlaybackController.Companion.CONTEXT_INT
 import com.lin0721.linmusic.core.player.SimilarRoamingController
 import com.lin0721.linmusic.core.preferences.FullPlayerCard
 import com.lin0721.linmusic.desktop.ui.nowplaying.AboutArtistCard
+import com.lin0721.linmusic.desktop.ui.nowplaying.ArtistAlbumsCard
 import com.lin0721.linmusic.desktop.ui.nowplaying.InfoCardEnter
 import com.lin0721.linmusic.desktop.ui.nowplaying.LyricsCard
 import com.lin0721.linmusic.desktop.ui.nowplaying.MusicMemoryCard
+import com.lin0721.linmusic.desktop.ui.nowplaying.SimilarArtistsCard
 import com.lin0721.linmusic.desktop.ui.nowplaying.SongDetailCard
 import com.lin0721.linmusic.desktop.ui.nowplaying.rememberCoverBase
 import com.lin0721.linmusic.desktop.ui.nowplaying.smoothVerticalGradient
@@ -119,6 +121,11 @@ fun NowPlayingPanel(
                                 FullPlayerCard.LYRICS -> LyricsCard(detailState.lyrics, currentLyricIndex, base)
                                 FullPlayerCard.SONG_DETAIL -> detailState.songWiki?.let { SongDetailCard(it, detailState.songDetail) }
                                 FullPlayerCard.MUSIC_MEMORY -> detailState.songWiki?.musicMemory?.let { MusicMemoryCard(it) }
+                                FullPlayerCard.ARTIST_ALBUMS -> ArtistAlbumsCard(
+                                    albums = detailState.artistAlbums,
+                                    artistName = detailState.currentArtistItem?.artistName ?: detailState.artistDetail?.name
+                                )
+                                FullPlayerCard.SIMILAR_ARTISTS -> SimilarArtistsCard(detailState.similarArtists)
                                 FullPlayerCard.ABOUT_ARTIST -> AboutArtistCard(
                                     artists = detailState.artists,
                                     selectedIndex = detailState.selectedArtistIndex,

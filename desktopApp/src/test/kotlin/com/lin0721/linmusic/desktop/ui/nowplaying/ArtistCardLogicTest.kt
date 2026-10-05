@@ -68,4 +68,27 @@ class ArtistCardLogicTest {
         val ready = PlayerSongDetailState(artists = listOf(artist(1, cover = "c")))
         assertTrue(FullPlayerCard.ABOUT_ARTIST in visibleInfoCards(ready, order))
     }
+
+    @Test
+    fun `更多专辑标题带歌手名，缺失时用通用标题`() {
+        assertEquals("某歌手的更多专辑", artistAlbumsTitle("某歌手"))
+        assertEquals("更多专辑", artistAlbumsTitle(null))
+        assertEquals("更多专辑", artistAlbumsTitle(" "))
+    }
+
+    @Test
+    fun `专辑与相似艺人在加载完成且有数据时按配置顺序出现`() {
+        val order = listOf(
+            FullPlayerCardSetting(FullPlayerCard.ARTIST_ALBUMS, visible = true),
+            FullPlayerCardSetting(FullPlayerCard.SIMILAR_ARTISTS, visible = true)
+        )
+        val albums = listOf(com.lin0721.linmusic.core.model.ArtistAlbum(id = 1, name = "专辑"))
+        val similar = listOf(com.lin0721.linmusic.core.model.ArtistInfo(id = 2, name = "艺人", avatarUrl = ""))
+
+        val loading = PlayerSongDetailState(isArtistAlbumsLoading = true, similarArtists = similar)
+        assertEquals(emptyList<FullPlayerCard>(), visibleInfoCards(loading, order))
+
+        val ready = PlayerSongDetailState(artistAlbums = albums, similarArtists = similar)
+        assertEquals(listOf(FullPlayerCard.ARTIST_ALBUMS, FullPlayerCard.SIMILAR_ARTISTS), visibleInfoCards(ready, order))
+    }
 }
