@@ -13,6 +13,10 @@ sealed interface DesktopRoute {
     data class PlaylistCategory(val name: String) : DesktopRoute
     data class Artist(val id: Long, val name: String) : DesktopRoute
     data class Style(val id: Long, val name: String) : DesktopRoute
+    data class Radio(val id: Long) : DesktopRoute
+    data object PodcastSubscribed : DesktopRoute
+    data object PodcastToplist : DesktopRoute
+    data class PodcastCategory(val id: Long, val name: String) : DesktopRoute
     data object Settings : DesktopRoute
 }
 

@@ -10,6 +10,11 @@ class DesktopNavigator(
     val openArtist: (id: Long, name: String) -> Unit,
     val openPlaylist: (id: Long, name: String) -> Unit,
     val openAlbum: (id: Long, name: String) -> Unit,
+    val openRadio: (id: Long) -> Unit,
+    val openPodcastSubscribed: () -> Unit,
+    val openPodcastToplist: () -> Unit,
+    val openPodcastCategory: (id: Long, name: String) -> Unit,
+    val openLogin: () -> Unit,
     val showMessage: (String) -> Unit
 )
 

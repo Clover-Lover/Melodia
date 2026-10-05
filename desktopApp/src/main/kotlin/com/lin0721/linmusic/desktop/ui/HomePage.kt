@@ -55,7 +55,7 @@ import com.lin0721.linmusic.feature.home.ui.HomeUiState
 import com.lin0721.linmusic.feature.home.ui.HomeViewModel
 import com.lin0721.linmusic.feature.music.ui.MusicViewModel
 import com.lin0721.linmusic.feature.newworks.ui.NewWorksViewModel
-import com.lin0721.linmusic.feature.podcast.ui.PodcastViewModel
+import com.lin0721.linmusic.feature.podcast.ui.PodcastHomeViewModel
 
 internal val CardWidth = 168.dp
 
@@ -76,7 +76,7 @@ private val RecentGridPadding = 24.dp
 fun HomePage(
     viewModel: HomeViewModel,
     musicViewModel: MusicViewModel,
-    podcastViewModel: PodcastViewModel,
+    podcastViewModel: PodcastHomeViewModel,
     newWorksViewModel: NewWorksViewModel,
     selectedTab: Int,
     onTabSelected: (Int) -> Unit,
@@ -88,7 +88,7 @@ fun HomePage(
 ) {
     val navigator = LocalDesktopNavigator.current
     val musicState by musicViewModel.uiState.collectAsState()
-    val podcastState by podcastViewModel.uiState.collectAsState()
+    val podcastState by podcastViewModel.state.collectAsState()
     val newWorksState by newWorksViewModel.uiState.collectAsState()
     val newWorksCollectState by newWorksViewModel.collectState.collectAsState()
     val newWorksImportState by newWorksViewModel.importState.collectAsState()
@@ -147,11 +147,26 @@ fun HomePage(
                     onRetry = musicViewModel::loadStyles
                 )
                 selectedTab == HOME_TAB_PODCAST -> PodcastTab(
-                    uiState = podcastState,
+                    state = podcastState,
                     listState = podcastListState,
-                    onCategorySelect = podcastViewModel::selectCategory,
-                    onProgramPlay = podcastViewModel::playProgramAt,
-                    onRetry = podcastViewModel::loadFeed
+                    actions = remember(podcastViewModel, navigator) {
+                        PodcastTabActions(
+                            onFilterSelect = podcastViewModel::selectFilter,
+                            onResume = podcastViewModel::resume,
+                            onPickPlay = podcastViewModel::playPicks,
+                            onRadioClick = { navigator.openRadio(it.id) },
+                            onOpenSubscribed = navigator.openPodcastSubscribed,
+                            onOpenToplist = navigator.openPodcastToplist,
+                            onOpenCategory = navigator.openPodcastCategory,
+                            onLoginClick = navigator.openLogin,
+                            onRetryAll = podcastViewModel::refresh,
+                            onRetrySubscribed = podcastViewModel::retrySubscribed,
+                            onRetryPicks = podcastViewModel::retryPicks,
+                            onRetryCategoryGroups = podcastViewModel::retryCategoryGroups,
+                            onRetryToplist = podcastViewModel::retryToplistRadios,
+                            onRetryCategoryRadios = podcastViewModel::retryCategoryRadios
+                        )
+                    }
                 )
                 else -> HomeAllContent(viewModel, allListState, onPlaylistClick)
             }

@@ -36,7 +36,11 @@ import com.lin0721.linmusic.feature.music.ui.StyleDetailViewModel
 import com.lin0721.linmusic.feature.newworks.ui.NewWorksViewModel
 import com.lin0721.linmusic.feature.player.ui.PlayerViewModel
 import com.lin0721.linmusic.feature.playlist.ui.PlaylistViewModel
-import com.lin0721.linmusic.feature.podcast.ui.PodcastViewModel
+import com.lin0721.linmusic.feature.podcast.ui.PodcastCategoryViewModel
+import com.lin0721.linmusic.feature.podcast.ui.PodcastHomeViewModel
+import com.lin0721.linmusic.feature.podcast.ui.PodcastSubscribedViewModel
+import com.lin0721.linmusic.feature.podcast.ui.PodcastToplistViewModel
+import com.lin0721.linmusic.feature.podcast.ui.RadioDetailViewModel
 import com.lin0721.linmusic.feature.profile.ui.ProfileViewModel
 import com.lin0721.linmusic.core.source.AudioSourceProvider
 import com.lin0721.linmusic.core.source.SourcePreferences
@@ -97,7 +101,11 @@ val desktopViewModelModule = module {
     singleOf(::HomeViewModel)
     singleOf(::MusicViewModel)
     factoryOf(::StyleDetailViewModel)
-    singleOf(::PodcastViewModel)
+    singleOf(::PodcastHomeViewModel)
+    factoryOf(::PodcastSubscribedViewModel)
+    factoryOf(::PodcastCategoryViewModel)
+    factoryOf(::PodcastToplistViewModel)
+    factoryOf(::RadioDetailViewModel)
     singleOf(::NewWorksViewModel)
     singleOf(::LibraryViewModel)
     singleOf(::ProfileViewModel)

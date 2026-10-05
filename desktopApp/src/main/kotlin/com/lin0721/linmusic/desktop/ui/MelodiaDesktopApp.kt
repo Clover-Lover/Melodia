@@ -51,7 +51,11 @@ import com.lin0721.linmusic.feature.music.ui.StyleDetailViewModel
 import com.lin0721.linmusic.feature.newworks.ui.NewWorksViewModel
 import com.lin0721.linmusic.feature.player.ui.PlayerViewModel
 import com.lin0721.linmusic.feature.playlist.ui.PlaylistViewModel
-import com.lin0721.linmusic.feature.podcast.ui.PodcastViewModel
+import com.lin0721.linmusic.feature.podcast.ui.PodcastCategoryViewModel
+import com.lin0721.linmusic.feature.podcast.ui.PodcastHomeViewModel
+import com.lin0721.linmusic.feature.podcast.ui.PodcastSubscribedViewModel
+import com.lin0721.linmusic.feature.podcast.ui.PodcastToplistViewModel
+import com.lin0721.linmusic.feature.podcast.ui.RadioDetailViewModel
 import com.lin0721.linmusic.feature.search.ui.DiscoveryUiState
 import com.lin0721.linmusic.feature.search.ui.PlaylistCategoryViewModel
 import com.lin0721.linmusic.feature.search.ui.SearchViewModel
@@ -69,7 +73,7 @@ fun WindowScope.MelodiaDesktopApp(windowState: WindowState, onClose: () -> Unit)
     val koin = remember { GlobalContext.get() }
     val homeViewModel = remember { koin.get<HomeViewModel>() }
     val musicViewModel = remember { koin.get<MusicViewModel>() }
-    val podcastViewModel = remember { koin.get<PodcastViewModel>() }
+    val podcastViewModel = remember { koin.get<PodcastHomeViewModel>() }
     val newWorksViewModel = remember { koin.get<NewWorksViewModel>() }
     val libraryViewModel = remember { koin.get<LibraryViewModel>() }
     val loginViewModel = remember { koin.get<LoginViewModel>() }
@@ -133,6 +137,11 @@ fun WindowScope.MelodiaDesktopApp(windowState: WindowState, onClose: () -> Unit)
         openArtist = { id, name -> backStack.navigate(DesktopRoute.Artist(id, name)) },
         openPlaylist = { id, name -> backStack.navigate(DesktopRoute.Playlist(id, name)) },
         openAlbum = { id, name -> backStack.navigate(DesktopRoute.Playlist(id, name, isAlbum = true)) },
+        openRadio = { id -> backStack.navigate(DesktopRoute.Radio(id)) },
+        openPodcastSubscribed = { backStack.navigate(DesktopRoute.PodcastSubscribed) },
+        openPodcastToplist = { backStack.navigate(DesktopRoute.PodcastToplist) },
+        openPodcastCategory = { id, name -> backStack.navigate(DesktopRoute.PodcastCategory(id, name)) },
+        openLogin = { showLogin = true },
         showMessage = { navigatorMessages.tryEmit(it) }
     )
 
@@ -327,6 +336,21 @@ fun WindowScope.MelodiaDesktopApp(windowState: WindowState, onClose: () -> Unit)
                                                 artistId = route.id,
                                                 viewModel = frameHost.viewModelFor(entry.id, ArtistViewModel::class, { it.toastEvent }) { koin.get() },
                                                 controller = playbackController
+                                            )
+                                            is DesktopRoute.Radio -> RadioDetailPage(
+                                                radioId = route.id,
+                                                viewModel = frameHost.viewModelFor(entry.id, RadioDetailViewModel::class, { it.toastEvent }) { koin.get() }
+                                            )
+                                            DesktopRoute.PodcastSubscribed -> PodcastSubscribedPage(
+                                                viewModel = frameHost.viewModelFor(entry.id, PodcastSubscribedViewModel::class, { emptyFlow() }) { koin.get() }
+                                            )
+                                            DesktopRoute.PodcastToplist -> PodcastToplistPage(
+                                                viewModel = frameHost.viewModelFor(entry.id, PodcastToplistViewModel::class, { emptyFlow() }) { koin.get() }
+                                            )
+                                            is DesktopRoute.PodcastCategory -> PodcastCategoryPage(
+                                                categoryId = route.id,
+                                                name = route.name,
+                                                viewModel = frameHost.viewModelFor(entry.id, PodcastCategoryViewModel::class, { emptyFlow() }) { koin.get() }
                                             )
                                             DesktopRoute.Settings -> SettingsPage()
                                             DesktopRoute.Search -> SearchPage(
