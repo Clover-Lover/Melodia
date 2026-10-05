@@ -7,9 +7,12 @@ import com.lin0721.linmusic.core.network.AppString
 import com.lin0721.linmusic.core.network.ResourceProvider
 import com.lin0721.linmusic.core.network.toUserMessage
 import com.lin0721.linmusic.core.player.PlaybackController
-import com.lin0721.linmusic.core.player.PlayerManager
-import com.lin0721.linmusic.core.player.QueueItem
+import com.lin0721.linmusic.feature.podcast.data.PodcastProgressPreferences
 import com.lin0721.linmusic.feature.podcast.data.PodcastRepository
+import com.lin0721.linmusic.feature.podcast.data.PodcastSeenPreferences
+import com.lin0721.linmusic.feature.podcast.domain.PodcastProgram
+import com.lin0721.linmusic.feature.podcast.domain.PodcastProgressEntry
+import com.lin0721.linmusic.feature.podcast.domain.playPodcastPrograms
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -18,6 +21,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 // 服务端一页给 30 条
@@ -26,8 +30,10 @@ private const val PAGE_SIZE = 30
 // 电台详情页 ViewModel
 class RadioDetailViewModel(
     private val podcastRepository: PodcastRepository,
-    private val playerManager: PlayerManager,
+    private val playbackController: PlaybackController,
     private val userPreferences: UserPreferences,
+    private val progressPreferences: PodcastProgressPreferences,
+    private val seenPreferences: PodcastSeenPreferences,
     private val resourceProvider: ResourceProvider
 ) : ViewModel() {
 
@@ -38,6 +44,18 @@ class RadioDetailViewModel(
     val toastEvent: SharedFlow<String> = _toastEvent.asSharedFlow()
 
     private var currentRadioId: Long = 0
+    private var progress: Map<Long, PodcastProgressEntry> = emptyMap()
+
+    init {
+        viewModelScope.launch {
+            progressPreferences.entries.collect { entries ->
+                progress = entries.associateBy { it.songId }
+                _uiState.update { state ->
+                    if (state is RadioDetailUiState.Success) state.copy(progress = progress) else state
+                }
+            }
+        }
+    }
 
     fun load(radioId: Long) {
         // 同一个电台重复进入不必重拉
@@ -68,8 +86,11 @@ class RadioDetailViewModel(
                 _uiState.value = RadioDetailUiState.Success(
                     detail = detail,
                     programs = programs,
-                    hasMore = programs.size >= PAGE_SIZE
+                    hasMore = programs.size >= PAGE_SIZE,
+                    progress = progress
                 )
+                // 进到详情页即视为看过该电台当前的最新一期，订阅列表上的「新」标记随之消失
+                programs.maxOfOrNull { it.createTimeMs }?.let { seenPreferences.markSeen(radioId, it) }
             } catch (e: Exception) {
                 _uiState.value = RadioDetailUiState.Error(e.toUserMessage(resourceProvider))
             }
@@ -78,16 +99,22 @@ class RadioDetailViewModel(
 
     fun loadMore() {
         val current = _uiState.value as? RadioDetailUiState.Success ?: return
-        if (!current.hasMore || current.isLoadingMore) return
+        if (!current.hasMore || current.isLoadingMore || current.isReloadingPrograms) return
 
         _uiState.value = current.copy(isLoadingMore = true)
 
         viewModelScope.launch {
             val more = runCatching {
-                podcastRepository.getRadioPrograms(currentRadioId, offset = current.programs.size).first()
+                podcastRepository.getRadioPrograms(
+                    radioId = currentRadioId,
+                    offset = current.programs.size,
+                    asc = current.sortAscending
+                ).first()
             }.getOrNull()?.getOrNull()
 
             val latest = _uiState.value as? RadioDetailUiState.Success ?: return@launch
+            // 翻页期间切了排序，晚到的追加结果丢弃
+            if (latest.sortAscending != current.sortAscending) return@launch
             _uiState.value = if (more.isNullOrEmpty()) {
                 // 追加失败或已到底，停止继续翻页但保留已有内容
                 latest.copy(isLoadingMore = false, hasMore = false)
@@ -98,6 +125,35 @@ class RadioDetailViewModel(
                     hasMore = more.size >= PAGE_SIZE
                 )
             }
+        }
+    }
+
+    // 切换期号排序，重新从第一页拉取；失败时退回原排序
+    fun setSortAscending(ascending: Boolean) {
+        val current = _uiState.value as? RadioDetailUiState.Success ?: return
+        if (current.sortAscending == ascending || current.isReloadingPrograms) return
+
+        _uiState.value = current.copy(sortAscending = ascending, isReloadingPrograms = true, isLoadingMore = false)
+
+        viewModelScope.launch {
+            val section = podcastRepository.getRadioPrograms(currentRadioId, asc = ascending).awaitSection(resourceProvider)
+            var failure: String? = null
+            _uiState.update { state ->
+                if (state !is RadioDetailUiState.Success || state.sortAscending != ascending) return@update state
+                when (section) {
+                    is PodcastSection.Success -> state.copy(
+                        programs = section.data,
+                        hasMore = section.data.size >= PAGE_SIZE,
+                        isReloadingPrograms = false
+                    )
+                    is PodcastSection.Error -> {
+                        failure = section.message
+                        state.copy(sortAscending = !ascending, isReloadingPrograms = false)
+                    }
+                    PodcastSection.Loading -> state
+                }
+            }
+            failure?.let { _toastEvent.emit(it) }
         }
     }
 
@@ -137,22 +193,17 @@ class RadioDetailViewModel(
         }
     }
 
-    // 从指定一期起播，整个已加载列表作为队列
+    // 从指定一期起播，整个已加载列表作为队列；该期有未听完的进度则续播
     fun playAt(index: Int) {
         val current = _uiState.value as? RadioDetailUiState.Success ?: return
-        if (current.programs.isEmpty()) return
+        playbackController.playPodcastPrograms(current.programs, index, current.progress)
+    }
 
-        val queue = current.programs.map { program ->
-            QueueItem(
-                songId = program.songId,
-                title = program.name,
-                artist = listOfNotNull(
-                    program.radioName.takeIf { it.isNotBlank() },
-                    program.djName.takeIf { it.isNotBlank() }
-                ).joinToString(" · "),
-                coverUrl = program.coverUrl
-            )
-        }
-        playerManager.playQueue(queue, index.coerceIn(queue.indices), playContext = PlaybackController.CONTEXT_PODCAST)
+    // 主播放键：有未听完的一期就继续它，否则播当前列表第一期
+    fun playPrimary() {
+        val current = _uiState.value as? RadioDetailUiState.Success ?: return
+        val target: PodcastProgram? = current.resumeProgram
+        val index = if (target != null) current.programs.indexOf(target) else 0
+        playAt(index.coerceAtLeast(0))
     }
 }

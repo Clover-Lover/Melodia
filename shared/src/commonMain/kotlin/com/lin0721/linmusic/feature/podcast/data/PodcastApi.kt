@@ -37,7 +37,7 @@ interface PodcastApi {
         @Body body: PodcastToplistRequest = PodcastToplistRequest()
     ): PodcastToplistResponse
 
-    // 我订阅的电台（需登录），按订阅时间倒序，一次 30 条
+    // 我订阅的电台（需登录），顺序以服务端为准，一次 30 条
     @POST("/eapi/djradio/get/subed")
     suspend fun getSubscribedRadios(
         @Body body: PodcastSubscribedRequest = PodcastSubscribedRequest()

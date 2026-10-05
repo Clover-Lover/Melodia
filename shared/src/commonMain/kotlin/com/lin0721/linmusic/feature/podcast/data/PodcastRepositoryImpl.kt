@@ -103,8 +103,8 @@ class PodcastRepositoryImpl(
         transform = { }
     )
 
-    override fun getRadioPrograms(radioId: Long, offset: Int): Flow<Result<List<PodcastProgram>>> = apiFlow(
-        request = { apiService.getRadioPrograms(PodcastProgramListRequest(radioId = radioId, offset = offset)) },
+    override fun getRadioPrograms(radioId: Long, offset: Int, asc: Boolean): Flow<Result<List<PodcastProgram>>> = apiFlow(
+        request = { apiService.getRadioPrograms(PodcastProgramListRequest(radioId = radioId, offset = offset, asc = asc)) },
         isSuccess = { it.isSuccess },
         code = { it.code },
         transform = { it.programs.toPodcastPrograms() }

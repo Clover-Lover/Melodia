@@ -8,6 +8,7 @@ import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.feature.podcast.domain.PodcastProgressEntry
 import com.lin0721.linmusic.feature.podcast.domain.PodcastProgressRules
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
@@ -23,9 +24,13 @@ class PodcastProgressPreferences(private val dataStore: DataStore<Preferences>) 
         private val json = Json { ignoreUnknownKeys = true }
     }
 
-    val entries: Flow<List<PodcastProgressEntry>> = dataStore.data.map { prefs ->
-        decode(prefs[KEY_PROGRESS])
-    }
+    // 读取失败按无记录处理，不让收听进度的问题波及页面
+    val entries: Flow<List<PodcastProgressEntry>> = dataStore.data
+        .map { prefs -> decode(prefs[KEY_PROGRESS]) }
+        .catch { e ->
+            AppLogger.w(TAG, "收听进度读取失败", e)
+            emit(emptyList())
+        }
 
     suspend fun upsert(entry: PodcastProgressEntry) {
         dataStore.edit { prefs ->

@@ -44,6 +44,6 @@ interface PodcastRepository {
     // 订阅或取消订阅电台。调用方需自行确保已登录
     fun setRadioSubscribed(radioId: Long, subscribe: Boolean): Flow<Result<Unit>>
 
-    // 电台下的节目列表
-    fun getRadioPrograms(radioId: Long, offset: Int = 0): Flow<Result<List<PodcastProgram>>>
+    // 电台下的节目列表，asc 为真按期号从旧到新
+    fun getRadioPrograms(radioId: Long, offset: Int = 0, asc: Boolean = false): Flow<Result<List<PodcastProgram>>>
 }
