@@ -304,7 +304,7 @@ private fun RecentGrid(data: HomeFeedData, modifier: Modifier, onClick: (Long, S
                     key(playlist.id) {
                         Row(
                             Modifier.weight(1f).height(56.dp).homeReflowBounds().clip(RoundedCornerShape(4.dp))
-                                .background(DesktopColors.TileSurface)
+                                .background(DesktopColors.Surface)
                                 .clickable { onClick(playlist.id, playlist.name) },
                             verticalAlignment = Alignment.CenterVertically
                         ) {
