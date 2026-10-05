@@ -383,6 +383,7 @@ fun WindowScope.MelodiaDesktopApp(windowState: WindowState, onClose: () -> Unit)
                                 overlay = dockOverlay,
                                 audioOutput = mpvController,
                                 onCloseOverlay = { dockOverlay = null },
+                                onOpenComments = { toggleOverlay(DockOverlay.Comments) },
                                 onOpenChange = setDockOpen,
                                 controller = playbackController,
                                 playerViewModel = playerViewModel,

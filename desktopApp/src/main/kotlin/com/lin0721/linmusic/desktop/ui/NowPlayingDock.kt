@@ -50,7 +50,8 @@ private const val OVERLAY_FADE_MS = 150
 // 覆盖在“正在播放”之上的面板，关闭后露出下层的正在播放页
 enum class DockOverlay {
     Queue,
-    Devices
+    Devices,
+    Comments
 }
 
 // 侧栏宽度状态：width 随动画变化；稳定宽度不含悬停预览，内容区据此排版
@@ -120,6 +121,7 @@ fun NowPlayingDock(
     overlay: DockOverlay?,
     audioOutput: AudioOutputControl?,
     onCloseOverlay: () -> Unit,
+    onOpenComments: () -> Unit,
     onOpenChange: (Boolean) -> Unit,
     controller: PlaybackController,
     playerViewModel: PlayerViewModel,
@@ -181,8 +183,12 @@ fun NowPlayingDock(
                         controller = controller,
                         playerViewModel = playerViewModel,
                         hovered = hovered && !collapsed,
-                        onClose = { onOpenChange(false) }
+                        onClose = { onOpenChange(false) },
+                        onOpenComments = onOpenComments
                     )
+                    OverlayLayer(visible = open && overlay == DockOverlay.Comments) { modifier ->
+                        CommentsPanel(playerViewModel = playerViewModel, onClose = onCloseOverlay, modifier = modifier)
+                    }
                     OverlayLayer(visible = open && overlay == DockOverlay.Queue) { modifier ->
                         PlayQueuePanel(controller = controller, onClose = onCloseOverlay, modifier = modifier)
                     }

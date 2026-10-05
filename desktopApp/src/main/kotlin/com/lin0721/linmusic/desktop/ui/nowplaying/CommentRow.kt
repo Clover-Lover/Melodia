@@ -66,8 +66,8 @@ fun CommentRow(
     interactive: Boolean = true,
     contentMaxLines: Int = Int.MAX_VALUE,
     onLike: () -> Unit = {},
-    onReply: () -> Unit = {},
-    onExpandFloor: () -> Unit = {},
+    onReply: (() -> Unit)? = null,
+    onExpandFloor: (() -> Unit)? = null,
     onDelete: (() -> Unit)? = null
 ) {
     val hoverSource = remember { MutableInteractionSource() }
@@ -114,10 +114,11 @@ fun CommentRow(
                         }
                         CommentMenu(
                             expanded = menuOpen,
+                            canReply = onReply != null,
                             canDelete = onDelete != null,
                             onDismiss = { menuOpen = false },
                             onCopy = { clipboard.setText(AnnotatedString(comment.content)) },
-                            onReply = onReply,
+                            onReply = { onReply?.invoke() },
                             onDelete = { onDelete?.invoke() }
                         )
                     }
@@ -145,7 +146,7 @@ fun CommentRow(
                         .background(Color.White.copy(alpha = 0.06f)).padding(horizontal = 8.dp, vertical = 6.dp)
                 )
             }
-            if (interactive && comment.replyCount > 0) {
+            if (interactive && onExpandFloor != null && comment.replyCount > 0) {
                 Text(
                     "展开 ${comment.replyCount} 条回复 ›",
                     color = DesktopColors.Accent,
@@ -176,6 +177,7 @@ private fun LikeButton(comment: CommentItem, interactive: Boolean, onLike: () ->
 @Composable
 private fun CommentMenu(
     expanded: Boolean,
+    canReply: Boolean,
     canDelete: Boolean,
     onDismiss: () -> Unit,
     onCopy: () -> Unit,
@@ -184,7 +186,7 @@ private fun CommentMenu(
 ) {
     DropdownMenu(expanded = expanded, onDismissRequest = onDismiss, containerColor = DesktopColors.Surface) {
         MenuEntry(Icons.Rounded.ContentCopy, "复制") { onDismiss(); onCopy() }
-        MenuEntry(Icons.AutoMirrored.Rounded.Reply, "回复") { onDismiss(); onReply() }
+        if (canReply) MenuEntry(Icons.AutoMirrored.Rounded.Reply, "回复") { onDismiss(); onReply() }
         if (canDelete) MenuEntry(Icons.Rounded.Delete, "删除", DesktopColors.Accent) { onDismiss(); onDelete() }
     }
 }

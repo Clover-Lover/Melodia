@@ -325,7 +325,7 @@ private fun HeaderButton(text: String, onClick: () -> Unit) {
 }
 
 @Composable
-private fun <T> TabBar(
+internal fun <T> TabBar(
     tabs: List<T>,
     selected: T,
     label: (T) -> String,
