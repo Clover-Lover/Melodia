@@ -38,7 +38,8 @@ class NavFrameStores : ViewModel() {
 // 这些页面的 ViewModel 与具体 id 绑定，每个栈帧各用一份，返回时数据不被同类页面覆盖
 private fun Screen.hasPageScopedViewModels(): Boolean = when (this) {
     is Screen.Playlist, is Screen.Artist, is Screen.Style, is Screen.Radio,
-    is Screen.Profile, is Screen.FollowList, is Screen.PlaylistCategory -> true
+    is Screen.Profile, is Screen.FollowList, is Screen.PlaylistCategory,
+    is Screen.PodcastSubscribed, is Screen.PodcastToplist, is Screen.PodcastCategory -> true
     else -> false
 }
 

@@ -124,6 +124,9 @@ fun MelodiaNavHost(
                         onPlaylistClick = onNavigateToPlaylist,
                         onArtistClick = onNavigateToArtist,
                         onRadioClick = onNavigateToRadio,
+                        onPodcastSubscribedClick = { onNavigateToScreen(Screen.PodcastSubscribed) },
+                        onPodcastToplistClick = { onNavigateToScreen(Screen.PodcastToplist) },
+                        onPodcastCategoryClick = { id, name -> onNavigateToScreen(Screen.PodcastCategory(id, name)) },
                         onStyleClick = { id, name -> onNavigateToScreen(Screen.Style(id, name)) },
                         onSearchClick = onNavigateToSearch,
                         onOpenSidebar = onOpenSidebar,
@@ -184,6 +187,26 @@ fun MelodiaNavHost(
                     com.lin0721.linmusic.feature.podcast.ui.RadioDetailScreen(
                         radioId = screen.id,
                         onBack = onBack
+                    )
+                }
+                is Screen.PodcastSubscribed -> {
+                    com.lin0721.linmusic.feature.podcast.ui.PodcastSubscribedScreen(
+                        onBack = onBack,
+                        onRadioClick = onNavigateToRadio
+                    )
+                }
+                is Screen.PodcastToplist -> {
+                    com.lin0721.linmusic.feature.podcast.ui.PodcastToplistScreen(
+                        onBack = onBack,
+                        onRadioClick = onNavigateToRadio
+                    )
+                }
+                is Screen.PodcastCategory -> {
+                    com.lin0721.linmusic.feature.podcast.ui.PodcastCategoryScreen(
+                        categoryId = screen.id,
+                        name = screen.name,
+                        onBack = onBack,
+                        onRadioClick = onNavigateToRadio
                     )
                 }
                 is Screen.Style -> {

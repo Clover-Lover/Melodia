@@ -29,8 +29,8 @@ data class PodcastHomeState(
     val picks: PodcastSection<List<PodcastProgram>> = PodcastSection.Loading,
     val categoryGroups: PodcastSection<List<PodcastCategoryGroup>> = PodcastSection.Loading,
     val toplistRadios: PodcastSection<List<PodcastRadio>> = PodcastSection.Loading,
-    // 选中某个分类时，该分类下的推荐节目
-    val categoryPrograms: PodcastSection<List<PodcastProgram>> = PodcastSection.Loading,
+    // 选中某个分类时，该分类下的热门电台（首页只取第一页，翻页在分类二级页）
+    val categoryRadios: PodcastSection<List<PodcastRadio>> = PodcastSection.Loading,
     // 按 songId 索引的本地进度，用于节目行的进度条与已听完标记
     val progress: Map<Long, PodcastProgressEntry> = emptyMap()
 )

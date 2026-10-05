@@ -10,7 +10,6 @@ import com.lin0721.linmusic.feature.podcast.ui.PodcastCategoryViewModel
 import com.lin0721.linmusic.feature.podcast.ui.PodcastHomeViewModel
 import com.lin0721.linmusic.feature.podcast.ui.PodcastSubscribedViewModel
 import com.lin0721.linmusic.feature.podcast.ui.PodcastToplistViewModel
-import com.lin0721.linmusic.feature.podcast.ui.PodcastViewModel
 import com.lin0721.linmusic.feature.podcast.ui.RadioDetailViewModel
 import com.lin0721.linmusic.feature.library.ui.LibraryViewModel
 import com.lin0721.linmusic.feature.listendata.ui.ListenDataViewModel
@@ -44,7 +43,6 @@ val viewModelModule = module {
     viewModelOf(::HomeViewModel)
     viewModelOf(::MusicViewModel)
     viewModelOf(::StyleDetailViewModel)
-    viewModelOf(::PodcastViewModel)
     viewModelOf(::PodcastHomeViewModel)
     viewModelOf(::PodcastSubscribedViewModel)
     viewModelOf(::PodcastCategoryViewModel)

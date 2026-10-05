@@ -131,6 +131,18 @@ class PodcastMapperTest {
     }
 
     @Test
+    fun `剩余时长向上取整并带时位`() {
+        assertEquals("剩 1 分钟", formatRemaining(1))
+        assertEquals("剩 1 分钟", formatRemaining(60_000))
+        assertEquals("剩 2 分钟", formatRemaining(60_001))
+        assertEquals("剩 59 分钟", formatRemaining(59 * 60_000L))
+        assertEquals("剩 1 小时", formatRemaining(60 * 60_000L))
+        assertEquals("剩 1 小时 5 分钟", formatRemaining(65 * 60_000L))
+        assertEquals("", formatRemaining(0))
+        assertEquals("", formatRemaining(-5))
+    }
+
+    @Test
     fun `收听数与订阅数过万折算`() {
         assertEquals("5887 人听过", formatListenerCount(5887))
         assertEquals("1.2 万人听过", formatListenerCount(12345))

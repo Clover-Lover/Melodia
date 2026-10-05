@@ -42,7 +42,7 @@ class PodcastHomeViewModel(
 
     private var started = false
     private var subscribedJob: Job? = null
-    private var categoryProgramsJob: Job? = null
+    private var categoryRadiosJob: Job? = null
 
     fun loadIfNeeded() {
         if (started) return
@@ -61,13 +61,13 @@ class PodcastHomeViewModel(
         }
         loadPublicSections()
         if (_state.value.isLoggedIn) loadSubscribed()
-        (_state.value.filter as? PodcastFilter.Category)?.let { loadCategoryPrograms(it.id) }
+        (_state.value.filter as? PodcastFilter.Category)?.let { loadCategoryRadios(it.id) }
     }
 
     fun selectFilter(filter: PodcastFilter) {
         if (_state.value.filter == filter) return
         _state.update { it.copy(filter = filter) }
-        if (filter is PodcastFilter.Category) loadCategoryPrograms(filter.id)
+        if (filter is PodcastFilter.Category) loadCategoryRadios(filter.id)
     }
 
     fun retryPicks() = loadPicks()
@@ -80,13 +80,11 @@ class PodcastHomeViewModel(
         if (_state.value.isLoggedIn) loadSubscribed()
     }
 
-    fun retryCategoryPrograms() {
-        (_state.value.filter as? PodcastFilter.Category)?.let { loadCategoryPrograms(it.id) }
+    fun retryCategoryRadios() {
+        (_state.value.filter as? PodcastFilter.Category)?.let { loadCategoryRadios(it.id) }
     }
 
     fun playPicks(index: Int) = playPrograms(_state.value.picks.itemsOrEmpty(), index)
-
-    fun playCategoryProgram(index: Int) = playPrograms(_state.value.categoryPrograms.itemsOrEmpty(), index)
 
     // 从本地进度续播
     fun resume(entry: PodcastProgressEntry) = playbackController.resumePodcast(entry)
@@ -205,15 +203,19 @@ class PodcastHomeViewModel(
         _state.update { it.copy(subscribed = PodcastSection.Success(radios), updatedRadioIds = updated) }
     }
 
-    private fun loadCategoryPrograms(categoryId: Long) {
-        categoryProgramsJob?.cancel()
-        categoryProgramsJob = viewModelScope.launch {
-            _state.update { it.copy(categoryPrograms = PodcastSection.Loading) }
-            val result = podcastRepository.getRecommendPrograms(categoryId).awaitSection(resourceProvider)
+    private fun loadCategoryRadios(categoryId: Long) {
+        categoryRadiosJob?.cancel()
+        categoryRadiosJob = viewModelScope.launch {
+            _state.update { it.copy(categoryRadios = PodcastSection.Loading) }
+            val result = when (val section = podcastRepository.getCategoryHotRadios(categoryId).awaitSection(resourceProvider)) {
+                is PodcastSection.Success -> PodcastSection.Success(section.data.items)
+                is PodcastSection.Error -> section
+                PodcastSection.Loading -> PodcastSection.Loading
+            }
             _state.update { state ->
                 // 期间又切了筛选，晚到的响应丢弃
                 if ((state.filter as? PodcastFilter.Category)?.id != categoryId) state
-                else state.copy(categoryPrograms = result)
+                else state.copy(categoryRadios = result)
             }
         }
     }

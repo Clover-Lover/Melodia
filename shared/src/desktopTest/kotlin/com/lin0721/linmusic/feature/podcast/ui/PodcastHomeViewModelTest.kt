@@ -162,20 +162,34 @@ class PodcastHomeViewModelTest {
     }
 
     @Test
-    fun `选分类筛选加载该分类节目，快速切换时丢弃晚到响应`() {
-        val slow = CompletableDeferred<Result<List<PodcastProgram>>>()
-        repository.recommendPrograms = { cate ->
-            if (cate == 1L) slow.await() else Result.success(listOf(testProgram(2)))
+    fun `选分类筛选加载该分类热门电台，快速切换时丢弃晚到响应`() {
+        val slow = CompletableDeferred<Result<PodcastPage<PodcastRadio>>>()
+        repository.categoryHotRadios = { cate, _ ->
+            if (cate == 1L) slow.await() else Result.success(PodcastPage(listOf(testRadio(2)), false))
         }
         val vm = viewModel()
         vm.loadIfNeeded()
 
         vm.selectFilter(PodcastFilter.Category(1))
         vm.selectFilter(PodcastFilter.Category(2))
-        slow.complete(Result.success(listOf(testProgram(1))))
+        slow.complete(Result.success(PodcastPage(listOf(testRadio(1)), false)))
 
         assertEquals(PodcastFilter.Category(2), vm.state.value.filter)
-        assertEquals(listOf(2L), vm.state.value.categoryPrograms.itemsOrEmpty().map { it.id })
+        assertEquals(listOf(2L), vm.state.value.categoryRadios.itemsOrEmpty().map { it.id })
+    }
+
+    @Test
+    fun `分类电台加载失败后重试成功`() {
+        repository.categoryHotRadios = { _, _ -> failure() }
+        val vm = viewModel()
+        vm.loadIfNeeded()
+        vm.selectFilter(PodcastFilter.Category(3))
+        assertTrue(vm.state.value.categoryRadios is PodcastSection.Error)
+
+        repository.categoryHotRadios = { _, _ -> Result.success(PodcastPage(listOf(testRadio(7)), false)) }
+        vm.retryCategoryRadios()
+
+        assertEquals(listOf(7L), vm.state.value.categoryRadios.itemsOrEmpty().map { it.id })
     }
 
     @Test

@@ -34,6 +34,13 @@ sealed class Screen {
     data class Artist(val id: Long) : Screen()
     @Serializable
     data class Radio(val id: Long) : Screen()
+    // 「播客」tab 的二级页
+    @Serializable
+    data object PodcastSubscribed : Screen()
+    @Serializable
+    data object PodcastToplist : Screen()
+    @Serializable
+    data class PodcastCategory(val id: Long, val name: String) : Screen()
     @Serializable
     data class PlaylistCategory(val category: String) : Screen()
     // 「音乐」tab 的曲风详情
