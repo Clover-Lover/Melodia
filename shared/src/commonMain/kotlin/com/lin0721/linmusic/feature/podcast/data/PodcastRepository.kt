@@ -1,6 +1,8 @@
 package com.lin0721.linmusic.feature.podcast.data
 
 import com.lin0721.linmusic.feature.podcast.domain.PodcastCategory
+import com.lin0721.linmusic.feature.podcast.domain.PodcastCategoryGroup
+import com.lin0721.linmusic.feature.podcast.domain.PodcastPage
 import com.lin0721.linmusic.feature.podcast.domain.PodcastProgram
 import com.lin0721.linmusic.feature.podcast.domain.PodcastRadio
 import com.lin0721.linmusic.feature.podcast.domain.PodcastRadioDetail
@@ -23,6 +25,18 @@ interface PodcastRepository {
 
     // 热门电台榜
     fun getToplistRadios(): Flow<Result<List<PodcastRadio>>>
+
+    // 我订阅的电台，需登录。调用方需自行确保已登录
+    fun getSubscribedRadios(offset: Int = 0): Flow<Result<PodcastPage<PodcastRadio>>>
+
+    // 分类分组推荐，每组带若干电台
+    fun getCategoryGroups(): Flow<Result<List<PodcastCategoryGroup>>>
+
+    // 分类下的热门电台
+    fun getCategoryHotRadios(cateId: Long, offset: Int = 0): Flow<Result<PodcastPage<PodcastRadio>>>
+
+    // 节目榜
+    fun getProgramToplist(offset: Int = 0): Flow<Result<PodcastPage<PodcastProgram>>>
 
     // 电台详情
     fun getRadioDetail(radioId: Long): Flow<Result<PodcastRadioDetail>>
