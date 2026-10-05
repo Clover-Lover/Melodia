@@ -11,23 +11,31 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.AlertDialogDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.comment.data.CommentSortType
 import com.lin0721.linmusic.core.comment.ui.CommentsState
+import com.lin0721.linmusic.core.model.CommentItem
+import com.lin0721.linmusic.desktop.ui.nowplaying.CommentInputBar
 import com.lin0721.linmusic.desktop.ui.nowplaying.CommentRow
 import com.lin0721.linmusic.desktop.ui.nowplaying.allComments
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
@@ -51,8 +59,23 @@ fun CommentsPanel(
     onClose: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val navigator = LocalDesktopNavigator.current
     val state by playerViewModel.commentsState.collectAsState()
+    val composerState by playerViewModel.composerState.collectAsState()
+    val currentUserId = playerViewModel.userProfile.collectAsState().value?.uid
     val total = state.totalCount ?: 0
+    var replyTarget by remember { mutableStateOf<CommentItem?>(null) }
+    var deleteTarget by remember { mutableStateOf<CommentItem?>(null) }
+    val focusRequester = remember { FocusRequester() }
+    val requireLogin = { navigator.showMessage("请先登录账号") }
+    val startReply: (CommentItem) -> Unit = { comment ->
+        if (currentUserId == null) {
+            requireLogin()
+        } else {
+            replyTarget = comment
+            focusRequester.requestFocus()
+        }
+    }
 
     Column(modifier.fillMaxSize().padding(top = 16.dp)) {
         OverlayPanelHeader(
@@ -85,14 +108,69 @@ fun CommentsPanel(
                         modifier = Modifier.padding(top = 12.dp)
                     ) { Text("重试", color = DesktopColors.TextPrimary) }
                 }
-                is CommentsState.Success -> CommentList(current, playerViewModel)
+                is CommentsState.Success -> CommentList(
+                    state = current,
+                    playerViewModel = playerViewModel,
+                    currentUserId = currentUserId,
+                    onReply = startReply,
+                    onDelete = { comment -> deleteTarget = comment }
+                )
             }
         }
+        // 输入栏常驻底部，不因中间内容状态消失
+        CommentInputBar(
+            replyTarget = replyTarget,
+            composerState = composerState,
+            focusRequester = focusRequester,
+            onClearReplyTarget = { replyTarget = null },
+            onSubmit = { content ->
+                if (currentUserId == null) {
+                    requireLogin()
+                } else {
+                    val target = replyTarget
+                    if (target != null) {
+                        playerViewModel.submitCommentReply(target.commentId, content)
+                    } else {
+                        playerViewModel.submitComment(content)
+                    }
+                    replyTarget = null
+                }
+            }
+        )
+    }
+
+    deleteTarget?.let { comment ->
+        DeleteCommentDialog(
+            onConfirm = {
+                playerViewModel.deleteCommentItem(comment)
+                deleteTarget = null
+            },
+            onDismiss = { deleteTarget = null }
+        )
     }
 }
 
 @Composable
-private fun CommentList(state: CommentsState.Success, playerViewModel: PlayerViewModel) {
+private fun DeleteCommentDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        shape = AlertDialogDefaults.shape,
+        containerColor = DesktopColors.Surface,
+        title = { Text("删除评论", color = DesktopColors.TextPrimary) },
+        text = { Text("确定要删除这条评论吗？删除后无法恢复。", color = DesktopColors.TextGray, fontSize = 13.sp) },
+        confirmButton = { TextButton(onClick = onConfirm) { Text("删除", color = DesktopColors.Accent) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("取消", color = DesktopColors.TextGray) } }
+    )
+}
+
+@Composable
+private fun CommentList(
+    state: CommentsState.Success,
+    playerViewModel: PlayerViewModel,
+    currentUserId: Long?,
+    onReply: (CommentItem) -> Unit,
+    onDelete: (CommentItem) -> Unit
+) {
     val comments = remember(state.hotComments, state.comments) { allComments(state) }
     if (comments.isEmpty()) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -119,7 +197,12 @@ private fun CommentList(state: CommentsState.Success, playerViewModel: PlayerVie
             contentPadding = PaddingValues(start = 8.dp, end = 8.dp, bottom = 8.dp)
         ) {
             items(comments, key = { it.commentId }) { comment ->
-                CommentRow(comment, onLike = { playerViewModel.likeComment(comment) })
+                CommentRow(
+                    comment = comment,
+                    onLike = { playerViewModel.likeComment(comment) },
+                    onReply = { onReply(comment) },
+                    onDelete = if (comment.user.userId == currentUserId) ({ onDelete(comment) }) else null
+                )
             }
             if (state.isLoadingMore) {
                 item { Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) { Spinner(20) } }
