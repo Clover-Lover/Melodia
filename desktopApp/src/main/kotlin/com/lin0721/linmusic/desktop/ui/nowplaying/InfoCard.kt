@@ -33,7 +33,7 @@ fun InfoCard(
     backdrop: (@Composable BoxScope.() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    Box(modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(DesktopColors.Surface)) {
+    Box(modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(DesktopColors.CardSurface)) {
         backdrop?.invoke(this)
         Column(Modifier.fillMaxWidth().padding(16.dp)) {
             Text(title, color = DesktopColors.TextPrimary, fontWeight = FontWeight.Bold, fontSize = 15.sp)

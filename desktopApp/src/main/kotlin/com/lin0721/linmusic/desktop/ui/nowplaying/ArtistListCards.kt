@@ -1,7 +1,6 @@
 package com.lin0721.linmusic.desktop.ui.nowplaying
 
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.hoverable
@@ -12,7 +11,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
@@ -20,11 +18,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowLeft
-import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -33,7 +26,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.style.TextAlign
@@ -43,7 +35,6 @@ import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.model.ArtistAlbum
 import com.lin0721.linmusic.core.model.ArtistInfo
 import com.lin0721.linmusic.desktop.ui.Cover
-import com.lin0721.linmusic.desktop.ui.HoverReveal
 import com.lin0721.linmusic.desktop.ui.LocalDesktopNavigator
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import kotlinx.coroutines.launch
@@ -51,7 +42,6 @@ import kotlinx.coroutines.launch
 private val AlbumWidth = 120.dp
 private val ArtistWidth = 80.dp
 private val ArtistAvatarSize = 64.dp
-private val ArrowSize = 32.dp
 private const val SCROLL_FRACTION = 0.8f
 private const val SCROLL_MS = 300
 
@@ -126,24 +116,7 @@ private fun HoverArrowRow(modifier: Modifier = Modifier, content: LazyListScope.
     }
     Box(modifier.fillMaxWidth().hoverable(hoverSource)) {
         LazyRow(state = state, horizontalArrangement = Arrangement.spacedBy(8.dp), content = content)
-        RowArrow(hovered && state.canScrollBackward, left = true, Modifier.align(Alignment.CenterStart)) { scrollBy(-1) }
-        RowArrow(hovered && state.canScrollForward, left = false, Modifier.align(Alignment.CenterEnd)) { scrollBy(1) }
-    }
-}
-
-@Composable
-private fun RowArrow(revealed: Boolean, left: Boolean, modifier: Modifier, onClick: () -> Unit) {
-    HoverReveal(revealed = revealed, modifier = modifier) {
-        IconButton(
-            onClick = onClick,
-            enabled = revealed,
-            modifier = Modifier.size(ArrowSize).clip(CircleShape).background(Color.Black.copy(alpha = 0.6f))
-        ) {
-            Icon(
-                if (left) Icons.AutoMirrored.Rounded.KeyboardArrowLeft else Icons.AutoMirrored.Rounded.KeyboardArrowRight,
-                if (left) "向左" else "向右",
-                tint = Color.White
-            )
-        }
+        ScrollArrow(hovered && state.canScrollBackward, left = true, "向左", Modifier.align(Alignment.CenterStart)) { scrollBy(-1) }
+        ScrollArrow(hovered && state.canScrollForward, left = false, "向右", Modifier.align(Alignment.CenterEnd)) { scrollBy(1) }
     }
 }

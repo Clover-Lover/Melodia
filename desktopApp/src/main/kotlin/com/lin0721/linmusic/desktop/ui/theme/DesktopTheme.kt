@@ -12,6 +12,8 @@ object DesktopColors {
     val Pane = Color(0xFF121212)
     val PaneHover = Color(0xFF1F1F1F)
     val Surface = Color(0xFF282828)
+    // 面板内信息卡片的底色，比 Surface 更深
+    val CardSurface = Color(0xFF1A1A1A)
     val SurfaceLight = Color(0xFF3E3E3E)
     val TextPrimary = Color(0xFFFFFFFF)
     val TextGray = Color(0xFFB3B3B3)

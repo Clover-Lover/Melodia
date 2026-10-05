@@ -19,12 +19,7 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowLeft
-import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -50,7 +45,6 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.SubcomposeAsyncImage
-import com.lin0721.linmusic.desktop.ui.HoverReveal
 import com.lin0721.linmusic.desktop.ui.LocalDesktopNavigator
 import com.lin0721.linmusic.desktop.ui.sizedCoverUrl
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
@@ -59,10 +53,8 @@ import kotlinx.coroutines.launch
 
 private val HeroHeight = 200.dp
 private const val HERO_REQUEST_PX = 800
-private val NavButtonSize = 32.dp
-
 // 箭头垂直居中于封面区
-private val ArrowTop = (HeroHeight - NavButtonSize) / 2
+private val ArrowTop = (HeroHeight - ScrollArrowSize) / 2
 
 // 关于艺人：歌曲有多位歌手时可左右切换，切换后下方的“更多专辑”“相似艺人”随之刷新
 @Composable
@@ -96,14 +88,16 @@ fun AboutArtistCard(
             HorizontalPager(state = pagerState, userScrollEnabled = false, modifier = Modifier.fillMaxWidth()) { page ->
                 ArtistPage(valid[page], onToggleFollow)
             }
-            PagerArrow(
+            ScrollArrow(
                 revealed = hovered && pagerState.currentPage > 0,
                 left = true,
+                description = "上一位歌手",
                 modifier = Modifier.align(Alignment.TopStart).padding(start = 8.dp, top = ArrowTop)
             ) { scope.launch { pagerState.animateScrollToPage(pagerState.currentPage - 1) } }
-            PagerArrow(
+            ScrollArrow(
                 revealed = hovered && pagerState.currentPage < valid.lastIndex,
                 left = false,
+                description = "下一位歌手",
                 modifier = Modifier.align(Alignment.TopEnd).padding(end = 8.dp, top = ArrowTop)
             ) { scope.launch { pagerState.animateScrollToPage(pagerState.currentPage + 1) } }
         }
@@ -124,23 +118,6 @@ fun AboutArtistCard(
 }
 
 @Composable
-private fun PagerArrow(revealed: Boolean, left: Boolean, modifier: Modifier, onClick: () -> Unit) {
-    HoverReveal(revealed = revealed, modifier = modifier) {
-        IconButton(
-            onClick = onClick,
-            enabled = revealed,
-            modifier = Modifier.size(NavButtonSize).clip(CircleShape).background(Color.Black.copy(alpha = 0.55f))
-        ) {
-            Icon(
-                if (left) Icons.AutoMirrored.Rounded.KeyboardArrowLeft else Icons.AutoMirrored.Rounded.KeyboardArrowRight,
-                if (left) "上一位歌手" else "下一位歌手",
-                tint = Color.White
-            )
-        }
-    }
-}
-
-@Composable
 private fun ArtistPage(item: ArtistCardItem, onToggleFollow: (Long) -> Unit, modifier: Modifier = Modifier) {
     val navigator = LocalDesktopNavigator.current
     val detail = item.artistDetail ?: return
@@ -148,7 +125,7 @@ private fun ArtistPage(item: ArtistCardItem, onToggleFollow: (Long) -> Unit, mod
     var expanded by remember { mutableStateOf(false) }
 
     Column(
-        modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(DesktopColors.Surface)
+        modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(DesktopColors.CardSurface)
             .pointerHoverIcon(PointerIcon.Hand)
             .clickable { navigator.openArtist(item.artistId, detail.name) }
     ) {
