@@ -1,8 +1,6 @@
 package com.lin0721.linmusic.desktop.ui
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.TooltipArea
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -200,7 +198,6 @@ private fun AvatarMenuItem(icon: ImageVector, text: String, onClick: () -> Unit)
     )
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun SearchBox(
     query: String,
@@ -249,10 +246,7 @@ private fun SearchBox(
             )
         }
         Box(Modifier.padding(horizontal = 10.dp).width(1.dp).height(24.dp).background(DesktopColors.SurfaceLight))
-        TooltipArea(
-            tooltip = { TooltipLabel("浏览") },
-            delayMillis = 400
-        ) {
+        DesktopTooltip("浏览", side = TooltipSide.Bottom) {
             Icon(
                 Icons.Rounded.Explore,
                 "浏览",

@@ -2,8 +2,6 @@ package com.lin0721.linmusic.desktop.ui
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.TooltipArea
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.hoverable
@@ -23,6 +21,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.VolumeDown
 import androidx.compose.material.icons.automirrored.rounded.VolumeOff
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
+import androidx.compose.material.icons.rounded.AddCircleOutline
+import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.Fullscreen
@@ -61,7 +61,6 @@ import com.lin0721.linmusic.desktop.ui.theme.DesktopDimens
 import com.lin0721.linmusic.feature.player.ui.PlayerViewModel
 import kotlin.math.roundToInt
 
-private const val TOOLTIP_DELAY_MS = 400
 private const val HOVER_SCALE = 1.1f
 private const val HOVER_SCALE_MS = 150
 private val TransportButtonSize = 36.dp
@@ -72,7 +71,6 @@ private val SideIconSize = 20.dp
 private val VolumeSliderWidth = 88.dp
 private const val NOT_SUPPORTED_MESSAGE = "暂未支持"
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun PlayerBar(
     controller: PlaybackController,
@@ -105,10 +103,7 @@ fun PlayerBar(
         Row(Modifier.weight(0.27f), verticalAlignment = Alignment.CenterVertically) {
             val track = nowPlaying
             if (track != null) {
-                TooltipArea(
-                    tooltip = { TooltipLabel(if (nowPlayingOpen) "隐藏“正在播放”" else "显示“正在播放”") },
-                    delayMillis = TOOLTIP_DELAY_MS
-                ) {
+                DesktopTooltip(if (nowPlayingOpen) "隐藏“正在播放”" else "显示“正在播放”") {
                     Box(Modifier.pointerHoverIcon(PointerIcon.Hand).clickable(onClick = onToggleNowPlaying)) {
                         Cover(track.artworkUri, 56.dp)
                     }
@@ -131,7 +126,7 @@ fun PlayerBar(
                     }
                 } else {
                     BarIconButton(
-                        icon = if (songDetail.isLiked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                        icon = if (songDetail.isLiked) Icons.Rounded.CheckCircle else Icons.Rounded.AddCircleOutline,
                         description = if (songDetail.isLiked) "从喜欢的音乐中移除" else "添加到喜欢的音乐",
                         active = songDetail.isLiked,
                         size = SideButtonSize, iconSize = SideIconSize,
@@ -281,7 +276,6 @@ private fun hoverScale(hovered: Boolean) =
     animateFloatAsState(if (hovered) HOVER_SCALE else 1f, tween(HOVER_SCALE_MS), label = "hoverScale")
 
 // 底栏统一的图标按钮：悬停时变亮并放大；showDot 为真且处于激活态时，图标下方加指示点
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun BarIconButton(
     icon: ImageVector,
@@ -297,7 +291,7 @@ private fun BarIconButton(
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
     val scale by hoverScale(hovered && enabled)
-    TooltipArea(tooltip = { TooltipLabel(description) }, delayMillis = TOOLTIP_DELAY_MS) {
+    DesktopTooltip(description) {
         Box(modifier.size(size), contentAlignment = Alignment.Center) {
             IconButton(
                 onClick = onClick,

@@ -7,8 +7,6 @@ import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.TooltipArea
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.hoverable
@@ -46,7 +44,6 @@ import com.lin0721.linmusic.feature.player.ui.PlayerViewModel
 import kotlinx.coroutines.delay
 
 private const val PEEK_DELAY_MS = 120L
-private const val TOOLTIP_DELAY_MS = 400
 private const val OVERLAY_FADE_MS = 150
 
 // 覆盖在“正在播放”之上的面板，关闭后露出下层的正在播放页
@@ -115,7 +112,6 @@ private fun QueueOverlay(visible: Boolean, controller: PlaybackController, onClo
 
 // 右侧“正在播放”栏：无曲目时不存在，关闭后收成右边缘的窄条，悬停预览、点击展开。
 // 三种宽度由同一个元素过渡，面板内容始终按完整宽度排版并被裁剪
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun NowPlayingDock(
     state: NowPlayingDockState,
@@ -202,10 +198,10 @@ fun NowPlayingDock(
                     )
                 }
                 if (contentAlpha < 1f) {
-                    TooltipArea(
-                        tooltip = { TooltipLabel("显示“正在播放”") },
-                        delayMillis = TOOLTIP_DELAY_MS,
-                        modifier = Modifier.width(handleWidth).fillMaxHeight()
+                    DesktopTooltip(
+                        "显示“正在播放”",
+                        modifier = Modifier.width(handleWidth).fillMaxHeight(),
+                        side = TooltipSide.Left
                     ) {
                         Box(
                             Modifier.fillMaxSize().graphicsLayer { alpha = 1f - contentAlpha },
