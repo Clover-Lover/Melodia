@@ -37,10 +37,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.TextUnit
@@ -61,13 +59,10 @@ import com.lin0721.linmusic.desktop.ui.nowplaying.MusicMemoryCard
 import com.lin0721.linmusic.desktop.ui.nowplaying.SimilarArtistsCard
 import com.lin0721.linmusic.desktop.ui.nowplaying.SongDetailCard
 import com.lin0721.linmusic.desktop.ui.nowplaying.rememberCoverBase
-import com.lin0721.linmusic.desktop.ui.nowplaying.smoothVerticalGradient
 import com.lin0721.linmusic.desktop.ui.nowplaying.visibleInfoCards
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.desktop.ui.theme.DesktopDimens
 import com.lin0721.linmusic.feature.player.ui.PlayerViewModel
-
-private val CoverGradientHeight = 520.dp
 
 private val HeaderButtonSize = 32.dp
 private val HeaderButtonOffset = 4.dp
@@ -91,12 +86,9 @@ fun NowPlayingPanel(
     val navigator = LocalDesktopNavigator.current
     val cardLayout by playerViewModel.fullPlayerCardLayout.collectAsState()
     val base = rememberCoverBase(track.artworkUri)
-    val gradientEndPx = with(LocalDensity.current) { CoverGradientHeight.toPx() }
-    val gradient = remember(base, gradientEndPx) { smoothVerticalGradient(base, gradientEndPx) }
 
     val scrollState = rememberScrollState()
-    // 顶部按封面主色向下渐隐，固定在面板可视区顶部，不随内容滚动
-    HoverScrollbarBox(scrollState, Modifier.drawBehind { drawRect(gradient) }) {
+    HoverScrollbarBox(scrollState) {
         Column(modifier.fillMaxSize().verticalScroll(scrollState).padding(16.dp)) {
             PanelHeader(track, controller, playerViewModel, hovered, onClose)
             BoxWithConstraints(Modifier.fillMaxWidth().padding(top = 8.dp)) {
