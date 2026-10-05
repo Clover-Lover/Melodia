@@ -53,6 +53,14 @@ class PodcastMapperTest {
     }
 
     @Test
+    fun `异常的大数期号按未知处理`() {
+        val dirty = program().copy(serialNum = 1716894795619)
+
+        assertEquals(0, listOf(dirty).toPodcastPrograms().single().serialNum)
+        assertEquals(26, listOf(program()).toPodcastPrograms().single().serialNum)
+    }
+
+    @Test
     fun `没有mainSong的节目被丢弃`() {
         val items = listOf(
             program(id = 1, songId = null),

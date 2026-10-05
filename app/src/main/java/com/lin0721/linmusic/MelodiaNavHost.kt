@@ -149,6 +149,7 @@ fun MelodiaNavHost(
                         onOpenSidebar = onOpenSidebar,
                         onPlaylistClick = onNavigateToPlaylist,
                         onArtistClick = onNavigateToArtist,
+                        onRadioClick = onNavigateToRadio,
                         onPlaylistCategoryClick = onNavigateToPlaylistCategory,
                         onOpenRecognition = onOpenRecognition
                     )

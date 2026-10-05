@@ -7,8 +7,11 @@ import com.lin0721.linmusic.core.network.AppError
 import com.lin0721.linmusic.core.network.apiFlow
 import com.lin0721.linmusic.core.network.mapToAppError
 import com.lin0721.linmusic.feature.search.data.dto.CloudSearchRequest
+import com.lin0721.linmusic.feature.podcast.domain.toPodcastPrograms
+import com.lin0721.linmusic.feature.podcast.domain.toPodcastRadios
 import com.lin0721.linmusic.feature.search.data.dto.HighQualityPlaylistRequest
 import com.lin0721.linmusic.feature.search.data.dto.SearchSuggestRequest
+import com.lin0721.linmusic.feature.search.data.dto.VoiceSearchRequest
 import com.lin0721.linmusic.feature.search.domain.HotSearch
 import com.lin0721.linmusic.feature.search.domain.PlaylistCategoryPage
 import com.lin0721.linmusic.feature.search.domain.PlaylistTag
@@ -39,7 +42,27 @@ class SearchRepositoryImpl(
         transform = { it.data!!.showKeyword }
     )
 
-    override fun search(keyword: String, type: SearchType, offset: Int, limit: Int): Flow<Result<SearchPageResult>> = apiFlow(
+    override fun search(keyword: String, type: SearchType, offset: Int, limit: Int): Flow<Result<SearchPageResult>> =
+        if (type == SearchType.PROGRAM) searchPrograms(keyword, offset, limit) else cloudSearch(keyword, type, offset, limit)
+
+    // 节目搜索：独立接口，没有可播放主曲目的节目在映射时丢弃
+    private fun searchPrograms(keyword: String, offset: Int, limit: Int): Flow<Result<SearchPageResult>> = apiFlow(
+        request = { apiService.searchVoices(VoiceSearchRequest(keyword = keyword, offset = offset, limit = limit)) },
+        isSuccess = { it.isSuccess && it.data != null },
+        code = { it.code },
+        transform = { response ->
+            val data = response.data!!
+            val raw = data.resources.mapNotNull { it.baseInfo }
+            SearchPageResult(
+                items = raw.toPodcastPrograms().map { SearchResultItem.ProgramItem(it) },
+                totalCount = data.totalCount,
+                hasMore = data.hasMore && data.resources.isNotEmpty(),
+                rawFetchedCount = data.resources.size
+            )
+        }
+    )
+
+    private fun cloudSearch(keyword: String, type: SearchType, offset: Int, limit: Int): Flow<Result<SearchPageResult>> = apiFlow(
         request = {
             apiService.cloudSearch(CloudSearchRequest(s = keyword, type = type.apiValue, offset = offset, limit = limit))
         },
@@ -90,6 +113,18 @@ class SearchRepositoryImpl(
                         rawFetchedCount = playlists.size
                     )
                 }
+                SearchType.RADIO -> {
+                    val radios = result.djRadios ?: emptyList()
+                    val hasMore = radios.isNotEmpty() && (offset + radios.size < result.djRadiosCount)
+                    SearchPageResult(
+                        radios.toPodcastRadios().map { SearchResultItem.RadioItem(it) },
+                        result.djRadiosCount,
+                        hasMore,
+                        rawFetchedCount = radios.size
+                    )
+                }
+                // 节目由 searchPrograms 处理，不会走到云搜索
+                SearchType.PROGRAM -> SearchPageResult(emptyList(), 0, false, rawFetchedCount = 0)
             }
         }
     )

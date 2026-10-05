@@ -7,6 +7,9 @@ import com.lin0721.linmusic.feature.podcast.data.PodcastProgramRankDto
 import com.lin0721.linmusic.feature.podcast.data.PodcastRadioDetailDto
 import com.lin0721.linmusic.feature.podcast.data.PodcastRadioDto
 
+// 期号上限，超过即视为脏数据
+private const val MAX_SERIAL_NUM = 100_000L
+
 // 简介里的换行原样渲染会撑开卡片，压平交由 UI 控制行数
 private fun String?.flattenLines(): String = orEmpty().lines().joinToString(" ") { it.trim() }.trim()
 
@@ -63,7 +66,8 @@ private fun PodcastProgramDto.toProgramOrNull(): PodcastProgram? {
         durationMs = duration,
         createTimeMs = createTime,
         listenerCount = listenerCount,
-        serialNum = serialNum,
+        // 不是合理期号的脏值（如时间戳）按未知处理，界面不展示 0
+        serialNum = serialNum.takeIf { it in 1..MAX_SERIAL_NUM }?.toInt() ?: 0,
         radioId = radio?.id ?: 0,
         radioName = radio?.name.orEmpty(),
         // 节目层的 dj 常缺省，退回电台层的主播

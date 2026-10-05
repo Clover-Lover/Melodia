@@ -174,8 +174,8 @@ data class PodcastProgramDto(
     // 毫秒时间戳
     val createTime: Long = 0,
     val listenerCount: Long = 0,
-    // 期号
-    val serialNum: Int = 0,
+    // 期号。声音搜索结果里它是 13 位的类时间戳大数，必须按 Long 解析，映射时再取合理值
+    val serialNum: Long = 0,
     val description: String? = null,
     // 真正可播放的那首歌，缺失即为不可播节目
     val mainSong: PodcastMainSongDto? = null,
