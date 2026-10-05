@@ -20,21 +20,18 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.automirrored.rounded.VolumeDown
 import androidx.compose.material.icons.automirrored.rounded.VolumeOff
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.Fullscreen
-import androidx.compose.material.icons.rounded.Lyrics
 import androidx.compose.material.icons.rounded.PictureInPictureAlt
 import androidx.compose.material.icons.rounded.Repeat
 import androidx.compose.material.icons.rounded.RepeatOne
 import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
-import androidx.compose.material.icons.rounded.SpeakerGroup
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -58,6 +55,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.player.PlayMode
 import com.lin0721.linmusic.core.player.PlaybackController
+import com.lin0721.linmusic.desktop.ui.icons.PlayerBarIcons
 import com.lin0721.linmusic.desktop.ui.theme.DesktopColors
 import com.lin0721.linmusic.desktop.ui.theme.DesktopDimens
 import com.lin0721.linmusic.feature.player.ui.PlayerViewModel
@@ -183,7 +181,7 @@ fun PlayerBar(
         }
         Row(Modifier.weight(0.33f), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
             if (!podcast.isPodcast) BarIconButton(
-                Icons.Rounded.Lyrics,
+                PlayerBarIcons.DesktopLyric,
                 if (lyricVisible) "关闭桌面歌词" else "开启桌面歌词",
                 active = lyricVisible,
                 showDot = true,
@@ -191,7 +189,7 @@ fun PlayerBar(
                 onClick = onToggleLyric
             )
             BarIconButton(
-                Icons.AutoMirrored.Rounded.QueueMusic,
+                PlayerBarIcons.Queue,
                 "播放队列",
                 enabled = hasTrack,
                 active = queueOpen,
@@ -199,7 +197,7 @@ fun PlayerBar(
                 size = SideButtonSize, iconSize = SideIconSize,
                 onClick = onToggleQueue
             )
-            BarIconButton(Icons.Rounded.SpeakerGroup, "连接设备", size = SideButtonSize, iconSize = SideIconSize, onClick = notSupported)
+            BarIconButton(PlayerBarIcons.Devices, "连接设备", size = SideButtonSize, iconSize = SideIconSize, onClick = notSupported)
             // 占位播放器没有音量能力时不显示
             if (volume != null) VolumeControl(volume, onVolumeChange)
             BarIconButton(Icons.Rounded.PictureInPictureAlt, "迷你播放器", size = SideButtonSize, iconSize = SideIconSize, onClick = notSupported)
