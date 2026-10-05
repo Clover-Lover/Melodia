@@ -40,7 +40,7 @@ object PlayerBarIcons {
     }
 }
 
-private fun lineIcon(name: String, vararg paths: String): ImageVector =
+internal fun lineIcon(name: String, vararg paths: String): ImageVector =
     ImageVector.Builder(
         name = name,
         defaultWidth = 24.dp,

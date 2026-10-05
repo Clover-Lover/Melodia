@@ -27,9 +27,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Fullscreen
-import androidx.compose.material.icons.rounded.OpenInFull
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -55,6 +52,7 @@ import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.input.pointer.PointerIcon
@@ -68,14 +66,16 @@ import androidx.compose.ui.unit.sp
 import com.lin0721.linmusic.core.player.domain.LyricLine
 import com.lin0721.linmusic.desktop.ui.DesktopTooltip
 import com.lin0721.linmusic.desktop.ui.HoverReveal
+import com.lin0721.linmusic.desktop.ui.icons.LyricCardIcons
 import com.lin0721.linmusic.desktop.ui.palette.darken
 import com.lin0721.linmusic.desktop.ui.palette.lighten
 import com.lin0721.linmusic.desktop.ui.palette.saturateIfChromatic
 
 private val MeshBlurRadius = 32.dp
 private val FadeHeight = 28.dp
-private const val VIEWPORT_ANIM_MS = 300
 private val HeaderButtonSize = 28.dp
+private val HeaderIconSize = 22.dp
+private const val VIEWPORT_ANIM_MS = 300
 
 // 歌词卡：背景随封面主色着色并缓慢游走（移植自移动端）。
 // 折叠只看当前行与下一行，展开后显示六行；歌词随播放自动滚动，不响应滚轮，点击歌词行跳转到该处
@@ -144,8 +144,8 @@ fun LyricsCard(
         },
         headerTrailing = if (expanded) {
             {
-                HeaderIconButton(Icons.Rounded.Fullscreen, "全屏", hovered, onOpenFullscreen)
-                HeaderIconButton(Icons.Rounded.OpenInFull, "全屏歌词", hovered, onOpenLyricsView)
+                HeaderIconButton(LyricCardIcons.Fullscreen, "全屏", hovered, onOpenFullscreen)
+                HeaderIconButton(LyricCardIcons.ExpandLyrics, "全屏歌词", hovered, onOpenLyricsView)
             }
         } else {
             null
@@ -178,11 +178,11 @@ fun LyricsCard(
 }
 
 @Composable
-private fun HeaderIconButton(icon: androidx.compose.ui.graphics.vector.ImageVector, description: String, revealed: Boolean, onClick: () -> Unit) {
+private fun HeaderIconButton(icon: ImageVector, description: String, revealed: Boolean, onClick: () -> Unit) {
     HoverReveal(revealed = revealed) {
         DesktopTooltip(description) {
             IconButton(onClick = onClick, enabled = revealed, modifier = Modifier.size(HeaderButtonSize)) {
-                Icon(icon, description, tint = Color.White.copy(alpha = 0.8f), modifier = Modifier.size(20.dp))
+                Icon(icon, description, tint = Color.White.copy(alpha = 0.8f), modifier = Modifier.size(HeaderIconSize))
             }
         }
     }
