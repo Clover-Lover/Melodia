@@ -543,12 +543,6 @@ fun FullPlayerScreen(
                         playContext = playContext,
                         podcast = podcast,
                         onToggleSubscribe = viewModel::toggleSubscribe,
-                        onCollectClick = {
-                            currentTrack.mediaId.toLongOrNull()?.let { songId ->
-                                collectSongId = songId
-                                viewModel.prepareCollectDialog(songId)
-                            }
-                        },
                         currentLyricIndex = currentLyricIndex,
                         isPlaying = isPlaying,
                         playWhenReady = playWhenReady,
@@ -677,13 +671,7 @@ fun FullPlayerScreen(
                         onToggleLike = viewModel::toggleLike,
                         onArtistClick = openSongArtist,
                         podcast = podcast,
-                        onToggleSubscribe = viewModel::toggleSubscribe,
-                        onCollectClick = {
-                            currentTrack.mediaId.toLongOrNull()?.let { songId ->
-                                collectSongId = songId
-                                viewModel.prepareCollectDialog(songId)
-                            }
-                        }
+                        onToggleSubscribe = viewModel::toggleSubscribe
                     )
                     ProgressSection(
                         currentPositionProvider = currentPositionProvider,

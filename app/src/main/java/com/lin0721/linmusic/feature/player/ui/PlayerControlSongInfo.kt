@@ -4,7 +4,6 @@ import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material3.Icon
@@ -30,10 +29,9 @@ fun SongInfo(
     isLiked: Boolean,
     onToggleLike: () -> Unit,
     onArtistClick: (() -> Unit)? = null,
-    // 播客节目：♡ 直接订阅所属电台，＋ 弹出选歌单面板
+    // 播客节目：♡ 直接订阅所属电台
     podcast: PodcastPlayerState = PodcastPlayerState(),
-    onToggleSubscribe: () -> Unit = {},
-    onCollectClick: () -> Unit = {}
+    onToggleSubscribe: () -> Unit = {}
 ) {
     Row(
         modifier = Modifier
@@ -63,24 +61,14 @@ fun SongInfo(
             )
         }
         if (podcast.isPodcast) {
-            Row(modifier = Modifier.offset(x = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                MelodiaIconButton(onClick = onCollectClick) {
+            if (podcast.canSubscribe) {
+                MelodiaIconButton(onClick = onToggleSubscribe, modifier = Modifier.offset(x = 10.dp)) {
                     Icon(
-                        Icons.Default.Add,
-                        contentDescription = "收藏到歌单",
+                        if (podcast.subscribed) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                        contentDescription = if (podcast.subscribed) "取消订阅电台" else "订阅电台",
                         tint = Color.White,
                         modifier = Modifier.size(28.dp)
                     )
-                }
-                if (podcast.canSubscribe) {
-                    MelodiaIconButton(onClick = onToggleSubscribe) {
-                        Icon(
-                            if (podcast.subscribed) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                            contentDescription = if (podcast.subscribed) "取消订阅电台" else "订阅电台",
-                            tint = Color.White,
-                            modifier = Modifier.size(28.dp)
-                        )
-                    }
                 }
             }
         } else MelodiaIconButton(

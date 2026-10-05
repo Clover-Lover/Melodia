@@ -24,7 +24,6 @@ import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.automirrored.rounded.VolumeDown
 import androidx.compose.material.icons.automirrored.rounded.VolumeOff
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
-import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.Fullscreen
@@ -96,8 +95,6 @@ fun PlayerBar(
     val duration by controller.duration.collectAsState()
     val songDetail by playerViewModel.songDetailState.collectAsState()
     val podcast by playerViewModel.podcastState.collectAsState()
-    val collectState by playerViewModel.collectState.collectAsState()
-    var collectSongId by remember { mutableStateOf<Long?>(null) }
     val hasTrack = nowPlaying != null
     val notSupported = { navigator.showMessage(NOT_SUPPORTED_MESSAGE) }
 
@@ -121,28 +118,14 @@ fun PlayerBar(
                     NowPlayingArtists(track, playerViewModel, 12.sp)
                 }
                 if (podcast.isPodcast) {
-                    // 播客：＋ 弹出选歌单对话框，♡ 直接订阅所属电台
-                    BarIconButton(
-                        icon = Icons.Rounded.Add,
-                        description = "收藏到歌单",
-                        size = SideButtonSize, iconSize = SideIconSize,
-                        modifier = Modifier.padding(start = 4.dp),
-                        onClick = {
-                            val songId = track.songId?.takeIf { it > 0 }
-                            if (!navigator.isLoggedIn) {
-                                navigator.showMessage("请先登录账号")
-                            } else if (songId != null) {
-                                collectSongId = songId
-                                playerViewModel.prepareCollectDialog(songId)
-                            }
-                        }
-                    )
+                    // 播客：♡ 直接订阅所属电台
                     if (podcast.canSubscribe) {
                         BarIconButton(
                             icon = if (podcast.subscribed) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
                             description = if (podcast.subscribed) "取消订阅电台" else "订阅电台",
                             active = podcast.subscribed,
                             size = SideButtonSize, iconSize = SideIconSize,
+                            modifier = Modifier.padding(start = 4.dp),
                             onClick = playerViewModel::toggleSubscribe
                         )
                     }
@@ -212,22 +195,6 @@ fun PlayerBar(
             BarIconButton(Icons.Rounded.PictureInPictureAlt, "迷你播放器", size = SideButtonSize, iconSize = SideIconSize, onClick = notSupported)
             BarIconButton(Icons.Rounded.Fullscreen, "全屏", size = SideButtonSize, iconSize = SideIconSize, onClick = notSupported)
         }
-    }
-
-    collectSongId?.let { songId ->
-        CollectToPlaylistDialog(
-            songId = songId,
-            state = collectState,
-            onSave = { items ->
-                playerViewModel.savePlaylistCollection(songId, items)
-                collectSongId = null
-            },
-            onCreate = { name ->
-                playerViewModel.createPlaylistAndAddSong(name, songId)
-                collectSongId = null
-            },
-            onDismiss = { collectSongId = null }
-        )
     }
 }
 

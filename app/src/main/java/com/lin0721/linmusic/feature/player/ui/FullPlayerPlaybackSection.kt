@@ -48,7 +48,6 @@ fun LazyListScope.fullPlayerPlaybackSection(
     playContext: String?,
     podcast: PodcastPlayerState = PodcastPlayerState(),
     onToggleSubscribe: () -> Unit = {},
-    onCollectClick: () -> Unit = {},
     currentLyricIndex: Int,
     isPlaying: Boolean,
     // 大播放按钮专用：弱网缓冲期间也要立刻显示"暂停中"，不受歌词区仍用的严格 isPlaying 影响
@@ -119,8 +118,7 @@ fun LazyListScope.fullPlayerPlaybackSection(
             onToggleLike = onToggleLike,
             onArtistClick = onArtistClick,
             podcast = podcast,
-            onToggleSubscribe = onToggleSubscribe,
-            onCollectClick = onCollectClick
+            onToggleSubscribe = onToggleSubscribe
         )
     }
 

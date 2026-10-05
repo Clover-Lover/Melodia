@@ -59,7 +59,7 @@ fun SongMoreOptionsSheet(
     currentQuality: String,
     // 本地歌曲未匹配到云端：没有网易 songId，依赖云端数据的操作全部隐藏
     isLocalOnly: Boolean,
-    // 播客节目：专辑、歌手、心动模式、相似歌曲、下载、音质、小歌词都不适用，整项隐藏
+    // 播客节目：专辑、歌手、收藏到歌单、心动模式、相似歌曲、下载、音质、小歌词都不适用，整项隐藏
     isPodcast: Boolean = false,
     showMiniLyric: Boolean = true,
     onToggleMiniLyric: (Boolean) -> Unit,
@@ -193,7 +193,7 @@ fun SongMoreOptionsSheet(
                 }
 
                 // 3. 收藏到歌单
-                OptionRow(
+                if (!isPodcast) OptionRow(
                     icon = Icons.AutoMirrored.Rounded.PlaylistAdd,
                     text = "收藏到歌单",
                     onClick = {
