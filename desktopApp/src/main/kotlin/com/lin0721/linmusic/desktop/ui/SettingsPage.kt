@@ -65,6 +65,7 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lin0721.linmusic.core.preferences.FullPlayerCardLayout
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.desktop.platform.AutoStart
 import com.lin0721.linmusic.desktop.platform.CloseAction
@@ -113,6 +114,7 @@ fun SettingsPage(modifier: Modifier = Modifier) {
     val unmEnabledModules by sourcePreferences.unmEnabledModules.collectAsState(initial = UnmModule.ALL_KEYS.toSet())
     val unmModuleOrder by sourcePreferences.unmModuleOrder.collectAsState(initial = UnmModule.ALL_KEYS)
     val showDesktopLyric by settingsPreferences.showDesktopLrc.collectAsState(initial = false)
+    val cardLayout by settingsPreferences.fullPlayerCardLayout.collectAsState(initial = FullPlayerCardLayout.DEFAULT)
     val closeAction by desktopPreferences.closeAction.collectAsState(initial = CloseAction.TRAY)
     val mediaKeysEnabled by desktopPreferences.mediaKeysEnabled.collectAsState(initial = true)
     val hotkeyMap by desktopPreferences.hotkeys.collectAsState(initial = HotkeyCombo.defaults)
@@ -233,6 +235,11 @@ fun SettingsPage(modifier: Modifier = Modifier) {
                 }
             }
 
+            SettingsCard("正在播放面板") {
+                Text("拖动调整信息卡片的顺序，关闭开关可隐藏对应卡片", color = DesktopColors.TextGray, fontSize = 12.sp)
+                CardLayoutEditor(cardLayout) { scope.launch { settingsPreferences.saveFullPlayerCardLayout(it) } }
+            }
+
             SettingsCard("窗口") {
                 SettingRow("关闭主窗口时") {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -293,7 +300,7 @@ private fun SettingRow(
 }
 
 @Composable
-private fun SettingSwitch(checked: Boolean, enabled: Boolean = true, onChange: (Boolean) -> Unit) {
+internal fun SettingSwitch(checked: Boolean, enabled: Boolean = true, onChange: (Boolean) -> Unit) {
     Switch(
         checked = checked,
         onCheckedChange = onChange,
