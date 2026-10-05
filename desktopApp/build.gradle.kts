@@ -28,6 +28,7 @@ dependencies {
     implementation(libs.coil.network.okhttp)
     implementation(libs.kotlinx.coroutines.swing)
     implementation(libs.jna)
+    testImplementation(libs.junit)
 }
 
 // 与 Android 端共用发版参数，保证两端版本号一致
